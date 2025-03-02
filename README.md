@@ -744,14 +744,19 @@ You can define the response schema in your agent class using the `$responseSchem
 
 ```php
 protected $responseSchema = [
-    'type' => 'object',
-    'properties' => [
-        'temperature' => [
-            'type' => 'number',
-            'description' => 'Temperature in degrees'
+    'name' => 'weather_info',
+    'schema' => [
+        'type' => 'object',
+        'properties' => [
+            'temperature' => [
+                'type' => 'number',
+                'description' => 'Temperature in degrees'
+            ],
         ],
+        'required' => ['temperature']
+        'additionalProperties' => false,
     ],
-    'required' => ['temperature']
+    'strict' => true,
 ];
 ```
 
@@ -761,32 +766,41 @@ For defining more complex schemas you can add the `structuredOutput` method in y
 public function structuredOutput()
 {
     return [
-        'type' => 'object',
-        'properties' => [
-            'temperature' => [
-                'type' => 'number',
-                'description' => 'Temperature in degrees'
-            ],
-            'conditions' => [
-                'type' => 'string',
-                'description' => 'Weather conditions (e.g., sunny, rainy)'
-            ],
-            'forecast' => [
-                'type' => 'array',
-                'items' => [
-                    'type' => 'object',
-                    'properties' => [
-                        'day' => ['type' => 'string'],
-                        'temp' => ['type' => 'number']
-                    ]
+        'name' => 'weather_info',
+        'schema' => [
+            'type' => 'object',
+            'properties' => [
+                'temperature' => [
+                    'type' => 'number',
+                    'description' => 'Temperature in degrees'
                 ],
-                'description' => '5-day forecast'
-            ]
+                'conditions' => [
+                    'type' => 'string',
+                    'description' => 'Weather conditions (e.g., sunny, rainy)'
+                ],
+                'forecast' => [
+                    'type' => 'array',
+                    'items' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'day' => ['type' => 'string'],
+                            'temp' => ['type' => 'number']
+                        ],
+                        'required' => ['day', 'temp'],
+                        'additionalProperties' => false,
+                    ],
+                    'description' => '5-day forecast'
+                ]
+            ],
+            'required' => ['temperature', 'conditions']
+            'additionalProperties' => false,
         ],
-        'required' => ['temperature', 'conditions']
+        'strict' => true,
     ];
 }
 ```
+
+_Pay attention to "required", "additionalProperties", and "strict" properties - it is recommended by OpenAI to set them when defining the schema to get the exact structure you need_
 
 The schema follows the JSON Schema specification and supports all its features including:
 - Basic types (string, number, boolean, array, object)

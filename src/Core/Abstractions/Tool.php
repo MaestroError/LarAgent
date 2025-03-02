@@ -77,6 +77,7 @@ abstract class Tool implements ToolInterface
         return $this->metaData;
     }
 
+    // @todo abstraction
     public function toArray(): array
     {
         return [
