@@ -213,7 +213,7 @@ You can publish the config file with:
 php artisan vendor:publish --tag="laragent-config"
 ```
 
-This is the contents of the published config file:
+These are the contents of the published config file:
 
 ```php
 return [
@@ -417,7 +417,7 @@ Here are some chainable methods to modify the agents behavior on the fly:
 public function message(string $message);
 
 /**
- * Add images to the agent's input (mesasge)
+ * Add images to the agent's input (message)
  * @param array $imageUrls Array of image URLs
  */
 public function withImages(array $imageUrls);
@@ -790,7 +790,7 @@ protected $responseSchema = [
 ];
 ```
 
-For defining more complex schemas you can add the `structuredOutput` method in you agent class:
+For defining more complex schemas you can add the `structuredOutput` method in your agent class:
 
 ```php
 public function structuredOutput()
@@ -832,7 +832,7 @@ public function structuredOutput()
 
 _Pay attention to "required", "additionalProperties", and "strict" properties - it is recommended by OpenAI to set them when defining the schema to get the exact structure you need_
 
-The schema follows the JSON Schema specification and supports all its features including:
+The schema follows the JSON Schema specification and supports all its features, including:
 - Basic types (string, number, boolean, array, object)
 - Required properties
 - Nested objects and arrays
@@ -870,7 +870,7 @@ if ($agent->structuredOutput()) {
 
 ### Usage in and outside of Laravel
 
-Agent classes is powered by LarAgent's main class `LarAgent\LarAgent`, which often refered as "LarAgent engine".       
+Agent classes is powered by LarAgent's main class `LarAgent\LarAgent`, which often referred as "LarAgent engine".       
 Laragent engine is standalone part which holds all abstractions and doesn't depend on Laravel. It is used to create and manage agents, tools, chat histories, structured output and etc.
 
 So you can use LarAgent's engine outside of Laravel as well. Usage is a bit different than inside Laravel, but the principles are the same.

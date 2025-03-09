@@ -5,6 +5,7 @@ namespace LarAgent;
 use LarAgent\Core\Abstractions\Message as AbstractMessage;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DeveloperMessage;
 use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
@@ -52,6 +53,20 @@ class Message extends AbstractMessage
     public static function system(string $content, array $metadata = []): MessageInterface
     {
         return new SystemMessage($content, $metadata);
+    }
+
+    /**
+     * Create a developer message with specified content and metadata per the 2024-05-08 model spec
+     *
+     * @link https://cdn.openai.com/spec/model-spec-2024-05-08.html
+     *
+     * @param  string  $content  The main content of the message.
+     * @param  array  $metadata  Additional metadata for the message, defaults to an empty array.
+     * @return MessageInterface Returns an instance of DeveloperMessage.
+     */
+    public static function developer(string $content, array $metadata = []): MessageInterface
+    {
+        return new DeveloperMessage($content, $metadata);
     }
 
     public static function toolCall(array $toolCalls, array $message, array $metadata = []): MessageInterface
