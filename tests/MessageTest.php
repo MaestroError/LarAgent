@@ -2,6 +2,7 @@
 
 use LarAgent\Message;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DeveloperMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
 use LarAgent\Messages\UserMessage;
@@ -14,6 +15,15 @@ it('creates a custom message', function () {
     expect($message->getRole())->toBe('user')
         ->and($message->getContent())->toBe('Custom content')
         ->and($message->getMetadata())->toHaveKey('key', 'value');
+});
+
+it('creates a developer message', function () {
+    $message = Message::developer('This is a developer message', ['usage' => 'test']);
+
+    expect($message)->toBeInstanceOf(DeveloperMessage::class)
+        ->and($message->getRole())->toBe('developer')
+        ->and($message->getContent())->toBe('This is a developer message')
+        ->and($message->getMetadata())->toHaveKey('usage', 'test');
 });
 
 it('creates an assistant message', function () {
