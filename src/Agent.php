@@ -186,10 +186,35 @@ class Agent
 
         $this->prepareAgent($message);
 
-        $response = $this->agent->run();
+        try {
+            $response = $this->agent->run();
+        } catch (\Throwable $th) {
+            $this->onEngineError($th);
+            // Run fallback provider
+            $fallbackProvider = config('laragent.fallback_provider');
+            if ($fallbackProvider === $this->provider) {
+                throw $th;
+            } else {
+                // Run fallback provider
+                $this->changeProvider($fallbackProvider);
+                return $this->respond($message);
+            }
+        }
+        
         $this->onConversationEnd($response);
 
         return $response;
+    }
+
+    protected function changeProvider(string $provider)
+    {
+        $this->provider = $provider;
+        $config = $this->getProviderData();
+        $this->apiKey = $config['api_key'] ?? null;
+        $this->apiUrl = $config['api_url'] ?? null;
+        $this->model = $config['model'] ?? null;
+        $this->driver = $config['driver'] ?? null;
+        $this->setupProviderData();
     }
 
     /**
