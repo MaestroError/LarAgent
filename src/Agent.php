@@ -442,7 +442,6 @@ class Agent
         $registeredTools = $this->registerTools();
 
         $attributeTools = $this->buildToolsFromAttributeMethods();
-        // print_r($attributeTools);
 
         // Merge both arrays
         return array_merge($classTools, $registeredTools, $attributeTools);
@@ -676,7 +675,6 @@ class Agent
         $this->setupDriverConfigs($provider);
 
         $settings = array_merge($provider, $this->buildConfigsFromAgent());
-        print_r($settings);
         $this->initDriver($settings);
     }
 
