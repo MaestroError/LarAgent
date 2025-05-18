@@ -29,7 +29,7 @@ return [
      * You can add more providers in array
      * by copying the 'default' provider
      * and changing the name and values
-     * 
+     *
      * You can remove any other providers
      * which your project doesn't need
      */

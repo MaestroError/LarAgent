@@ -197,10 +197,11 @@ class Agent
             } else {
                 // Run fallback provider
                 $this->changeProvider($fallbackProvider);
+
                 return $this->respond($message);
             }
         }
-        
+
         $this->onConversationEnd($response);
 
         return $response;
