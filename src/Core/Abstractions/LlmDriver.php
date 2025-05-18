@@ -75,6 +75,12 @@ abstract class LlmDriver implements LlmDriverInterface
         return ! empty($this->getResponseSchema());
     }
 
+    /**
+     * Get the provider data merged with the model defined settings.
+     * Some Model settings override provider settings.
+     *
+     * @return array The settings.
+     */
     public function getSettings(): array
     {
         return $this->settings;

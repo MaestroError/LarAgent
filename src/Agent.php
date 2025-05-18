@@ -61,6 +61,12 @@ class Agent
     /** @var string */
     protected $model;
 
+    /** @var string */
+    protected $apiKey;
+
+    /** @var string */
+    protected $apiUrl;
+
     /** @var int */
     protected $contextWindowSize;
 
@@ -331,6 +337,16 @@ class Agent
     public function model()
     {
         return $this->model;
+    }
+
+    public function getApiKey()
+    {
+        return $this->apiKey;
+    }
+
+    public function getApiUrl()
+    {
+        return $this->apiUrl;
     }
 
     /**
@@ -612,6 +628,13 @@ class Agent
 
     protected function setupDriverConfigs(array $providerData): void
     {
+        if (! isset($this->apiKey) && isset($providerData['api_key'])) {
+            $this->apiKey = $providerData['api_key'];
+        }
+        if (! isset($this->apiUrl) && isset($providerData['api_url'])) {
+            $this->apiUrl = $providerData['api_url'];
+        }
+
         if (! isset($this->model) && isset($providerData['model'])) {
             $this->model = $providerData['model'];
         }
@@ -652,21 +675,29 @@ class Agent
         $this->providerName = $provider['name'] ?? '';
         $this->setupDriverConfigs($provider);
 
-        $settings = array_merge($provider, $this->buildConfigsForLaragent());
-
+        $settings = array_merge($provider, $this->buildConfigsFromAgent());
+        print_r($settings);
         $this->initDriver($settings);
     }
 
     protected function setupAgent(): void
     {
-        $config = $this->buildConfigsForLaragent();
+        $config = $this->buildConfigsFromAgent();
         $this->agent = LarAgent::setup($this->llmDriver, $this->chatHistory, $config);
     }
 
-    protected function buildConfigsForLaragent()
+    /**
+     * Build configuration array from agent properties.
+     * Overrides provider data with ageent properties.
+     *
+     * @return array The configuration array with model, API key, API URL, and optional parameters.
+     */
+    protected function buildConfigsFromAgent(): array
     {
         $config = [
             'model' => $this->model(),
+            'api_key' => $this->getApiKey(),
+            'api_url' => $this->getApiUrl(),
         ];
         if (property_exists($this, 'maxCompletionTokens')) {
             $config['maxCompletionTokens'] = $this->maxCompletionTokens;
