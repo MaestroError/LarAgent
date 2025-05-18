@@ -18,8 +18,9 @@ class AgentChatCommand extends Command
 
         // Try both namespaces
         $agentClass = $this->findAgentClass($agentName);
-        if (!$agentClass) {
+        if (! $agentClass) {
             $this->error("Agent not found: {$agentName}");
+
             return 1;
         }
 
@@ -56,7 +57,7 @@ class AgentChatCommand extends Command
         $namespaces = config('laragent.namespaces');
 
         foreach ($namespaces as $namespace) {
-            $fqcn = $namespace . $agentName;
+            $fqcn = $namespace.$agentName;
             if (class_exists($fqcn)) {
                 return $fqcn;
             }

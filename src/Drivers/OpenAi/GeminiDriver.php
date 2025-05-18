@@ -2,8 +2,6 @@
 
 namespace LarAgent\Drivers\OpenAi;
 
-use OpenAI;
-
 class GeminiDriver extends OpenAiCompatible
 {
     protected string $default_url = 'https://generativelanguage.googleapis.com/v1beta/openai';
