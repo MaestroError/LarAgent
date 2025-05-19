@@ -192,6 +192,13 @@ class Agent
             $this->onEngineError($th);
             // Run fallback provider
             $fallbackProvider = config('laragent.fallback_provider');
+
+            // Throw error if there is no fallback provider
+            if (!$fallbackProvider) {
+                throw $th;
+            }
+
+            // Throw error if fallback provider is same as current provider
             if ($fallbackProvider === $this->provider) {
                 throw $th;
             } else {
@@ -365,11 +372,17 @@ class Agent
         return $this->model;
     }
 
+    /**
+     * Dynamically set the API Key for the driver
+     */
     public function getApiKey()
     {
         return $this->apiKey;
     }
 
+    /**
+     * Dynamically set the API URL for the driver
+     */
     public function getApiUrl()
     {
         return $this->apiUrl;
