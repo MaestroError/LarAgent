@@ -194,7 +194,7 @@ class Agent
             $fallbackProvider = config('laragent.fallback_provider');
 
             // Throw error if there is no fallback provider
-            if (!$fallbackProvider) {
+            if (! $fallbackProvider) {
                 throw $th;
             }
 
