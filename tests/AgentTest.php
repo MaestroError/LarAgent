@@ -233,9 +233,9 @@ it('excludes parallel_tool_calls from config when set to null', function () {
     $tool = Tool::create('test_tool', 'Test tool')->setCallback(fn () => 'test');
     $agent->withTool($tool);
 
-    $buildConfigsForLaragent = $reflection->getMethod('buildConfigsForLaragent');
-    $buildConfigsForLaragent->setAccessible(true);
-    $config = $buildConfigsForLaragent->invoke($agent);
+    $buildConfigsFromAgent = $reflection->getMethod('buildConfigsFromAgent');
+    $buildConfigsFromAgent->setAccessible(true);
+    $config = $buildConfigsFromAgent->invoke($agent);
 
     expect($config)->toHaveKey('parallelToolCalls')
         ->and($config['parallelToolCalls'])->toBeNull();

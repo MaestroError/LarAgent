@@ -146,4 +146,12 @@ trait Events
     {
         // Triggered when the agent is being terminated
     }
+
+    /**
+     * Event triggered when an engine error occurs.
+     */
+    protected function onEngineError(\Throwable $th)
+    {
+        // Triggered when an engine error occurs
+    }
 }
