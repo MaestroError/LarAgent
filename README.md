@@ -7,16 +7,22 @@
 
 The **easiest** way to **create** and **maintain** AI agents in your Laravel projects.
 
+---
+
 Each GitHub ⭐️ helps the community grow. Thanks for the support!
 
 Jump to [Official Documentation](https://docs.laragent.ai/)
 
-__If you prefer article to get started, check it out [Laravel AI Agent Development Made Easy](https://medium.com/towardsdev/laravel-ai-agent-development-made-easy-ac7ddd17a7d0)__
+__If you prefer article to get started, check it out: [Laravel AI Agent Development Made Easy](https://medium.com/towardsdev/laravel-ai-agent-development-made-easy-ac7ddd17a7d0)__
 
 You can find other tutorials here: [Tutorials](https://blog.laragent.ai/tag/tutorials/)
+
+---
        
 Any questions? Join our [Discord](https://discord.gg/NAczq2T9F8) server!
        
+---
+
 _Need to use LarAgent outside of Laravel? Check out this [Docs](https://docs.laragent.ai/core-concepts/usage-without-laravel)._
 
 ## Table of Contents
