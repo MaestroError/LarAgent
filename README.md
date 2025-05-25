@@ -7,12 +7,23 @@
 
 The **easiest** way to **create** and **maintain** AI agents in your Laravel projects.
 
+---
+
+Each GitHub ⭐️ helps the community grow. Thanks for the support!
+
 Jump to [Official Documentation](https://docs.laragent.ai/)
 
+__If you prefer article to get started, check it out: [Laravel AI Agent Development Made Easy](https://medium.com/towardsdev/laravel-ai-agent-development-made-easy-ac7ddd17a7d0)__
+
+You can find other tutorials here: [Tutorials](https://blog.laragent.ai/tag/tutorials/)
+
+---
+       
+Any questions? Join our [Discord](https://discord.gg/NAczq2T9F8) server!
+       
+---
+
 _Need to use LarAgent outside of Laravel? Check out this [Docs](https://docs.laragent.ai/core-concepts/usage-without-laravel)._
-
-__If you prefer article to get started, check it out [Laravel AI Agent Development Made Easy](https://medium.com/towardsdev/laravel-ai-agent-development-made-easy-ac7ddd17a7d0)__
-
 
 ## Table of Contents
 
@@ -153,8 +164,8 @@ Here's what's coming next to make LarAgent even more powerful:
 
 ### Developer Experience 🛠️
 - **Artisan Commands for Rapid Development**
-  - `agent:chat:clear AgentName` - Clear all chat histories for a specific agent while preserving keys
-  - `agent:chat:remove AgentName` - Completely remove all chat histories and keys for a specific agent
+  - `agent:chat:clear AgentName` - Clear all chat histories for a specific agent while preserving keys ✔️
+  - `agent:chat:remove AgentName` - Completely remove all chat histories and keys for a specific agent ✔️
   - `make:agent:tool` - Generate tool classes with ready-to-use stubs
   - `make:agent:chat-history` - Scaffold custom chat history implementations
   - `make:llm-driver` - Create custom LLM driver integrations
@@ -163,10 +174,10 @@ Here's what's coming next to make LarAgent even more powerful:
 
 ### Enhanced AI Capabilities 🧠
 - **Prism Package Integration** - Additional LLM providers support
-- **Gemini Integration** - Additional LLM provider
+- **Gemini Integration** - Additional LLM provider ✔️
 - **Anthropic Integration** - Additional LLM provider
 - **Usage abstraction** - Abstraction for tokens usage
-- **Streaming Support** - Out-of-the-box support for streaming responses +
+- **Streaming Support** - Out-of-the-box support for streaming responses ✔️
 - **RAG & Knowledge Base** 
   - Built-in vector storage providers
   - Seamless document embeddings integration
@@ -180,8 +191,7 @@ Here's what's coming next to make LarAgent even more powerful:
 - **Enhanced Chat History Security** - Optional encryption for sensitive conversations
 
 ### Advanced Integrations 🔌
-- **Provider Fallback System** - Automatic fallback to alternative providers
-- **Laravel Actions Integration** - Use your existing Actions as agent tools
+- **Provider Fallback System** - Automatic fallback to alternative providers ✔️
 - **Voice Chat Support** - Out of the box support for voice interactions with your agents
 
 Stay tuned! We're constantly working on making LarAgent the most versatile AI agent framework for Laravel.
