@@ -524,6 +524,9 @@ class LarAgent
                 return $this->runStreamed();
             }
 
+            // Reset message to null to skip adding it again in chat history
+            $this->message = null;
+
             return $this->run();
         }
 
@@ -587,7 +590,6 @@ class LarAgent
             }
             $this->chatHistory->addMessage($result);
         }
-
     }
 
     protected function processToolCall(ToolCallInterface $toolCall): ?ToolResultMessage
