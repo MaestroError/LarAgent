@@ -590,7 +590,6 @@ class LarAgent
             }
             $this->chatHistory->addMessage($result);
         }
-
     }
 
     protected function processToolCall(ToolCallInterface $toolCall): ?ToolResultMessage
