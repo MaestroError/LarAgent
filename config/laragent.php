@@ -54,9 +54,7 @@ return [
     ],
 
     /**
-     * Fallback provider to use when any provider fails
-     * Fallback currently works only for respond method
-     * In case of streaming, No auto switch to fallback
+     * Fallback provider to use when any provider fails.
      */
     'fallback_provider' => 'default',
 ];
