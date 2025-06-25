@@ -632,7 +632,7 @@ class Agent
             responseSchema: $this->responseSchema,
             configuration: [
                 'history' => $this->history,
-                'model' => $this->llmDriver->getModel(),
+                'model' => $this->model(),
                 'driver' => $this->driver,
                 ...$driverConfigs,
             ]
