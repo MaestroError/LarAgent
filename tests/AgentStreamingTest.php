@@ -2,10 +2,10 @@
 
 use LarAgent\Agent;
 use LarAgent\Message;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
 use LarAgent\Messages\StreamedAssistantMessage;
-use LarAgent\ToolCall;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\ToolCall;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StreamedFakeLlmDriver extends FakeLlmDriver
