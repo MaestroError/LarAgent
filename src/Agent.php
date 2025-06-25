@@ -282,9 +282,11 @@ class Agent
         };
 
         return response()->stream(function () use ($message, $format) {
+            $accumulated = '';
             $stream = $this->respondStreamed($message, function ($chunk) use (&$accumulated, $format) {
                 if ($chunk instanceof \LarAgent\Messages\StreamedAssistantMessage) {
                     $delta = $chunk->getLastChunk();
+                    $accumulated .= $delta;
 
                     if ($format === 'plain') {
                         echo $delta;
