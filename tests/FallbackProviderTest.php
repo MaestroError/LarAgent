@@ -8,7 +8,9 @@ use LarAgent\Tests\Fakes\PreloadedFakeLlmDriver;
 class FallbackTestAgent extends Agent
 {
     protected $model = 'gpt-test';
+
     protected $history = 'in_memory';
+
     protected $provider = 'fail';
 
     public function instructions()

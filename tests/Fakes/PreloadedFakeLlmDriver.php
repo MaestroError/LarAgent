@@ -2,8 +2,6 @@
 
 namespace LarAgent\Tests\Fakes;
 
-use LarAgent\Messages\AssistantMessage;
-
 class PreloadedFakeLlmDriver extends FakeLlmDriver
 {
     public function __construct()
