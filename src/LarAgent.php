@@ -106,12 +106,12 @@ class LarAgent
         return $this;
     }
 
-    public function getReinjectInstuctionsPer(): int
+    public function getReinjectInstructionsPer(): int
     {
         return $this->reinjectInstructionsPer;
     }
 
-    public function setReinjectInstuctionsPer(int $reinjectInstructionsPer): self
+    public function setReinjectInstructionsPer(int $reinjectInstructionsPer): self
     {
         $this->reinjectInstructionsPer = $reinjectInstructionsPer;
 
@@ -447,8 +447,8 @@ class LarAgent
         if ($totalMessages === 0 && $this->getInstructions()) {
             $this->injectInstructions();
         } else {
-            // Reinject instructions if ReinjectInstuctionsPer is defined
-            $iip = $this->getReinjectInstuctionsPer();
+            // Reinject instructions if reinjectInstructionsPer is defined
+            $iip = $this->getReinjectInstructionsPer();
             if ($iip && $iip > 0 && $totalMessages % $iip > 0 && $totalMessages % $iip <= 5) {
                 // Hook: If any callback returns false, it will stop the process silently
                 if ($this->processBeforeReinjectingInstructions($this->chatHistory) === false) {
