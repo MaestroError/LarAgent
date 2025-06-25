@@ -725,7 +725,7 @@ class Agent
 
     /**
      * Build configuration array from agent properties.
-     * Overrides provider data with ageent properties.
+     * Overrides provider data with agent properties.
      *
      * @return array The configuration array with model, API key, API URL, and optional parameters.
      */
