@@ -2,8 +2,55 @@
 
 use LarAgent\Agent;
 use LarAgent\Message;
+use LarAgent\Messages\StreamedAssistantMessage;
+use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\ToolCall;
 use Symfony\Component\HttpFoundation\StreamedResponse;
+
+class StreamedFakeLlmDriver extends FakeLlmDriver
+{
+    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    {
+        $this->setConfig($options);
+
+        if (empty($this->mockResponses)) {
+            throw new \Exception('No mock responses are defined.');
+        }
+
+        $mockResponse = array_shift($this->mockResponses);
+        $finishReason = $mockResponse['finishReason'];
+        $data = $mockResponse['responseData'];
+
+        if ($finishReason === 'stop') {
+            $msg = new StreamedAssistantMessage('');
+            $msg->appendContent($data['content']);
+            $msg->setComplete(true);
+
+            if ($callback) {
+                $callback($msg);
+            }
+
+            yield $msg;
+        } elseif ($finishReason === 'tool_calls') {
+            $toolCallId = '12345';
+            $toolCalls[] = new ToolCall($toolCallId, $data['toolName'], $data['arguments']);
+            $toolCallMessage = new ToolCallMessage(
+                $toolCalls,
+                $this->toolCallsToMessage($toolCalls),
+                $data['metaData'] ?? []
+            );
+
+            if ($callback) {
+                $callback($toolCallMessage);
+            }
+
+            yield $toolCallMessage;
+        } else {
+            throw new \Exception('Unexpected finish reason: '.$finishReason);
+        }
+    }
+}
 
 class StreamingTestAgent extends Agent
 {
@@ -11,7 +58,7 @@ class StreamingTestAgent extends Agent
 
     protected $history = 'in_memory';
 
-    protected $driver = FakeLlmDriver::class;
+    protected $driver = StreamedFakeLlmDriver::class;
 
     // Disable structured output by default for basic tests
     protected $responseSchema = null;
@@ -174,13 +221,23 @@ it('can generate a stream response with plain format', function () {
     $agent = new StreamingTestAgent('test_key');
 
     // Get the response
-    $response = $agent->streamResponse('Test message', false, 'plain');
+    $response = $agent->streamResponse('Test message', 'plain');
 
     // Verify it's a StreamedResponse
     expect($response)->toBeInstanceOf(StreamedResponse::class);
 
     // Check headers directly from the response object
     expect($response->headers->get('Content-Type'))->toBe('text/plain');
+
+    // Capture the streamed output
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_get_clean(); // inner buffer flushed by response
+    $output = ob_get_clean();
+
+    // Ensure the body contains the expected text
+    expect($output)->toContain('This is a streaming response');
 });
 
 // Test the streamResponse method with JSON format
@@ -198,18 +255,26 @@ it('can generate a stream response with JSON format', function () {
         };
 
         expect($contentType)->toBe('application/json');
-
-        return;
     }
 
     // Get the response
-    $response = $agent->streamResponse('Test message', true, 'json');
+    $response = $agent->streamResponse('Test message', 'json');
 
     // Verify it's a StreamedResponse
     expect($response)->toBeInstanceOf(StreamedResponse::class);
 
     // Verify the content type header
     expect($response->headers->get('Content-Type'))->toBe('application/json');
+
+    // Capture the streamed output
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_get_clean(); // inner buffer flushed by response
+    $output = ob_get_clean();
+
+    // Body should include the streamed text
+    expect($output)->toContain('This is a streaming response');
 });
 
 // Test the streamResponse method with SSE format
@@ -227,16 +292,26 @@ it('can generate a stream response with SSE format', function () {
         };
 
         expect($contentType)->toBe('text/event-stream');
-
-        return;
     }
 
     // Get the response
-    $response = $agent->streamResponse('Test message', false, 'sse');
+    $response = $agent->streamResponse('Test message', 'sse');
 
     // Verify it's a StreamedResponse
     expect($response)->toBeInstanceOf(StreamedResponse::class);
 
     // Verify the content type header
     expect($response->headers->get('Content-Type'))->toBe('text/event-stream');
+
+    // Capture the streamed output
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_get_clean(); // inner buffer flushed by response
+    $output = ob_get_clean();
+
+    // Output should include SSE events and content
+    expect($output)->toContain('event: chunk')
+        ->and($output)->toContain('event: complete')
+        ->and($output)->toContain('This is a streaming response');
 });
