@@ -87,7 +87,7 @@ it('can run with tools', function () {
         ->setRequired('location')
         ->setMetaData(['sent_at' => '2024-01-01'])
         ->setCallback(function ($location, $unit = 'fahrenheit') {
-            return 'The weather in ' . $location . ' is 72 degrees ' . $unit;
+            return 'The weather in '.$location.' is 72 degrees '.$unit;
         });
 
     $userMessage = Message::user('What\'s the weather like in Boston and Los Angeles? I prefer celsius');
@@ -98,7 +98,7 @@ it('can run with tools', function () {
         ->withMessage($userMessage);
 
     $agent->afterResponse(function ($agent, $message) {
-        $message->setContent($message . '. Checked at 2024-01-01');
+        $message->setContent($message.'. Checked at 2024-01-01');
     });
 
     $driver->addMockResponse('tool_calls', [
@@ -130,7 +130,7 @@ it('excludes parallel_tool_calls from config when set to null', function () {
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $agent->setParallelToolCalls(null);
-    $tool = Tool::create('test_tool', 'Test tool')->setCallback(fn() => 'test');
+    $tool = Tool::create('test_tool', 'Test tool')->setCallback(fn () => 'test');
     $agent->setTools([$tool]);
 
     $reflection = new ReflectionClass($agent);
