@@ -2,8 +2,6 @@
 
 require_once __DIR__.'/vendor/autoload.php';
 
-use LarAgent\Attributes\Tool;
-
 function config(string $key): mixed
 {
     $yourApiKey = include 'openai-api-key.php';
@@ -39,7 +37,7 @@ class WeatherAgent extends LarAgent\Agent
 
     public function instructions()
     {
-        return "You are weather agent holding info about weather in any city.";
+        return 'You are weather agent holding info about weather in any city.';
     }
 
     public function prompt($message)
