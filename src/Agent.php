@@ -99,6 +99,18 @@ class Agent
     /** @var ?bool */
     protected $parallelToolCalls;
 
+    /** @var int|null */
+    protected $n;
+
+    /** @var float|null */
+    protected $topP;
+
+    /** @var float|null */
+    protected $frequencyPenalty;
+
+    /** @var float|null */
+    protected $presencePenalty;
+
     /** @var string */
     protected $chatSessionId;
 
@@ -589,6 +601,34 @@ class Agent
         return $this;
     }
 
+    public function n(int $n): static
+    {
+        $this->n = $n;
+
+        return $this;
+    }
+
+    public function topP(float $topP): static
+    {
+        $this->topP = $topP;
+
+        return $this;
+    }
+
+    public function frequencyPenalty(float $penalty): static
+    {
+        $this->frequencyPenalty = $penalty;
+
+        return $this;
+    }
+
+    public function presencePenalty(float $penalty): static
+    {
+        $this->presencePenalty = $penalty;
+
+        return $this;
+    }
+
     public function withModel(string $model): static
     {
         $this->model = $model;
@@ -620,6 +660,10 @@ class Agent
             'contextWindowSize' => $this->contextWindowSize ?? null,
             'maxCompletionTokens' => $this->maxCompletionTokens ?? null,
             'temperature' => $this->temperature ?? null,
+            'n' => $this->n ?? null,
+            'topP' => $this->topP ?? null,
+            'frequencyPenalty' => $this->frequencyPenalty ?? null,
+            'presencePenalty' => $this->presencePenalty ?? null,
             'reinjectInstructionsPer' => $this->reinjectInstructionsPer ?? null,
             'parallelToolCalls' => $this->parallelToolCalls ?? null,
             'chatSessionId' => $this->chatSessionId,
@@ -693,6 +737,18 @@ class Agent
         if (! isset($this->temperature) && isset($providerData['default_temperature'])) {
             $this->temperature = $providerData['default_temperature'];
         }
+        if (! isset($this->n) && isset($providerData['default_n'])) {
+            $this->n = $providerData['default_n'];
+        }
+        if (! isset($this->topP) && isset($providerData['default_top_p'])) {
+            $this->topP = $providerData['default_top_p'];
+        }
+        if (! isset($this->frequencyPenalty) && isset($providerData['default_frequency_penalty'])) {
+            $this->frequencyPenalty = $providerData['default_frequency_penalty'];
+        }
+        if (! isset($this->presencePenalty) && isset($providerData['default_presence_penalty'])) {
+            $this->presencePenalty = $providerData['default_presence_penalty'];
+        }
         if (! isset($this->parallelToolCalls) && isset($providerData['parallel_tool_calls'])) {
             $this->parallelToolCalls = $providerData['parallel_tool_calls'];
         }
@@ -743,6 +799,18 @@ class Agent
         }
         if (property_exists($this, 'temperature')) {
             $config['temperature'] = $this->temperature;
+        }
+        if (property_exists($this, 'n')) {
+            $config['n'] = $this->n;
+        }
+        if (property_exists($this, 'topP')) {
+            $config['topP'] = $this->topP;
+        }
+        if (property_exists($this, 'frequencyPenalty')) {
+            $config['frequencyPenalty'] = $this->frequencyPenalty;
+        }
+        if (property_exists($this, 'presencePenalty')) {
+            $config['presencePenalty'] = $this->presencePenalty;
         }
         if (property_exists($this, 'parallelToolCalls')) {
             $config['parallelToolCalls'] = $this->parallelToolCalls;
