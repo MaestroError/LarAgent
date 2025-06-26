@@ -246,23 +246,47 @@ class Agent
 
         $this->prepareAgent($message);
 
-        // Run the agent with streaming enabled
-        $stream = $this->agent->runStreamed(function ($streamedMessage) use ($callback) {
-            if ($streamedMessage instanceof StreamedAssistantMessage) {
-                // Call onConversationEnd when the stream message is complete
-                if ($streamedMessage->isComplete()) {
-                    $this->onConversationEnd($streamedMessage);
+        $instance = $this;
+
+        $generator = (function () use ($instance, $message, $callback) {
+            try {
+                // Run the agent with streaming enabled
+                $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
+                    if ($streamedMessage instanceof StreamedAssistantMessage) {
+                        // Call onConversationEnd when the stream message is complete
+                        if ($streamedMessage->isComplete()) {
+                            $instance->onConversationEnd($streamedMessage);
+                        }
+                    }
+
+                    // Run callback if defined
+                    if ($callback) {
+                        $callback($streamedMessage);
+                    }
+                });
+
+                foreach ($stream as $chunk) {
+                    yield $chunk;
+                }
+            } catch (\Throwable $th) {
+                $instance->onEngineError($th);
+                $fallbackProvider = config('laragent.fallback_provider');
+
+                if (! $fallbackProvider || $fallbackProvider === $instance->provider) {
+                    throw $th;
+                }
+
+                $instance->changeProvider($fallbackProvider);
+
+                $fallbackStream = $instance->respondStreamed($message, $callback);
+
+                foreach ($fallbackStream as $chunk) {
+                    yield $chunk;
                 }
             }
+        })();
 
-            // Run callback if defined
-            if ($callback) {
-                $callback($streamedMessage);
-            }
-        });
-
-        // Return the stream generator
-        return $stream;
+        return $generator;
     }
 
     /**
