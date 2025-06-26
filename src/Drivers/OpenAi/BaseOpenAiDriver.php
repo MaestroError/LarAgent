@@ -147,7 +147,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
                 // Yield the message
                 yield $streamedMessage;
-            } elseif (!isset($delta->content)) {
+            } elseif (! isset($delta->content)) {
                 $streamedMessage->resetLastChunk();
             }
         }

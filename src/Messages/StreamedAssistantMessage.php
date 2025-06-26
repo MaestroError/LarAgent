@@ -76,6 +76,7 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
     public function resetLastChunk(): self
     {
         $this->lastChunk = null;
+
         return $this;
     }
 }

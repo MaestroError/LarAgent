@@ -139,4 +139,3 @@ class WeatherAgent extends LarAgent\Agent
 echo WeatherAgent::for('test_chat')->message('Where am I now?')->respond();
 // echo "\n---\n";
 // echo WeatherAgent::for('test_chat')->model();
-
