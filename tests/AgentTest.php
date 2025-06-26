@@ -241,6 +241,33 @@ it('excludes parallel_tool_calls from config when set to null', function () {
         ->and($config['parallelToolCalls'])->toBeNull();
 });
 
+it('passes optional parameters to driver config', function () {
+    class SimpleAgentForConfig extends TestAgent {
+        protected function onInitialize() {}
+    }
+
+    $agent = SimpleAgentForConfig::for('test_session');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+    $driver->addMockResponse('stop', ['content' => 'ok']);
+
+    $agent->n(3)->topP(0.7)->frequencyPenalty(0.2)->presencePenalty(0.1);
+
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->toMatchArray([
+        'n' => 3,
+        'top_p' => 0.7,
+        'frequency_penalty' => 0.2,
+        'presence_penalty' => 0.1,
+    ]);
+});
+
 it('can add tool using class reference', function () {
     // Create a new agent instance
     $agent = TestAgent::for('test_session');

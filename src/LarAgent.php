@@ -22,6 +22,14 @@ class LarAgent
 
     protected float $temperature = 1.0;
 
+    protected ?int $n = null;
+
+    protected ?float $topP = null;
+
+    protected ?float $frequencyPenalty = null;
+
+    protected ?float $presencePenalty = null;
+
     protected int $reinjectInstructionsPer = 0; // 0 Means never
 
     protected ?bool $parallelToolCalls = true;
@@ -102,6 +110,54 @@ class LarAgent
     public function setTemperature(float $temperature): self
     {
         $this->temperature = $temperature;
+
+        return $this;
+    }
+
+    public function getN(): ?int
+    {
+        return $this->n;
+    }
+
+    public function setN(?int $n): self
+    {
+        $this->n = $n;
+
+        return $this;
+    }
+
+    public function getTopP(): ?float
+    {
+        return $this->topP;
+    }
+
+    public function setTopP(?float $topP): self
+    {
+        $this->topP = $topP;
+
+        return $this;
+    }
+
+    public function getFrequencyPenalty(): ?float
+    {
+        return $this->frequencyPenalty;
+    }
+
+    public function setFrequencyPenalty(?float $frequencyPenalty): self
+    {
+        $this->frequencyPenalty = $frequencyPenalty;
+
+        return $this;
+    }
+
+    public function getPresencePenalty(): ?float
+    {
+        return $this->presencePenalty;
+    }
+
+    public function setPresencePenalty(?float $presencePenalty): self
+    {
+        $this->presencePenalty = $presencePenalty;
 
         return $this;
     }
@@ -308,6 +364,10 @@ class LarAgent
         $this->temperature = $configs['temperature'] ?? $this->temperature;
         $this->reinjectInstructionsPer = $configs['reinjectInstructionsPer'] ?? $this->reinjectInstructionsPer;
         $this->model = $configs['model'] ?? $this->model;
+        $this->n = $configs['n'] ?? $this->n;
+        $this->topP = $configs['topP'] ?? $this->topP;
+        $this->frequencyPenalty = $configs['frequencyPenalty'] ?? $this->frequencyPenalty;
+        $this->presencePenalty = $configs['presencePenalty'] ?? $this->presencePenalty;
         $this->parallelToolCalls = array_key_exists('parallelToolCalls', $configs) ? $configs['parallelToolCalls'] : $this->parallelToolCalls;
         $this->toolChoice = $configs['toolChoice'] ?? $this->toolChoice;
     }
@@ -555,6 +615,22 @@ class LarAgent
             'max_completion_tokens' => $this->getMaxCompletionTokens(),
             'temperature' => $this->getTemperature(),
         ];
+
+        if ($this->getN() !== null) {
+            $configs['n'] = $this->getN();
+        }
+
+        if ($this->getTopP() !== null) {
+            $configs['top_p'] = $this->getTopP();
+        }
+
+        if ($this->getFrequencyPenalty() !== null) {
+            $configs['frequency_penalty'] = $this->getFrequencyPenalty();
+        }
+
+        if ($this->getPresencePenalty() !== null) {
+            $configs['presence_penalty'] = $this->getPresencePenalty();
+        }
 
         if (! empty($this->tools)) {
             $PTC = $this->getParallelToolCalls();
