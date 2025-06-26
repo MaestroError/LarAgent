@@ -29,7 +29,7 @@ abstract class ChatHistory implements ArrayAccess, ChatHistoryInterface
         $this->contextWindow = $options['context_window'] ?? 60000;
         $this->storeMeta = $options['store_meta'] ?? false;
         $this->saveChatKeys = $options['save_chat_keys'] ?? true;
-
+        
         if ($this->saveChatKeys) {
             $this->saveKeyToMemory();
         }

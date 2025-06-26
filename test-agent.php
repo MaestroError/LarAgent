@@ -98,7 +98,7 @@ class WeatherAgent extends LarAgent\Agent
     // Define history with custom options or using custom history class
     public function createChatHistory($name)
     {
-        return new LarAgent\History\JsonChatHistory($name, ['folder' => __DIR__.'/json_History']);
+        return new LarAgent\History\JsonChatHistory($name, ['folder' => __DIR__.'/json_History', 'store_meta' => true]);
     }
 
     public function registerTools()
@@ -136,17 +136,7 @@ class WeatherAgent extends LarAgent\Agent
 // // Using "celsus" instead of "celsius" to check correct pick of enum value
 // echo WeatherAgent::for('test_chat')->respond('Thanks for the info. What about New York? I prefer celsus');
 // echo "\n---\n";
-// echo WeatherAgent::for('test_chat')->message('Where am I now?')->respond();
+echo WeatherAgent::for('test_chat')->message('Where am I now?')->respond();
 // echo "\n---\n";
 // echo WeatherAgent::for('test_chat')->model();
 
-$stream = WeatherAgent::for('test_chat')
-    ->respondStreamed(
-        'What\'s is my current location?'
-    );
-
-foreach ($stream as $chunk) {
-    if ($chunk instanceof \LarAgent\Messages\StreamedAssistantMessage) {
-        echo $chunk->getLastChunk();
-    }
-}

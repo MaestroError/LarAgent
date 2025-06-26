@@ -44,6 +44,12 @@ class WeatherAgent extends LarAgent\Agent
     {
         return $message.'. Always check if I have other questions.';
     }
+
+    // Define history with custom options or using custom history class
+    public function createChatHistory($name)
+    {
+        return new LarAgent\History\JsonChatHistory($name, ['folder' => __DIR__.'/json_History', 'store_meta' => true]);
+    }
 }
 
 $stream = WeatherAgent::for('test_chat')

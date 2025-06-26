@@ -444,7 +444,7 @@ class Agent
     public function createChatHistory(string $sessionId)
     {
         $historyClass = $this->builtInHistories[$this->history] ?? $this->history;
-
+        
         return new $historyClass($sessionId, [
             'context_window' => $this->contextWindowSize,
             'store_meta' => $this->storeMeta,

@@ -55,6 +55,7 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
     public function setUsage(?array $usage): self
     {
         $this->usage = $usage;
+        $this->metadata['usage'] = $usage;
 
         return $this;
     }
