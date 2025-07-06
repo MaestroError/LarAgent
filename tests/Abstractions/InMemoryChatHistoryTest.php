@@ -12,7 +12,12 @@ it('can add and retrieve messages', function () {
     expect($chatHistory->getMessages())
         ->toHaveCount(1)
         ->and($chatHistory->getLastMessage()->getContent())
-        ->toBe('What\'s the weather like in Boston? I prefer celsius');
+        ->toBe([
+            [
+                'type' => 'text',
+                'text' => 'What\'s the weather like in Boston? I prefer celsius',
+            ],
+        ]);
 });
 
 it('can clear messages', function () {
@@ -34,7 +39,12 @@ it('supports array access for messages', function () {
     expect($chatHistory[0])
         ->toBeInstanceOf(UserMessage::class)
         ->and($chatHistory[0]->getContent())
-        ->toBe('This is an array-accessible message');
+        ->toBe([
+            [
+                'type' => 'text',
+                'text' => 'This is an array-accessible message',
+            ],
+        ]);
 
     unset($chatHistory[0]);
 
@@ -55,7 +65,12 @@ it('can write and read messages to and from memory', function () {
     expect($chatHistory->getMessages())
         ->toHaveCount(1)
         ->and($chatHistory->getMessages()[0]->getContent())
-        ->toBe('Remember this message in memory');
+        ->toBe([
+            [
+                'type' => 'text',
+                'text' => 'Remember this message in memory',
+            ],
+        ]);
 });
 
 it('handles empty memory gracefully', function () {
@@ -83,7 +98,12 @@ it('can truncate old messages when exceeding context window', function () {
     expect($chatHistory->getMessages())
         ->toHaveCount(1)
         ->and($chatHistory->getMessages()[0]->getContent())
-        ->toBe('Message 4');
+        ->toBe([
+            [
+                'type' => 'text',
+                'text' => 'Message 4',
+            ],
+        ]);
 });
 
 it('can determine if a token count exceeds context window', function () {

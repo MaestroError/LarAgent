@@ -613,7 +613,15 @@ class Agent
         return $this;
     }
 
-    public function withAudio(string $format, string $voice): static
+    public function withAudios(array $audioStrings): static
+    {
+        // @todo implement base64 strings and formats adding
+
+        return $this;
+    }
+
+
+    public function generateAudio(string $format, string $voice): static
     {
         $this->audio = ['format' => $format, 'voice' => $voice];
         $this->modalities = ['text', 'audio'];

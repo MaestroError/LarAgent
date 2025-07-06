@@ -654,6 +654,11 @@ class LarAgent
             return $array;
         }
 
+        if ($this->getN() !== null && $this->getN() > 1) {
+            // @todo check here for json error
+            return json_decode($response->getContent(), true);
+        }
+
         return $response;
     }
 

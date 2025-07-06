@@ -40,7 +40,12 @@ it('creates a user message', function () {
 
     expect($message)->toBeInstanceOf(UserMessage::class)
         ->and($message->getRole())->toBe('user')
-        ->and($message->getContent())->toBe('This is a user message')
+        ->and($message->getContent())->toBe([
+            [
+                'type' => 'text',
+                'text' => 'This is a user message',
+            ],
+        ])
         ->and($message->getMetadata())->toHaveKey('timestamp', '2025-01-01');
 });
 
@@ -80,5 +85,10 @@ it('creates a custom message with invalid role', function () {
 it('handles empty content for user message', function () {
     $message = Message::user('', []);
 
-    expect($message->getContent())->toBe('');
+    expect($message->getContent())->toBe([
+        [
+            'type' => 'text',
+            'text' => '',
+        ],
+    ]);
 });
