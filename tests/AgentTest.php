@@ -241,6 +241,41 @@ it('excludes parallel_tool_calls from config when set to null', function () {
         ->and($config['parallelToolCalls'])->toBeNull();
 });
 
+it('includes toolChoice when using tool selection methods', function () {
+    $agent = TestAgent::for('test_session');
+    $reflection = new ReflectionClass($agent);
+    $buildConfigs = $reflection->getMethod('buildConfigsFromAgent');
+    $buildConfigs->setAccessible(true);
+
+    $agent->withTool(Tool::create('dummy', 'd')->setCallback(fn () => 'x'));
+
+    $agent->toolAuto();
+    $config = $buildConfigs->invoke($agent);
+    expect($config)->toHaveKey('toolChoice')
+        ->and($config['toolChoice'])->toBe('auto')
+        ->and($agent->getToolChoice())->toBe('auto');
+
+    $agent->toolNone();
+    $config = $buildConfigs->invoke($agent);
+    expect($config['toolChoice'])->toBe('none')
+        ->and($agent->getToolChoice())->toBe('none');
+
+    $agent->toolRequired();
+    $config = $buildConfigs->invoke($agent);
+    expect($config['toolChoice'])->toBe('required')
+        ->and($agent->getToolChoice())->toBe('required');
+
+    $agent->forceTool('test_tool');
+    $config = $buildConfigs->invoke($agent);
+    expect($config['toolChoice'])->toMatchArray([
+        'type' => 'function',
+        'function' => ['name' => 'test_tool'],
+    ])->and($agent->getToolChoice())->toMatchArray([
+        'type' => 'function',
+        'function' => ['name' => 'test_tool'],
+    ]);
+});
+
 it('passes optional parameters to driver config', function () {
     class SimpleAgentForConfig extends TestAgent {
         protected function onInitialize() {}

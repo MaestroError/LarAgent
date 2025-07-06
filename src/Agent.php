@@ -99,6 +99,9 @@ class Agent
     /** @var ?bool */
     protected $parallelToolCalls;
 
+    /** @var string|array|null */
+    protected $toolChoice;
+
     /** @var int|null */
     protected $n;
 
@@ -653,6 +656,72 @@ class Agent
         return $this;
     }
 
+    /**
+     * Set tool choice to 'auto' - model can choose to use zero, one, or multiple tools.
+     * Only applies if tools are registered.
+     */
+    public function toolAuto(): static
+    {
+        $this->toolChoice = 'auto';
+
+        return $this;
+    }
+
+    /**
+     * Set tool choice to 'none' - prevent the model from using any tools.
+     * This simulates the behavior of not passing any functions.
+     */
+    public function toolNone(): static
+    {
+        $this->toolChoice = 'none';
+
+        return $this;
+    }
+
+    /**
+     * Set tool choice to 'required' - model must use at least one tool.
+     * Only applies if tools are registered.
+     */
+    public function toolRequired(): static
+    {
+        $this->toolChoice = 'required';
+
+        return $this;
+    }
+
+    /**
+     * Force the model to use a specific tool.
+     * Only applies if the specified tool is registered.
+     */
+    public function forceTool(string $toolName): static
+    {
+        $this->toolChoice = [
+            'type' => 'function',
+            'function' => [
+                'name' => $toolName,
+            ],
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Get the current tool choice configuration.
+     * Returns null if no tools are registered or tool choice is not set.
+     */
+    public function getToolChoice()
+    {
+        if (empty($this->tools) || $this->toolChoice === null) {
+            return null;
+        }
+
+        if ($this->toolChoice === 'none') {
+            return 'none';
+        }
+
+        return $this->toolChoice;
+    }
+
     public function withModel(string $model): static
     {
         $this->model = $model;
@@ -838,6 +907,9 @@ class Agent
         }
         if (property_exists($this, 'parallelToolCalls')) {
             $config['parallelToolCalls'] = $this->parallelToolCalls;
+        }
+        if (property_exists($this, 'toolChoice')) {
+            $config['toolChoice'] = $this->toolChoice;
         }
 
         if (! empty($this->modalities)) {
