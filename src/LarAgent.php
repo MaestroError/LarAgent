@@ -57,6 +57,10 @@ class LarAgent
     /** @var callable|null Callback function for streaming */
     protected $streamCallback = null;
 
+    protected array $modalities = [];
+
+    protected ?array $audio = null;
+
     // Config methods
 
     public function getModel(): string
@@ -341,6 +345,30 @@ class LarAgent
         return $this;
     }
 
+    public function getModalities(): array
+    {
+        return $this->modalities;
+    }
+
+    public function setModalities(array $modalities): self
+    {
+        $this->modalities = $modalities;
+
+        return $this;
+    }
+
+    public function getAudio(): ?array
+    {
+        return $this->audio;
+    }
+
+    public function setAudio(?array $audio): self
+    {
+        $this->audio = $audio;
+
+        return $this;
+    }
+
     // Main API methods
 
     public function __construct(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory)
@@ -370,6 +398,8 @@ class LarAgent
         $this->presencePenalty = $configs['presencePenalty'] ?? $this->presencePenalty;
         $this->parallelToolCalls = array_key_exists('parallelToolCalls', $configs) ? $configs['parallelToolCalls'] : $this->parallelToolCalls;
         $this->toolChoice = $configs['toolChoice'] ?? $this->toolChoice;
+        $this->modalities = $configs['modalities'] ?? $this->modalities;
+        $this->audio = $configs['audio'] ?? $this->audio;
     }
 
     public function setTools(array $tools): self
@@ -642,6 +672,14 @@ class LarAgent
             if ($toolChoice !== null) {
                 $configs['tool_choice'] = $toolChoice;
             }
+        }
+
+        if (! empty($this->modalities)) {
+            $configs['modalities'] = $this->modalities;
+        }
+
+        if (! empty($this->audio)) {
+            $configs['audio'] = $this->audio;
         }
 
         return $configs;

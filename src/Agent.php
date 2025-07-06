@@ -126,6 +126,12 @@ class Agent
     /** @var array */
     protected $images = [];
 
+    /** @var array */
+    protected $modalities = [];
+
+    /** @var array|null */
+    protected $audio = null;
+
     public function __construct($key)
     {
         $this->setupProviderData();
@@ -551,6 +557,16 @@ class Agent
         });
     }
 
+    public function getModalities(): array
+    {
+        return $this->modalities;
+    }
+
+    public function getAudio(): ?array
+    {
+        return $this->audio;
+    }
+
     public function withTool(string|ToolInterface $tool): static
     {
         if (is_string($tool) && class_exists($tool)) {
@@ -590,6 +606,14 @@ class Agent
     public function withImages(array $imageUrls): static
     {
         $this->images = $imageUrls;
+
+        return $this;
+    }
+
+    public function withAudio(string $format, string $voice): static
+    {
+        $this->audio = ['format' => $format, 'voice' => $voice];
+        $this->modalities = ['text', 'audio'];
 
         return $this;
     }
@@ -814,6 +838,14 @@ class Agent
         }
         if (property_exists($this, 'parallelToolCalls')) {
             $config['parallelToolCalls'] = $this->parallelToolCalls;
+        }
+
+        if (! empty($this->modalities)) {
+            $config['modalities'] = $this->modalities;
+        }
+
+        if (! empty($this->audio)) {
+            $config['audio'] = $this->audio;
         }
 
         return $config;
