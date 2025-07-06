@@ -297,6 +297,19 @@ class LarAgent
     }
 
     /**
+     * Set the tool choice configuration
+     *
+     * @param  string|array|null  $toolChoice  Tool choice configuration
+     * @return $this
+     */
+    public function setToolChoice(string|array|null $toolChoice): self
+    {
+        $this->toolChoice = $toolChoice;
+
+        return $this;
+    }
+
+    /**
      * Enable or disable streaming mode
      *
      * @param  bool  $streaming  Whether to enable streaming
