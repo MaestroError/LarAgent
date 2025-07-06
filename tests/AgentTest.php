@@ -53,7 +53,11 @@ class TestAgent extends Agent
 
     protected function afterResponse($message)
     {
-        $message->setContent($message.'. Edited via event');
+        if ($this->n > 1) {
+            return;
+        } else {
+            $message->setContent($message.'. Edited via event');
+        }
     }
 
     protected function afterToolExecution($tool, &$result)
@@ -287,9 +291,17 @@ it('passes optional parameters to driver config', function () {
     $driverProp = $reflection->getProperty('llmDriver');
     $driverProp->setAccessible(true);
     $driver = $driverProp->getValue($agent);
-    $driver->addMockResponse('stop', ['content' => 'ok']);
+    
+    $n = 3;
+    // Add $n mock responses
+    for ($i = 0; $i < $n; $i++) {
+        $content[] = 'ok';
+    }
+    $driver->addMockResponse('stop', [
+        'content' => json_encode($content),
+    ]);
 
-    $agent->n(3)->topP(0.7)->frequencyPenalty(0.2)->presencePenalty(0.1);
+    $agent->n($n)->topP(0.7)->frequencyPenalty(0.2)->presencePenalty(0.1);
 
     $agent->respond('test');
 
@@ -429,4 +441,49 @@ it('uses developer role for instructions when enabled', function () {
         }
     }
     expect($hasDevMessage)->toBeTrue();
+});
+
+it('generateAudio injects audio configuration into driver', function () {
+    class AudioAgent extends TestAgent {
+        protected function onInitialize() {}
+    }
+
+    $agent = AudioAgent::for('audio_key');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+    $driver->addMockResponse('stop', ['content' => 'ok']);
+
+    $agent->generateAudio('mp3', 'nova');
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->toMatchArray([
+        'modalities' => ['text', 'audio'],
+        'audio' => ['format' => 'mp3', 'voice' => 'nova'],
+    ]);
+});
+
+it('omits audio configuration when not used', function () {
+    class NoAudioAgent extends TestAgent {
+        protected function onInitialize() {}
+    }
+
+    $agent = NoAudioAgent::for('audio_key');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+    $driver->addMockResponse('stop', ['content' => 'ok']);
+
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->not->toHaveKey('audio')
+        ->and($config)->not->toHaveKey('modalities');
 });

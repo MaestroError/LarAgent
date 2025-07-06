@@ -65,6 +65,18 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         if ($finishReason === 'stop') {
             $content = $this->lastResponse->choices[0]->message->content;
+
+            if (isset($options['n']) && $options['n'] > 1) {
+                $contentsArray = [];
+
+                foreach ($this->lastResponse->choices as $choice) {
+                    $contentsArray[] = $choice->message->content;
+                }
+
+                // @todo: get rid of encoding/decoding the same data
+                // Check: src\LarAgent.php 'processMessage' method
+                $content = json_encode($contentsArray);
+            }
             
             return new AssistantMessage($content, $metaData);
         }
