@@ -46,7 +46,11 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
             'usage' => $this->lastResponse->usage,
         ];
 
-        if ($finishReason === 'tool_calls') {
+        // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
+        if (
+            $finishReason === 'tool_calls'
+            || (isset($options['tool_choice']) && is_array($options['tool_choice']) && isset($this->lastResponse->choices[0]->message->toolCalls))
+        ) {
 
             // Collect tool calls from the response
             $toolCalls = array_map(function ($toolCall) {
@@ -61,7 +65,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         if ($finishReason === 'stop') {
             $content = $this->lastResponse->choices[0]->message->content;
-
+            
             return new AssistantMessage($content, $metaData);
         }
 
