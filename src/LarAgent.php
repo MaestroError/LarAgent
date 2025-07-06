@@ -579,11 +579,17 @@ class LarAgent
 
             $this->processTools($response);
 
+            // If tool choice is required or forced some tool
+            // Switch to auto tool choice to avoid infinite loop
+            if ($this->getToolChoice() !== 'none') {
+                $this->toolAuto();
+            }
+
             // Continue the conversation with tool results
             if ($this->isStreaming()) {
                 return $this->runStreamed();
             }
-
+            
             // Reset message to null to skip adding it again in chat history
             $this->message = null;
 
