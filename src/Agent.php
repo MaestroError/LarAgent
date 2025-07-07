@@ -632,6 +632,27 @@ class Agent
         return $this;
     }
 
+    public function maxCompletionTokens(int $tokens): static
+    {
+        $this->maxCompletionTokens = $tokens;
+
+        return $this;
+    }
+
+    public function parallelToolCalls(?bool $parallel): static
+    {
+        $this->parallelToolCalls = $parallel;
+
+        return $this;
+    }
+
+    public function responseSchema(?array $schema): static
+    {
+        $this->responseSchema = $schema;
+
+        return $this;
+    }
+
     /**
      * Set tool choice to 'auto' - model can choose to use zero, one, or multiple tools.
      * Only applies if tools are registered.

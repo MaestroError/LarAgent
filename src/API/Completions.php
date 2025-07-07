@@ -4,14 +4,45 @@ namespace LarAgent\API;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LarAgent\API\completions\CompletionRequestDTO;
+use LarAgent\Agent;
+use LarAgent\Message;
 
 class Completions
 {
-    public static function make(Request $request, string $agentClass): CompletionRequestDTO
+    protected CompletionRequestDTO $completion;
+
+    protected Agent $agent;
+    public static function make(Request $request, string $agentClass): array
     {
-        return static::validateRequest($request);
+        $completion = static::validateRequest($request);
+
+        $instance = new self();
+        $instance->completion = $completion;
+
+        $response = $instance->runAgent($agentClass);
+
+        $content = (string) $response;
+
+        return [
+            'id' => $instance->agent->getChatSessionId(),
+            'object' => 'chat.completion',
+            'created' => time(),
+            'model' => $instance->agent->model(),
+            'choices' => [[
+                'index' => 0,
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => $content,
+                    'refusal' => null,
+                    'annotations' => [],
+                ],
+                'logprobs' => null,
+                'finish_reason' => 'stop',
+            ]],
+        ];
     }
 
     private static function validateRequest(Request $request): CompletionRequestDTO
@@ -54,6 +85,80 @@ class Completions
         $validated = $validator->validate();
 
         return CompletionRequestDTO::fromArray($validated);
+    }
+
+    protected function runAgent(string $agentClass)
+    {
+        $this->agent = new $agentClass(Str::random(10));
+
+        $messages = $this->completion->messages;
+        if (! empty($messages)) {
+            $last = array_pop($messages);
+            foreach ($messages as $message) {
+                $this->agent->addMessage(Message::fromArray($message));
+            }
+            $this->agent->message($last['content']);
+        }
+
+        if ($this->completion->model) {
+            $this->agent->withModel($this->completion->model);
+        }
+        if ($this->completion->temperature !== null) {
+            $this->agent->temperature($this->completion->temperature);
+        }
+        if ($this->completion->n !== null) {
+            $this->agent->n($this->completion->n);
+        }
+        if ($this->completion->top_p !== null) {
+            $this->agent->topP($this->completion->top_p);
+        }
+        if ($this->completion->frequency_penalty !== null) {
+            $this->agent->frequencyPenalty($this->completion->frequency_penalty);
+        }
+        if ($this->completion->presence_penalty !== null) {
+            $this->agent->presencePenalty($this->completion->presence_penalty);
+        }
+        if ($this->completion->max_completion_tokens !== null) {
+            $this->agent->maxCompletionTokens($this->completion->max_completion_tokens);
+        }
+        // @todo Pass modalities and audio options to agent
+        if ($this->completion->response_format !== null) {
+            if (($this->completion->response_format['type'] ?? null) === 'json_schema') {
+                $schema = $this->completion->response_format['json_schema'] ?? null;
+                if (is_string($schema)) {
+                    $decoded = json_decode($schema, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $schema = $decoded;
+                    }
+                }
+                if (is_array($schema)) {
+                    $this->agent->responseSchema($schema);
+                }
+            }
+            // @todo handle json_object type
+        }
+        // @todo Register tools from payload
+        if ($this->completion->tool_choice !== null) {
+            $choice = $this->completion->tool_choice;
+            if ($choice === 'auto') {
+                $this->agent->toolAuto();
+            } elseif ($choice === 'none') {
+                $this->agent->toolNone();
+            } elseif ($choice === 'required') {
+                $this->agent->toolRequired();
+            } elseif (is_array($choice) && isset($choice['function']['name'])) {
+                $this->agent->forceTool($choice['function']['name']);
+            }
+        }
+        if ($this->completion->parallel_tool_calls !== null) {
+            $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
+        }
+
+        if ($this->completion['stream'] ?? false) {
+            return $this->agent->respondStreamed();
+        }
+
+        return $this->agent->respond();
     }
 }
 
