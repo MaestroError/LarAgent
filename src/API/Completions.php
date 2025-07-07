@@ -25,30 +25,35 @@ class Completions
 
         $response = $instance->runAgent($agentClass);
 
-        if ($response instanceof ToolCallMessage) {
-            // @todo Return tool call
+        if (is_array($response) && isset($response['tool_calls'])) {
+            $choices = [[
+                'index' => 0,
+                'message' => $response,
+                'logprobs' => null,
+                'finish_reason' => 'tool_calls',
+            ]];
         } else {
-
             $content = (string) $response;
-
-            return [
-                'id' => $instance->agent->getChatSessionId(),
-                'object' => 'chat.completion',
-                'created' => time(),
-                'model' => $instance->agent->model(),
-                'choices' => [[
-                    'index' => 0,
-                    'message' => [
-                        'role' => 'assistant',
-                        'content' => $content,
-                        'refusal' => null,
-                        'annotations' => [],
-                    ],
-                    'logprobs' => null,
-                    'finish_reason' => 'stop',
-                ]],
-            ];
+            $choices = [[
+                'index' => 0,
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => $content,
+                    'refusal' => null,
+                    'annotations' => [],
+                ],
+                'logprobs' => null,
+                'finish_reason' => 'stop',
+            ]];
         }
+
+        return [
+            'id' => $instance->agent->getChatSessionId(),
+            'object' => 'chat.completion',
+            'created' => time(),
+            'model' => $instance->agent->model(),
+            'choices' => $choices,
+        ];
 
 
     }
@@ -218,7 +223,7 @@ class Completions
                         }
                         
                         // Register the tool with the agent
-                        $this->agent->addTool($pseudoTool);
+                        $this->agent->withTool($pseudoTool);
                     }
                 }
             }
