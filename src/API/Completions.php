@@ -8,6 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LarAgent\API\completions\CompletionRequestDTO;
 use LarAgent\Agent;
+use LarAgent\PseudoTool;
 use LarAgent\Message;
 
 class Completions
@@ -24,25 +25,32 @@ class Completions
 
         $response = $instance->runAgent($agentClass);
 
-        $content = (string) $response;
+        if ($response instanceof ToolCallMessage) {
+            // @todo Return tool call
+        } else {
 
-        return [
-            'id' => $instance->agent->getChatSessionId(),
-            'object' => 'chat.completion',
-            'created' => time(),
-            'model' => $instance->agent->model(),
-            'choices' => [[
-                'index' => 0,
-                'message' => [
-                    'role' => 'assistant',
-                    'content' => $content,
-                    'refusal' => null,
-                    'annotations' => [],
-                ],
-                'logprobs' => null,
-                'finish_reason' => 'stop',
-            ]],
-        ];
+            $content = (string) $response;
+
+            return [
+                'id' => $instance->agent->getChatSessionId(),
+                'object' => 'chat.completion',
+                'created' => time(),
+                'model' => $instance->agent->model(),
+                'choices' => [[
+                    'index' => 0,
+                    'message' => [
+                        'role' => 'assistant',
+                        'content' => $content,
+                        'refusal' => null,
+                        'annotations' => [],
+                    ],
+                    'logprobs' => null,
+                    'finish_reason' => 'stop',
+                ]],
+            ];
+        }
+
+
     }
 
     private static function validateRequest(Request $request): CompletionRequestDTO
@@ -121,7 +129,29 @@ class Completions
         if ($this->completion->max_completion_tokens !== null) {
             $this->agent->maxCompletionTokens($this->completion->max_completion_tokens);
         }
+
+        $this->registerResponseSchema();
+
         // @todo Pass modalities and audio options to agent
+
+        // Register tools from payload
+        $this->registerPseudoTools();
+
+        $this->registerToolChoice();
+
+        if ($this->completion->parallel_tool_calls !== null) {
+            $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
+        }
+
+        if ($this->completion['stream'] ?? false) {
+            return $this->agent->respondStreamed();
+        }
+
+        return $this->agent->respond();
+    }
+
+    protected function registerResponseSchema()
+    {
         if ($this->completion->response_format !== null) {
             if (($this->completion->response_format['type'] ?? null) === 'json_schema') {
                 $schema = $this->completion->response_format['json_schema'] ?? null;
@@ -137,7 +167,10 @@ class Completions
             }
             // @todo handle json_object type
         }
-        // @todo Register tools from payload
+    }
+
+    protected function registerToolChoice()
+    {
         if ($this->completion->tool_choice !== null) {
             $choice = $this->completion->tool_choice;
             if ($choice === 'auto') {
@@ -150,15 +183,49 @@ class Completions
                 $this->agent->forceTool($choice['function']['name']);
             }
         }
-        if ($this->completion->parallel_tool_calls !== null) {
-            $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
-        }
+    }
 
-        if ($this->completion['stream'] ?? false) {
-            return $this->agent->respondStreamed();
+    protected function registerPseudoTools()
+    {
+        if (isset($this->completion->tools) && is_array($this->completion->tools)) {
+            foreach ($this->completion->tools as $tool) {
+                if (isset($tool['type']) && $tool['type'] === 'function' && isset($tool['function'])) {
+                    $function = $tool['function'];
+                    $name = $function['name'] ?? null;
+                    $description = $function['description'] ?? '';
+                    
+                    if ($name) {
+                        $pseudoTool = PseudoTool::create($name, $description)
+                            ->setCallback([self::class, 'pseudoToolCallback']);
+                        
+                        // Add properties
+                        if (isset($function['parameters']) && isset($function['parameters']['properties'])) {
+                            foreach ($function['parameters']['properties'] as $propName => $propDetails) {
+                                $type = $propDetails['type'] ?? 'string';
+                                $propDescription = $propDetails['description'] ?? '';
+                                $enum = $propDetails['enum'] ?? [];
+                                
+                                $pseudoTool->addProperty($propName, $type, $propDescription, $enum);
+                            }
+                        }
+                        
+                        // Set required properties
+                        if (isset($function['parameters']['required']) && is_array($function['parameters']['required'])) {
+                            foreach ($function['parameters']['required'] as $requiredProp) {
+                                $pseudoTool->setRequired($requiredProp);
+                            }
+                        }
+                        
+                        // Register the tool with the agent
+                        $this->agent->addTool($pseudoTool);
+                    }
+                }
+            }
         }
+    }
 
-        return $this->agent->respond();
+    public static function pseudoToolCallback(...$args)
+    {
+        // return 'Pseudo tool called with arguments: ' . json_encode($args);
     }
 }
-

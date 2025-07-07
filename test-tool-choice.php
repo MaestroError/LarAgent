@@ -76,3 +76,12 @@ echo "\n---\n";
 echo WeatherAgent::for('test_chat')->forceTool('weatherToolForNewYork')->respond('What is weather in New York?');
 echo "\n---\n";
 
+// @todo streaming doesn't work with forceTool
+// Implemented here: https://github.com/MaestroError/LarAgent/pull/54/files
+$response = WeatherAgent::for('test_chat')->forceTool('weatherToolForNewYork')->respondStreamed('What is weather in New York?');
+
+foreach ($response as $chunk) {
+    if ($chunk instanceof \LarAgent\Messages\StreamedAssistantMessage) {
+        echo $chunk->getLastChunk();
+    }
+}
