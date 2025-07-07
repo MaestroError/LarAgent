@@ -139,7 +139,8 @@ class Completions
 
         $this->registerToolChoice();
 
-        if ($this->completion->parallel_tool_calls !== null) {
+        // Parallel tool calls is disabled in via this API, `false` and `null` are only values to accept
+        if ($this->completion->parallel_tool_calls !== true) {
             $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
         }
 
