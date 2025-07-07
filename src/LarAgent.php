@@ -598,6 +598,11 @@ class LarAgent
                 $this->toolAuto();
             }
 
+            // If no tool result added, return ToolCallMessage
+            if (!($this->chatHistory->getLastMessage() instanceof ToolResultMessage)) {
+                return $response;
+            }
+
             // Continue the conversation with tool results
             if ($this->isStreaming()) {
                 return $this->runStreamed();
@@ -693,6 +698,11 @@ class LarAgent
         $args = json_decode($toolCall->getArguments(), true);
         // Hook: Before tool execution, skip tool if false returned
         if ($this->processBeforeToolExecution($tool) === false) {
+            return null;
+        }
+
+        // Continue if tool is pseudo tool
+        if ($tool instanceof PseudoTool) {
             return null;
         }
 
