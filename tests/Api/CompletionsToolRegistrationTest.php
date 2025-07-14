@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use LarAgent\API\Completions;
 use LarAgent\Agent;
-use LarAgent\PseudoTool;
+use LarAgent\PhantomTool;
 use LarAgent\Tests\Fakes\FakeLlmDriver;
 
 class ToolsApiAgent extends Agent

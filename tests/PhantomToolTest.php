@@ -1,10 +1,10 @@
 <?php
 
 use LarAgent\Agent;
-use LarAgent\PseudoTool;
+use LarAgent\PhantomTool;
 use LarAgent\Tests\Fakes\FakeLlmDriver;
 
-class PseudoToolAgent extends Agent
+class PhantomToolAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
     protected $history = 'in_memory';
@@ -13,14 +13,14 @@ class PseudoToolAgent extends Agent
     public function registerTools()
     {
         return [
-            PseudoTool::create('pseudo_tool', 'desc')->setCallback(fn () => 'ok'),
+            PhantomTool::create('phantom_tool', 'desc')->setCallback(fn () => 'ok'),
         ];
     }
 
     protected function onInitialize()
     {
         $this->llmDriver->addMockResponse('tool_calls', [
-            'toolName' => 'pseudo_tool',
+            'toolName' => 'phantom_tool',
             'arguments' => '{}',
         ]);
     }
@@ -36,11 +36,11 @@ class PseudoToolAgent extends Agent
     }
 }
 
-it('returns ToolCallMessage array when pseudo tool is executed', function () {
-    $agent = PseudoToolAgent::for('test');
+it('returns ToolCallMessage array when phantom tool is executed', function () {
+    $agent = PhantomToolAgent::for('test');
     $result = $agent->respond('hi');
 
     expect($result)->toBeArray()
         ->and($result)->toHaveKey('tool_calls')
-        ->and($result['tool_calls'][0]['function']['name'])->toBe('pseudo_tool');
+        ->and($result['tool_calls'][0]['function']['name'])->toBe('phantom_tool');
 });

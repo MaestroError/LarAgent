@@ -3,7 +3,7 @@
 require_once __DIR__.'/vendor/autoload.php';
 
 use LarAgent\Attributes\Tool;
-use LarAgent\PseudoTool;
+use LarAgent\PhantomTool;
 
 function config(string $key): mixed
 {
@@ -23,7 +23,7 @@ function config(string $key): mixed
     ][$key];
 }
 
-function pseudoTool($location)
+function phantomTool($location)
 {
     return 'The weather in '.$location.' is '.'20'.' degrees Celsius';
 }
@@ -48,10 +48,10 @@ class WeatherAgent extends LarAgent\Agent
 
     public function registerTools() {
         return [
-            PseudoTool::create('pseudo_tool', 'Get the current weather in a given location')
+            PhantomTool::create('phantom_tool', 'Get the current weather in a given location')
                 ->addProperty('location', 'string', 'The city and state, e.g. San Francisco, CA')
                 ->setRequired('location')
-                ->setCallback("pseudoTool"),
+                ->setCallback("phantomTool"),
         ];
     }
 
@@ -62,7 +62,7 @@ class WeatherAgent extends LarAgent\Agent
 }
 
 
-$response = WeatherAgent::for('test_chat')->forceTool('pseudo_tool')->respond('What is weather in New York?');
+$response = WeatherAgent::for('test_chat')->forceTool('phantom_tool')->respond('What is weather in New York?');
 echo "\n---\n";
 var_dump($response);
 echo "\n---\n";

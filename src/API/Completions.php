@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LarAgent\API\completions\CompletionRequestDTO;
 use LarAgent\Agent;
-use LarAgent\PseudoTool;
+use LarAgent\PhantomTool;
 use LarAgent\Message;
 
 class Completions
@@ -140,7 +140,7 @@ class Completions
         // @todo Pass modalities and audio options to agent
 
         // Register tools from payload
-        $this->registerPseudoTools();
+        $this->registerPhantomTools();
 
         $this->registerToolChoice();
 
@@ -191,7 +191,7 @@ class Completions
         }
     }
 
-    protected function registerPseudoTools()
+    protected function registerPhantomTools()
     {
         if (isset($this->completion->tools) && is_array($this->completion->tools)) {
             foreach ($this->completion->tools as $tool) {
@@ -201,8 +201,8 @@ class Completions
                     $description = $function['description'] ?? '';
                     
                     if ($name) {
-                        $pseudoTool = PseudoTool::create($name, $description)
-                            ->setCallback([self::class, 'pseudoToolCallback']);
+                        $phantomTool = PhantomTool::create($name, $description)
+                            ->setCallback([self::class, 'phantomToolCallback']);
                         
                         // Add properties
                         if (isset($function['parameters']) && isset($function['parameters']['properties'])) {
@@ -211,27 +211,27 @@ class Completions
                                 $propDescription = $propDetails['description'] ?? '';
                                 $enum = $propDetails['enum'] ?? [];
                                 
-                                $pseudoTool->addProperty($propName, $type, $propDescription, $enum);
+                                $phantomTool->addProperty($propName, $type, $propDescription, $enum);
                             }
                         }
                         
                         // Set required properties
                         if (isset($function['parameters']['required']) && is_array($function['parameters']['required'])) {
                             foreach ($function['parameters']['required'] as $requiredProp) {
-                                $pseudoTool->setRequired($requiredProp);
+                                $phantomTool->setRequired($requiredProp);
                             }
                         }
                         
                         // Register the tool with the agent
-                        $this->agent->withTool($pseudoTool);
+                        $this->agent->withTool($phantomTool);
                     }
                 }
             }
         }
     }
 
-    public static function pseudoToolCallback(...$args)
+    public static function phantomToolCallback(...$args)
     {
-        // return 'Pseudo tool called with arguments: ' . json_encode($args);
+        // return 'Phantom tool called with arguments: ' . json_encode($args);
     }
 }

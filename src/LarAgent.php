@@ -701,8 +701,8 @@ class LarAgent
             return null;
         }
 
-        // Continue if tool is pseudo tool
-        if ($tool instanceof PseudoTool) {
+        // Continue if tool is phantom tool
+        if ($tool instanceof PhantomTool) {
             return null;
         }
 
