@@ -487,3 +487,39 @@ it('omits audio configuration when not used', function () {
     expect($config)->not->toHaveKey('audio')
         ->and($config)->not->toHaveKey('modalities');
 });
+
+it('can accept UserMessage instance in message method', function () {
+    $agent = TestAgent::for('test_user_message');
+    $driver = new FakeLlmDriver();
+    $driver->addMockResponse('stop', ['content' => 'test response']);
+    
+    // Create a UserMessage instance with custom metadata
+    $userMessage = Message::user('Test message content');
+    $userMessage->setMetadata(['custom_field' => 'test_value']);
+    
+    // Pass the UserMessage instance directly to message()
+    $agent->message($userMessage);
+    
+    // Access the readyMessage property to verify the UserMessage was stored
+    $reflection = new ReflectionClass($agent);
+    $readyMessageProp = $reflection->getProperty('readyMessage');
+    $readyMessageProp->setAccessible(true);
+    $storedMessage = $readyMessageProp->getValue($agent);
+    
+    // UserMessage stores content as an array with type and text
+    $expectedContent = [
+        [
+            'type' => 'text',
+            'text' => 'Test message content',
+        ]
+    ];
+    
+    expect($storedMessage)->toBe($userMessage);
+    expect($storedMessage->getContent())->toBeArray();
+    expect($storedMessage->getContent())->toEqual($expectedContent);
+    expect($storedMessage->getMetadata())->toHaveKey('custom_field');
+    expect($storedMessage->getMetadata()['custom_field'])->toBe('test_value');
+    
+    // Also verify that string casting works correctly
+    expect((string)$storedMessage)->toBe('Test message content');
+});

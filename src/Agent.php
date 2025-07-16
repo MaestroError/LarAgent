@@ -12,6 +12,7 @@ use LarAgent\Core\DTO\AgentDTO;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\UserMessage;
 
 /**
  * Class Agent
@@ -32,6 +33,9 @@ class Agent
 
     /** @var string|null */
     protected $message;
+
+    /** @var UserMessage|null - ready made message to send to the agent */
+    protected $readyMessage = null;
 
     /** @var string */
     protected $instructions;
@@ -182,11 +186,15 @@ class Agent
     /**
      * Set the message for the agent to process
      *
-     * @param  string  $message  The message to process
+     * @param  string|UserMessage  $message  The message to process
      */
-    public function message(string $message): static
+    public function message(string|UserMessage $message): static
     {
-        $this->message = $message;
+        if ($message instanceof UserMessage) {
+            $this->readyMessage = $message;
+        } else {
+            $this->message = $message;
+        }
 
         return $this;
     }
@@ -1043,7 +1051,11 @@ class Agent
 
     protected function prepareMessage(): MessageInterface
     {
-        $message = Message::user($this->prompt($this->message));
+        if ($this->readyMessage) {
+            $message = $this->readyMessage;
+        } else {
+            $message = Message::user($this->prompt($this->message));
+        }
 
         if (! empty($this->images)) {
             foreach ($this->images as $imageUrl) {
