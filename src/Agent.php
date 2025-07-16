@@ -12,6 +12,7 @@ use LarAgent\Core\DTO\AgentDTO;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\UserMessage;
 
 /**
  * Class Agent
@@ -32,6 +33,9 @@ class Agent
 
     /** @var string|null */
     protected $message;
+
+    /** @var UserMessage|null - ready made message to send to the agent */
+    protected $readyMessage = null;
 
     /** @var string */
     protected $instructions;
@@ -130,6 +134,15 @@ class Agent
     /** @var array */
     protected $images = [];
 
+    /** @var array|null */
+    protected $audioFiles = null;
+
+    /** @var array */
+    protected $modalities = [];
+
+    /** @var array|null */
+    protected $audio = null;
+
     public function __construct($key)
     {
         $this->setupProviderData();
@@ -173,11 +186,15 @@ class Agent
     /**
      * Set the message for the agent to process
      *
-     * @param  string  $message  The message to process
+     * @param  string|UserMessage  $message  The message to process
      */
-    public function message(string $message): static
+    public function message(string|UserMessage $message): static
     {
-        $this->message = $message;
+        if ($message instanceof UserMessage) {
+            $this->readyMessage = $message;
+        } else {
+            $this->message = $message;
+        }
 
         return $this;
     }
@@ -557,6 +574,16 @@ class Agent
         });
     }
 
+    public function getModalities(): array
+    {
+        return $this->modalities;
+    }
+
+    public function getAudio(): ?array
+    {
+        return $this->audio;
+    }
+
     public function withTool(string|ToolInterface $tool): static
     {
         if (is_string($tool) && class_exists($tool)) {
@@ -596,6 +623,25 @@ class Agent
     public function withImages(array $imageUrls): static
     {
         $this->images = $imageUrls;
+
+        return $this;
+    }
+
+    public function withAudios(array $audioStrings): static
+    {
+        // ['data' => 'base64', 'format' => 'wav']
+        // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
+        $this->audioFiles = $audioStrings;
+
+        return $this;
+    }
+
+
+        // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
+    public function generateAudio(string $format, string $voice): static
+    {
+        $this->audio = ['format' => $format, 'voice' => $voice];
+        $this->modalities = ['text', 'audio'];
 
         return $this;
     }
@@ -912,6 +958,14 @@ class Agent
             $config['toolChoice'] = $this->toolChoice;
         }
 
+        if (! empty($this->modalities)) {
+            $config['modalities'] = $this->modalities;
+        }
+
+        if (! empty($this->audio)) {
+            $config['audio'] = $this->audio;
+        }
+
         return $config;
     }
 
@@ -997,11 +1051,21 @@ class Agent
 
     protected function prepareMessage(): MessageInterface
     {
-        $message = Message::user($this->prompt($this->message));
+        if ($this->readyMessage) {
+            $message = $this->readyMessage;
+        } else {
+            $message = Message::user($this->prompt($this->message));
+        }
 
         if (! empty($this->images)) {
             foreach ($this->images as $imageUrl) {
                 $message = $message->withImage($imageUrl);
+            }
+        }
+
+        if (! empty($this->audioFiles)) {
+            foreach ($this->audioFiles as $audioFile) {
+                $message = $message->withAudio($audioFile['format'], $audioFile['data']);
             }
         }
 

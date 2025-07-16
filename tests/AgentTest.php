@@ -53,7 +53,11 @@ class TestAgent extends Agent
 
     protected function afterResponse($message)
     {
-        $message->setContent($message.'. Edited via event');
+        if ($this->n > 1) {
+            return;
+        } else {
+            $message->setContent($message.'. Edited via event');
+        }
     }
 
     protected function afterToolExecution($tool, &$result)
@@ -287,9 +291,17 @@ it('passes optional parameters to driver config', function () {
     $driverProp = $reflection->getProperty('llmDriver');
     $driverProp->setAccessible(true);
     $driver = $driverProp->getValue($agent);
-    $driver->addMockResponse('stop', ['content' => 'ok']);
+    
+    $n = 3;
+    // Add $n mock responses
+    for ($i = 0; $i < $n; $i++) {
+        $content[] = 'ok';
+    }
+    $driver->addMockResponse('stop', [
+        'content' => json_encode($content),
+    ]);
 
-    $agent->n(3)->topP(0.7)->frequencyPenalty(0.2)->presencePenalty(0.1);
+    $agent->n($n)->topP(0.7)->frequencyPenalty(0.2)->presencePenalty(0.1);
 
     $agent->respond('test');
 
@@ -429,4 +441,85 @@ it('uses developer role for instructions when enabled', function () {
         }
     }
     expect($hasDevMessage)->toBeTrue();
+});
+
+it('generateAudio injects audio configuration into driver', function () {
+    class AudioAgent extends TestAgent {
+        protected function onInitialize() {}
+    }
+
+    $agent = AudioAgent::for('audio_key');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+    $driver->addMockResponse('stop', ['content' => 'ok']);
+
+    $agent->generateAudio('mp3', 'nova');
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->toMatchArray([
+        'modalities' => ['text', 'audio'],
+        'audio' => ['format' => 'mp3', 'voice' => 'nova'],
+    ]);
+});
+
+it('omits audio configuration when not used', function () {
+    class NoAudioAgent extends TestAgent {
+        protected function onInitialize() {}
+    }
+
+    $agent = NoAudioAgent::for('audio_key');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+    $driver->addMockResponse('stop', ['content' => 'ok']);
+
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->not->toHaveKey('audio')
+        ->and($config)->not->toHaveKey('modalities');
+});
+
+it('can accept UserMessage instance in message method', function () {
+    $agent = TestAgent::for('test_user_message');
+    $driver = new FakeLlmDriver();
+    $driver->addMockResponse('stop', ['content' => 'test response']);
+    
+    // Create a UserMessage instance with custom metadata
+    $userMessage = Message::user('Test message content');
+    $userMessage->setMetadata(['custom_field' => 'test_value']);
+    
+    // Pass the UserMessage instance directly to message()
+    $agent->message($userMessage);
+    
+    // Access the readyMessage property to verify the UserMessage was stored
+    $reflection = new ReflectionClass($agent);
+    $readyMessageProp = $reflection->getProperty('readyMessage');
+    $readyMessageProp->setAccessible(true);
+    $storedMessage = $readyMessageProp->getValue($agent);
+    
+    // UserMessage stores content as an array with type and text
+    $expectedContent = [
+        [
+            'type' => 'text',
+            'text' => 'Test message content',
+        ]
+    ];
+    
+    expect($storedMessage)->toBe($userMessage);
+    expect($storedMessage->getContent())->toBeArray();
+    expect($storedMessage->getContent())->toEqual($expectedContent);
+    expect($storedMessage->getMetadata())->toHaveKey('custom_field');
+    expect($storedMessage->getMetadata()['custom_field'])->toBe('test_value');
+    
+    // Also verify that string casting works correctly
+    expect((string)$storedMessage)->toBe('Test message content');
 });

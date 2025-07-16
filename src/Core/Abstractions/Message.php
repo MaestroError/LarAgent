@@ -136,10 +136,11 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
     // Additional
     public function __toString(): string
     {
-        if (is_string($this->getContent())) {
-            return $this->getContent();
+        $content = $this->getContent();
+        if (is_string($content)) {
+            return $content;
         } else {
-            return $this->getContent()[0]['text'];
+            return $content[0]['text'] ?? '';
         }
     }
 
