@@ -655,8 +655,13 @@ class LarAgent
         }
 
         if ($this->getN() !== null && $this->getN() > 1) {
-            // @todo check here for json error
-            return json_decode($response->getContent(), true);
+            $decodedContent = json_decode($response->getContent(), true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \InvalidArgumentException(
+                    'Failed to decode response JSON: ' . json_last_error_msg()
+                );
+            }
+            return $decodedContent;
         }
 
         return $response;
