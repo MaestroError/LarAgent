@@ -46,5 +46,5 @@ class WeatherAgent extends LarAgent\Agent
     }
 }
 
-
+// @todo test generateAudio method after releaseing this fix: https://github.com/openai-php/client/issues/627
 echo WeatherAgent::for('test_chat')->generateAudio('mp3', 'nova')->respond('What is my name?');

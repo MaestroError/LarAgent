@@ -129,6 +129,9 @@ class Agent
     /** @var array */
     protected $images = [];
 
+    /** @var array|null */
+    protected $audioFiles = null;
+
     /** @var array */
     protected $modalities = [];
 
@@ -615,12 +618,15 @@ class Agent
 
     public function withAudios(array $audioStrings): static
     {
-        // @todo implement base64 strings and formats adding
+        // ['data' => 'base64', 'format' => 'wav']
+        // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
+        $this->audioFiles = $audioStrings;
 
         return $this;
     }
 
 
+        // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
     public function generateAudio(string $format, string $voice): static
     {
         $this->audio = ['format' => $format, 'voice' => $voice];
@@ -1018,6 +1024,12 @@ class Agent
         if (! empty($this->images)) {
             foreach ($this->images as $imageUrl) {
                 $message = $message->withImage($imageUrl);
+            }
+        }
+
+        if (! empty($this->audioFiles)) {
+            foreach ($this->audioFiles as $audioFile) {
+                $message = $message->withAudio($audioFile['format'], $audioFile['data']);
             }
         }
 
