@@ -4,14 +4,58 @@ namespace LarAgent\API;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 use LarAgent\API\completions\CompletionRequestDTO;
+use LarAgent\Agent;
+use LarAgent\PhantomTool;
+use LarAgent\Message;
 
 class Completions
 {
-    public static function make(Request $request, string $agentClass): CompletionRequestDTO
+    protected CompletionRequestDTO $completion;
+
+    protected Agent $agent;
+    public static function make(Request $request, string $agentClass): array
     {
-        return static::validateRequest($request);
+        $completion = static::validateRequest($request);
+
+        $instance = new self();
+        $instance->completion = $completion;
+
+        $response = $instance->runAgent($agentClass);
+
+        if (is_array($response) && isset($response['tool_calls'])) {
+            $choices = [[
+                'index' => 0,
+                'message' => $response,
+                'logprobs' => null,
+                'finish_reason' => 'tool_calls',
+            ]];
+        } else {
+            $content = (string) $response;
+            $choices = [[
+                'index' => 0,
+                'message' => [
+                    'role' => 'assistant',
+                    'content' => $content,
+                    'refusal' => null,
+                    'annotations' => [],
+                ],
+                'logprobs' => null,
+                'finish_reason' => 'stop',
+            ]];
+        }
+
+        return [
+            'id' => $instance->agent->getChatSessionId(),
+            'object' => 'chat.completion',
+            'created' => time(),
+            'model' => $instance->agent->model(),
+            'choices' => $choices,
+        ];
+
+
     }
 
     private static function validateRequest(Request $request): CompletionRequestDTO
@@ -55,5 +99,139 @@ class Completions
 
         return CompletionRequestDTO::fromArray($validated);
     }
-}
 
+    protected function runAgent(string $agentClass)
+    {
+        $this->agent = new $agentClass(Str::random(10));
+
+        $messages = $this->completion->messages;
+        if (! empty($messages)) {
+            $last = array_pop($messages);
+            foreach ($messages as $message) {
+                $this->agent->addMessage(Message::fromArray($message));
+            }
+            $this->agent->message($last['content']);
+        }
+
+        if ($this->completion->model) {
+            $this->agent->withModel($this->completion->model);
+        }
+        if ($this->completion->temperature !== null) {
+            $this->agent->temperature($this->completion->temperature);
+        }
+        if ($this->completion->n !== null) {
+            $this->agent->n($this->completion->n);
+        }
+        if ($this->completion->top_p !== null) {
+            $this->agent->topP($this->completion->top_p);
+        }
+        if ($this->completion->frequency_penalty !== null) {
+            $this->agent->frequencyPenalty($this->completion->frequency_penalty);
+        }
+        if ($this->completion->presence_penalty !== null) {
+            $this->agent->presencePenalty($this->completion->presence_penalty);
+        }
+        if ($this->completion->max_completion_tokens !== null) {
+            $this->agent->maxCompletionTokens($this->completion->max_completion_tokens);
+        }
+
+        $this->registerResponseSchema();
+
+        // @todo Pass modalities and audio options to agent
+
+        // Register tools from payload
+        $this->registerPhantomTools();
+
+        $this->registerToolChoice();
+
+        // Parallel tool calls is disabled in via this API, `false` and `null` are only values to accept
+        if ($this->completion->parallel_tool_calls !== true) {
+            $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
+        }
+
+        if ($this->completion['stream'] ?? false) {
+            return $this->agent->respondStreamed();
+        }
+
+        return $this->agent->respond();
+    }
+
+    protected function registerResponseSchema()
+    {
+        if ($this->completion->response_format !== null) {
+            if (($this->completion->response_format['type'] ?? null) === 'json_schema') {
+                $schema = $this->completion->response_format['json_schema'] ?? null;
+                if (is_string($schema)) {
+                    $decoded = json_decode($schema, true);
+                    if (json_last_error() === JSON_ERROR_NONE) {
+                        $schema = $decoded;
+                    }
+                }
+                if (is_array($schema)) {
+                    $this->agent->responseSchema($schema);
+                }
+            }
+            // @todo handle json_object type
+        }
+    }
+
+    protected function registerToolChoice()
+    {
+        if ($this->completion->tool_choice !== null) {
+            $choice = $this->completion->tool_choice;
+            if ($choice === 'auto') {
+                $this->agent->toolAuto();
+            } elseif ($choice === 'none') {
+                $this->agent->toolNone();
+            } elseif ($choice === 'required') {
+                $this->agent->toolRequired();
+            } elseif (is_array($choice) && isset($choice['function']['name'])) {
+                $this->agent->forceTool($choice['function']['name']);
+            }
+        }
+    }
+
+    protected function registerPhantomTools()
+    {
+        if (isset($this->completion->tools) && is_array($this->completion->tools)) {
+            foreach ($this->completion->tools as $tool) {
+                if (isset($tool['type']) && $tool['type'] === 'function' && isset($tool['function'])) {
+                    $function = $tool['function'];
+                    $name = $function['name'] ?? null;
+                    $description = $function['description'] ?? '';
+                    
+                    if ($name) {
+                        $phantomTool = PhantomTool::create($name, $description)
+                            ->setCallback([self::class, 'phantomToolCallback']);
+                        
+                        // Add properties
+                        if (isset($function['parameters']) && isset($function['parameters']['properties'])) {
+                            foreach ($function['parameters']['properties'] as $propName => $propDetails) {
+                                $type = $propDetails['type'] ?? 'string';
+                                $propDescription = $propDetails['description'] ?? '';
+                                $enum = $propDetails['enum'] ?? [];
+                                
+                                $phantomTool->addProperty($propName, $type, $propDescription, $enum);
+                            }
+                        }
+                        
+                        // Set required properties
+                        if (isset($function['parameters']['required']) && is_array($function['parameters']['required'])) {
+                            foreach ($function['parameters']['required'] as $requiredProp) {
+                                $phantomTool->setRequired($requiredProp);
+                            }
+                        }
+                        
+                        // Register the tool with the agent
+                        $this->agent->withTool($phantomTool);
+                    }
+                }
+            }
+        }
+    }
+
+    public static function phantomToolCallback(...$args)
+    {
+        // return 'Phantom tool called with arguments: ' . json_encode($args);
+    }
+}

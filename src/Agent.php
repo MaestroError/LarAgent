@@ -11,6 +11,7 @@ use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\DTO\AgentDTO;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
+use LarAgent\Messages\ToolCallMessage;
 
 /**
  * Class Agent
@@ -196,7 +197,7 @@ class Agent
      * @param  string|null  $message  Optional message to process
      * @return string|array The agent's response
      */
-    public function respond(?string $message = null): string|array
+    public function respond(?string $message = null): string|array|ToolCallMessage
     {
         if ($message) {
             $this->message($message);
@@ -234,7 +235,9 @@ class Agent
         }
 
         $this->onConversationEnd($response);
-
+        if ($response instanceof ToolCallMessage) {
+            return $response->toArrayWithMeta();
+        }
         return $response;
     }
 
@@ -666,6 +669,27 @@ class Agent
     public function presencePenalty(float $penalty): static
     {
         $this->presencePenalty = $penalty;
+
+        return $this;
+    }
+
+    public function maxCompletionTokens(int $tokens): static
+    {
+        $this->maxCompletionTokens = $tokens;
+
+        return $this;
+    }
+
+    public function parallelToolCalls(?bool $parallel): static
+    {
+        $this->parallelToolCalls = $parallel;
+
+        return $this;
+    }
+
+    public function responseSchema(?array $schema): static
+    {
+        $this->responseSchema = $schema;
 
         return $this;
     }
