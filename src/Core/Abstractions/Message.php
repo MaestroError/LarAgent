@@ -140,7 +140,7 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
         if (is_string($content)) {
             return $content;
         } else {
-            return $content[0]['text'];
+            return $content[0]['text'] ?? '';
         }
     }
 
