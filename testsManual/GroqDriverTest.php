@@ -1,13 +1,12 @@
 <?php
 
-use LarAgent\Tests\TestCase;
 use LarAgent\Agent;
 use LarAgent\Drivers\Groq\GroqDriver;
+use LarAgent\Tests\TestCase;
 use LarAgent\Tool;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(TestCase::class);
-
 
 beforeEach(function () {
     // get api key from Groq https://console.groq.com/keys
