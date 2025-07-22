@@ -4,7 +4,7 @@ use LarAgent\Agent;
 use LarAgent\Message;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 

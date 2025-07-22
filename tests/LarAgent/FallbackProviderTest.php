@@ -2,8 +2,8 @@
 
 use LarAgent\Agent;
 use LarAgent\Messages\StreamedAssistantMessage;
-use LarAgent\Tests\Fakes\FailingLlmDriver;
-use LarAgent\Tests\Fakes\PreloadedFakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FailingLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\PreloadedFakeLlmDriver;
 
 class FallbackTestAgent extends Agent
 {

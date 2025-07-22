@@ -14,7 +14,7 @@ beforeEach(function () {
 namespace App\AiAgents;
 
 use LarAgent\Agent;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class TestAgent extends Agent
 {

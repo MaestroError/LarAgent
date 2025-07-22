@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\Tests\Fakes;
+namespace LarAgent\Tests\LarAgent\Fakes;
 
 class PreloadedFakeLlmDriver extends FakeLlmDriver
 {
