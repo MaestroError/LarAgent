@@ -53,6 +53,17 @@ return [
         ],
     ],
 
+    'groq' => [
+        'label' => 'groq',
+        'api_key' => env('GROQ_API_KEY'),
+        'api_url' => 'https://api.groq.com/openai/v1',
+        'model' => 'llama-3.1-8b-instant',
+        'driver' => \LarAgent\Drivers\Groq\GroqDriver::class,
+        'default_context_window' => 131072,
+        'default_max_completion_tokens' => 131072,
+        'default_temperature' => 1,
+    ],
+
     /**
      * Fallback provider to use when any provider fails.
      */
