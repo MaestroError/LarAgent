@@ -3,7 +3,7 @@
 use LarAgent\Core\Contracts\LlmDriver;
 use LarAgent\Tests\LarAgent\Fakes\FakeWeatherService;
 use LarAgent\Tool;
-use Mockery;
+use Mockery as m;
 
 // Test function
 function getWeather($location)
@@ -13,7 +13,7 @@ function getWeather($location)
 
 // Create a mock LlmDriver for testing
 beforeEach(function () {
-    $mockDriver = Mockery::mock(LlmDriver::class);
+    $mockDriver = m::mock(LlmDriver::class);
     $mockDriver->shouldReceive('formatToolForPayload')
         ->andReturnUsing(function ($tool) {
             return [
@@ -34,7 +34,7 @@ beforeEach(function () {
 });
 
 afterEach(function () {
-    Mockery::close();
+    m::close();
 });
 
 it('can create a tool with name and description', function () {
