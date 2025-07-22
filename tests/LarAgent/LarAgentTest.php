@@ -3,7 +3,7 @@
 use LarAgent\History\InMemoryChatHistory;
 use LarAgent\LarAgent;
 use LarAgent\Message;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
 
 it('can setup LarAgent', function () {

@@ -1,13 +1,17 @@
 <?php
 
+use LarAgent\Tests\TestCase;
 use LarAgent\Agent;
 use LarAgent\Drivers\Groq\GroqDriver;
 use LarAgent\Tool;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
+uses(TestCase::class);
+
+
 beforeEach(function () {
     // get api key from Groq https://console.groq.com/keys
-    $yourApiKey = 'your_api_key';
+    $yourApiKey = include 'groq-api-key.php';
 
     config()->set('laragent.providers.groq', [
         'label' => 'groq',
@@ -214,7 +218,7 @@ class ParallelToolTestAgent extends GroqTestAgent
 }
 
 // Groq Test Agent with strutured output(json_schema)
-class StructuredOutputTestAgent extends GroqTestAgent
+class StructuredOutputGroqTestAgent extends GroqTestAgent
 {
     // Only certain model support json_schema
     // https://console.groq.com/docs/structured-outputs#supported-models
@@ -253,7 +257,7 @@ class StructuredOutputTestAgent extends GroqTestAgent
 }
 
 // Groq Test Agent with strutured output(json_object)
-class SimpleStructuredOutputTestAgent extends GroqTestAgent
+class SimpleStructuredOutputGroqTestAgent extends GroqTestAgent
 {
     public function instructions()
     {
@@ -293,7 +297,7 @@ it('can send a message using respond', function () {
 });
 
 it('can return structured output(json_schema)', function () {
-    $agent = StructuredOutputTestAgent::for('structured_test');
+    $agent = StructuredOutputGroqTestAgent::for('structured_test');
 
     $response = $agent->respond('The Apple Watch is priced around $799.');
 
@@ -305,7 +309,7 @@ it('can return structured output(json_schema)', function () {
 });
 
 it('can return structured output(json_object)', function () {
-    $agent = SimpleStructuredOutputTestAgent::for('json_test');
+    $agent = SimpleStructuredOutputGroqTestAgent::for('json_test');
 
     $response = $agent->respond('The Apple Watch is priced around $799.');
 

@@ -1,7 +1,7 @@
 <?php
 
 use LarAgent\Core\Contracts\LlmDriver;
-use LarAgent\Tests\Fakes\FakeWeatherService;
+use LarAgent\Tests\LarAgent\Fakes\FakeWeatherService;
 use LarAgent\Tool;
 use Mockery;
 

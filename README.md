@@ -288,6 +288,19 @@ We aim to review all pull requests within a 2 weeks. Thank you for contributing 
 composer test
 ```
 
+To run manual tests create files in `testsManual\.gitignore` with API keys and run:
+
+```bash
+./vendor/bin/pest testsManual
+```
+
+API key files looks like:
+```php
+<?php
+
+return 'YourApiKey';
+```
+
 ## Security
 
 Please review [our security policy](../../security/policy) on how to report security vulnerabilities.
