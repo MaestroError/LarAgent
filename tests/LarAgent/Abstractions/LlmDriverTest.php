@@ -2,7 +2,7 @@
 
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
 
 it('returns an assistant message', function () {

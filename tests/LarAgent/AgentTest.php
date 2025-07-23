@@ -3,7 +3,7 @@
 use Illuminate\Contracts\Auth\Authenticatable;
 use LarAgent\Agent;
 use LarAgent\Message;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
 
 // Test agent
