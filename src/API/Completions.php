@@ -49,14 +49,7 @@ class Completions
                 'finish_reason' => $response instanceof ToolCallMessage ? 'tool_calls' : 'stop',
             ]];
         } else {
-            // Structured output or other array response
-            $choices = [[
-                'index' => 0,
-                'message' => $response,
-                'logprobs' => null,
-                'finish_reason' => 'stop',
-            ]];
-            $usage = null;
+            throw new \InvalidArgumentException('Response is not a MessageInterface instance');
         }
 
         return [

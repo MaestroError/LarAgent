@@ -233,6 +233,9 @@ class Agent
         $this->prepareAgent($message);
 
         try {
+            if ($this->returnMessage) {
+                $this->agent->setReturnMessage(true);
+            }
             $response = $this->agent->run();
         } catch (\Throwable $th) {
             $this->onEngineError($th);
@@ -309,6 +312,9 @@ class Agent
         $generator = (function () use ($instance, $message, $callback) {
             try {
                 // Run the agent with streaming enabled
+                if ($instance->returnMessage) {
+                    $instance->agent->setReturnMessage(true);
+                }
                 $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
                     if ($streamedMessage instanceof StreamedAssistantMessage) {
                         // Call onConversationEnd when the stream message is complete
