@@ -199,11 +199,11 @@ class Agent
     /**
      * Set the message for the agent to process
      *
-     * @param  string|UserMessage  $message  The message to process
+     * @param  string|MessageInterface  $message  The message to process
      */
-    public function message(string|UserMessage $message): static
+    public function message(string|MessageInterface $message): static
     {
-        if ($message instanceof UserMessage) {
+        if ($message instanceof MessageInterface) {
             $this->readyMessage = $message;
         } else {
             $this->message = $message;
@@ -254,7 +254,7 @@ class Agent
                 // Run fallback provider
                 $this->changeProvider($fallbackProvider);
 
-                return $this->respond($message);
+                return $this->respond();
             }
         }
 

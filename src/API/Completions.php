@@ -72,7 +72,9 @@ class Completions
             'messages' => ['required', 'array'],
             'messages.*' => ['array'],
             'messages.*.role' => ['required'],
-            'messages.*.content' => ['required'],
+            'messages.*.content' => ['nullable'],
+            'messages.*.tool_calls' => ['nullable'],
+            'messages.*.tool_call_id' => ['nullable'],
             'model' => ['required', 'string'],
             'modalities' => ['nullable', 'array'],
             'modalities.*' => ['string'],
@@ -101,7 +103,11 @@ class Completions
             }
         });
 
-        $validated = $validator->validate();
+        if ($validator->fails()) {
+            throw new \Illuminate\Validation\ValidationException($validator);
+        }
+
+        $validated = $validator->validated();
 
         return CompletionRequestDTO::fromArray($validated);
     }
@@ -117,6 +123,7 @@ class Completions
             foreach ($messages as $message) {
                 $this->agent->addMessage(Message::fromArray($message));
             }
+
             $this->agent->message(Message::fromArray($last));
         }
 

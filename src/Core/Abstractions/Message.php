@@ -91,6 +91,10 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
 
         foreach ($data as $key => $value) {
             if (property_exists($this, $key)) {
+                // Temp fix for null content
+                if($key == 'content' && $value == null) {
+                    $value = '';
+                }
                 $this->{$key} = $value;
             } else {
                 $this->{$key} = $value;
