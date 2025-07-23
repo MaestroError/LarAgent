@@ -5,7 +5,7 @@ use LarAgent\API\Completions;
 use LarAgent\Agent;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
 
 class ApiStreamedDriver extends FakeLlmDriver

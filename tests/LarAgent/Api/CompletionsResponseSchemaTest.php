@@ -3,7 +3,7 @@
 use Illuminate\Http\Request;
 use LarAgent\API\Completions;
 use LarAgent\Agent;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class SchemaDummyAgent extends Agent
 {

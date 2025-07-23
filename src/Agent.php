@@ -835,14 +835,18 @@ class Agent
         $this->model = $model;
 
         if ($this->keyIncludesModelName()) {
-            // Update chat session ID with new model
-            $this->setChatSessionId($this->getChatKey());
-
-            // Create new chat history with updated session ID
-            $this->setupChatHistory();
+            $this->refreshChatHistory();
         }
 
         return $this;
+    }
+
+    protected function refreshChatHistory(): void {
+        // Update chat session ID with new model
+        $this->setChatSessionId($this->getChatKey());
+
+        // Create new chat history with updated session ID
+        $this->setupChatHistory();
     }
 
     public function withoutModelInChatSessionId(): static
@@ -855,6 +859,7 @@ class Agent
     public function withModelInChatSessionId(): static
     {
         $this->includeModelInChatSessionId = true;
+        $this->refreshChatHistory();
 
         return $this;
     }

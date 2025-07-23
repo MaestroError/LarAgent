@@ -70,7 +70,7 @@ test('it fails when agent does not exist', function () {
 test('it can remove chat history for existing agent', function () {
     // Create some chat history first
     $agent = \App\AiAgents\TestAgent::for('test_key');
-    $agent->message('Hello')->respond();
+    $agent->withModelInChatSessionId()->message('Hello')->respond();
 
     // Verify chat histories exist
     $chatKeys = $agent->getChatKeys();
@@ -85,7 +85,7 @@ test('it can remove chat history for existing agent', function () {
 
     // Verify all chat histories and keys are completely removed
     $agent = \App\AiAgents\TestAgent::for('new_key');
-    expect($agent->chatHistory()->getMessages())->toBeEmpty()
+    expect($agent->withModelInChatSessionId()->chatHistory()->getMessages())->toBeEmpty()
         ->and($agent->getChatKeys())->toHaveCount(1)
         ->and($agent->getChatKeys())->toContain('TestAgent_gpt-4o-mini_new_key');
 });

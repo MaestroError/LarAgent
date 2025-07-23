@@ -3,9 +3,9 @@
 use Illuminate\Http\Request;
 use LarAgent\API\Completions;
 use LarAgent\Agent;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
-class BasicDummyAgent extends Agent
+class MetadataDummyAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
     protected $history = 'in_memory';
@@ -24,12 +24,19 @@ class BasicDummyAgent extends Agent
     protected function onInitialize()
     {
         $this->llmDriver->addMockResponse('stop', [
-            'content' => 'Hello! How can I assist you today?',
+            'content' => 'hello',
+            'metaData' => [
+                'usage' => [
+                    'prompt_tokens' => 1,
+                    'completion_tokens' => 1,
+                    'total_tokens' => 2,
+                ],
+            ],
         ]);
     }
 }
 
-it('returns a basic completion response', function () {
+it('returns usage metadata in completion response', function () {
     $request = Request::create('/api/completions', 'POST', [
         'model' => 'gpt-4o',
         'messages' => [
@@ -37,9 +44,8 @@ it('returns a basic completion response', function () {
         ],
     ]);
 
-    $response = Completions::make($request, BasicDummyAgent::class);
+    $response = Completions::make($request, MetadataDummyAgent::class);
 
-    expect($response)->toHaveKeys(['id', 'object', 'created', 'model', 'choices'])
-        ->and($response['choices'][0]['message']['content'])
-        ->toBe('Hello! How can I assist you today?');
+    expect($response)->toHaveKeys(['id', 'model', 'usage'])
+        ->and($response['usage'])->toBeArray();
 });
