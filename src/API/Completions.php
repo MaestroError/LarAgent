@@ -10,41 +10,49 @@ use LarAgent\API\completions\CompletionRequestDTO;
 use LarAgent\Agent;
 use LarAgent\PhantomTool;
 use LarAgent\Message;
+use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Messages\StreamedAssistantMessage;
+use LarAgent\Messages\ToolCallMessage;
 
 class Completions
 {
     protected CompletionRequestDTO $completion;
 
     protected Agent $agent;
-    public static function make(Request $request, string $agentClass): array
+
+    protected bool $stream = false;
+    public static function make(Request $request, string $agentClass): array|\Generator
     {
         $completion = static::validateRequest($request);
 
         $instance = new self();
         $instance->completion = $completion;
+        $instance->stream = (bool) $request->input('stream', false);
 
         $response = $instance->runAgent($agentClass);
 
-        if (is_array($response) && isset($response['tool_calls'])) {
+        if ($response instanceof \Generator) {
+            return $instance->streamChunks($response);
+        }
+
+        if ($response instanceof MessageInterface) {
+            $message = $response->toArrayWithMeta();
+            $choices = [[
+                'index' => 0,
+                'message' => $message,
+                'logprobs' => null,
+                'finish_reason' => $response instanceof ToolCallMessage ? 'tool_calls' : 'stop',
+            ]];
+            $usage = $message['metadata']['usage'] ?? null;
+        } else {
+            // Structured output or other array response
             $choices = [[
                 'index' => 0,
                 'message' => $response,
                 'logprobs' => null,
-                'finish_reason' => 'tool_calls',
-            ]];
-        } else {
-            $content = (string) $response;
-            $choices = [[
-                'index' => 0,
-                'message' => [
-                    'role' => 'assistant',
-                    'content' => $content,
-                    'refusal' => null,
-                    'annotations' => [],
-                ],
-                'logprobs' => null,
                 'finish_reason' => 'stop',
             ]];
+            $usage = null;
         }
 
         return [
@@ -53,6 +61,7 @@ class Completions
             'created' => time(),
             'model' => $instance->agent->model(),
             'choices' => $choices,
+            'usage' => $usage,
         ];
 
 
@@ -103,6 +112,7 @@ class Completions
     protected function runAgent(string $agentClass)
     {
         $this->agent = new $agentClass(Str::random(10));
+        $this->agent->returnMessage();
 
         $messages = $this->completion->messages;
         if (! empty($messages)) {
@@ -149,7 +159,7 @@ class Completions
             $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
         }
 
-        if ($this->completion['stream'] ?? false) {
+        if ($this->stream) {
             return $this->agent->respondStreamed();
         }
 
@@ -226,6 +236,45 @@ class Completions
                         $this->agent->withTool($phantomTool);
                     }
                 }
+            }
+        }
+    }
+
+    protected function streamChunks(\Generator $stream): \Generator
+    {
+        foreach ($stream as $chunk) {
+            if ($chunk instanceof StreamedAssistantMessage) {
+                yield [
+                    'id' => $this->agent->getChatSessionId(),
+                    'object' => 'chat.completion.chunk',
+                    'created' => time(),
+                    'model' => $this->agent->model(),
+                    'choices' => [[
+                        'index' => 0,
+                        'delta' => [
+                            'content' => $chunk->getLastChunk(),
+                        ],
+                        'logprobs' => null,
+                        'finish_reason' => $chunk->isComplete() ? 'stop' : null,
+                    ]],
+                ];
+            } elseif ($chunk instanceof ToolCallMessage) {
+                yield [
+                    'id' => $this->agent->getChatSessionId(),
+                    'object' => 'chat.completion.chunk',
+                    'created' => time(),
+                    'model' => $this->agent->model(),
+                    'choices' => [[
+                        'index' => 0,
+                        'delta' => [
+                            'tool_calls' => $chunk->toArrayWithMeta()['tool_calls'] ?? [],
+                        ],
+                        'logprobs' => null,
+                        'finish_reason' => 'tool_calls',
+                    ]],
+                ];
+            } elseif (is_array($chunk)) {
+                yield $chunk;
             }
         }
     }

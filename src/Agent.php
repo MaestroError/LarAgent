@@ -29,6 +29,12 @@ class Agent
 
     protected LlmDriverInterface $llmDriver;
 
+    /**
+     * When true respond() will return MessageInterface instance instead of
+     * casting it to string or array.
+     */
+    protected bool $returnMessage = false;
+
     protected ChatHistoryInterface $chatHistory;
 
     /** @var string|null */
@@ -203,9 +209,9 @@ class Agent
      * Process a message and get the agent's response
      *
      * @param  string|null  $message  Optional message to process
-     * @return string|array The agent's response
+     * @return string|array|MessageInterface The agent's response
      */
-    public function respond(?string $message = null): string|array|ToolCallMessage
+    public function respond(?string $message = null): string|array|MessageInterface
     {
         if ($message) {
             $this->message($message);
@@ -243,10 +249,20 @@ class Agent
         }
 
         $this->onConversationEnd($response);
+
+        if ($this->returnMessage) {
+            return $response;
+        }
+
         if ($response instanceof ToolCallMessage) {
             return $response->toArrayWithMeta();
         }
-        return $response;
+
+        if (is_array($response)) {
+            return $response;
+        }
+
+        return (string) $response;
     }
 
     protected function changeProvider(string $provider)
@@ -531,6 +547,16 @@ class Agent
     public function setChatHistory(ChatHistoryInterface $chatHistory): static
     {
         $this->chatHistory = $chatHistory;
+
+        return $this;
+    }
+
+    /**
+     * Configure respond() to return MessageInterface instance.
+     */
+    public function returnMessage(bool $return = true): static
+    {
+        $this->returnMessage = $return;
 
         return $this;
     }
