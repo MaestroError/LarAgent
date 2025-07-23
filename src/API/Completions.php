@@ -13,6 +13,7 @@ use LarAgent\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use Illuminate\Support\Facades\Log;
 
 class Completions
 {
@@ -37,13 +38,16 @@ class Completions
 
         if ($response instanceof MessageInterface) {
             $message = $response->toArrayWithMeta();
+            // Keep usage data separately
+            $usage = $message['metadata']['usage'] ?? null;
+            unset($message['metadata']['usage']);
+
             $choices = [[
                 'index' => 0,
                 'message' => $message,
                 'logprobs' => null,
                 'finish_reason' => $response instanceof ToolCallMessage ? 'tool_calls' : 'stop',
             ]];
-            $usage = $message['metadata']['usage'] ?? null;
         } else {
             // Structured output or other array response
             $choices = [[
@@ -120,12 +124,15 @@ class Completions
             foreach ($messages as $message) {
                 $this->agent->addMessage(Message::fromArray($message));
             }
-            $this->agent->message($last['content']);
+            $this->agent->message(Message::fromArray($last));
         }
+
+        $this->agent->withoutModelInChatSessionId();
 
         if ($this->completion->model) {
             $this->agent->withModel($this->completion->model);
         }
+
         if ($this->completion->temperature !== null) {
             $this->agent->temperature($this->completion->temperature);
         }
@@ -144,6 +151,7 @@ class Completions
         if ($this->completion->max_completion_tokens !== null) {
             $this->agent->maxCompletionTokens($this->completion->max_completion_tokens);
         }
+
 
         $this->registerResponseSchema();
 
@@ -252,6 +260,7 @@ class Completions
                     'choices' => [[
                         'index' => 0,
                         'delta' => [
+                            'role' => 'assistant',
                             'content' => $chunk->getLastChunk(),
                         ],
                         'logprobs' => null,
@@ -267,6 +276,7 @@ class Completions
                     'choices' => [[
                         'index' => 0,
                         'delta' => [
+                            'role' => 'tool_calls',
                             'tool_calls' => $chunk->toArrayWithMeta()['tool_calls'] ?? [],
                         ],
                         'logprobs' => null,
@@ -283,4 +293,5 @@ class Completions
     {
         // return 'Phantom tool called with arguments: ' . json_encode($args);
     }
+
 }

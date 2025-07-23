@@ -98,6 +98,13 @@ class Agent
      */
     protected $chatKey;
 
+    /**
+     * Include model name in chat session ID
+     *
+     * @var bool
+     */
+    protected $includeModelInChatSessionId = false;
+
     /** @var int */
     protected $maxCompletionTokens;
 
@@ -538,6 +545,11 @@ class Agent
         return $this->chatSessionId;
     }
 
+    public function keyIncludesModelName(): bool
+    {
+        return $this->includeModelInChatSessionId;
+    }
+
     public function getProviderName(): string
     {
         return $this->providerName;
@@ -822,11 +834,27 @@ class Agent
     {
         $this->model = $model;
 
-        // Update chat session ID with new model
-        $this->setChatSessionId($this->getChatKey());
+        if ($this->keyIncludesModelName()) {
+            // Update chat session ID with new model
+            $this->setChatSessionId($this->getChatKey());
 
-        // Create new chat history with updated session ID
-        $this->setupChatHistory();
+            // Create new chat history with updated session ID
+            $this->setupChatHistory();
+        }
+
+        return $this;
+    }
+
+    public function withoutModelInChatSessionId(): static
+    {
+        $this->includeModelInChatSessionId = false;
+
+        return $this;
+    }
+
+    public function withModelInChatSessionId(): static
+    {
+        $this->includeModelInChatSessionId = true;
 
         return $this;
     }
@@ -886,10 +914,18 @@ class Agent
 
     protected function buildSessionId()
     {
+        if ($this->keyIncludesModelName()) {
+            return sprintf(
+                '%s_%s_%s',
+                class_basename(static::class),
+                $this->model(),
+                $this->getChatKey()
+            );
+        }
+
         return sprintf(
-            '%s_%s_%s',
+            '%s_%s',
             class_basename(static::class),
-            $this->model(),
             $this->getChatKey()
         );
     }

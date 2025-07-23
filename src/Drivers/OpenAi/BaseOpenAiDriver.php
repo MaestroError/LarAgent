@@ -43,7 +43,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         // Handle the response
         $finishReason = $this->lastResponse->choices[0]->finishReason;
         $metaData = [
-            'usage' => $this->lastResponse->usage,
+            'usage' => $this->lastResponse->usage->toArray(),
         ];
 
         // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
