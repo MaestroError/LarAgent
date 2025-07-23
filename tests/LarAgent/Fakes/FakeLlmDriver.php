@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\Tests\Fakes;
+namespace LarAgent\Tests\LarAgent\Fakes;
 
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;

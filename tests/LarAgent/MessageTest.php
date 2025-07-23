@@ -6,7 +6,7 @@ use LarAgent\Messages\DeveloperMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
 use LarAgent\Messages\UserMessage;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
 
 it('creates a custom message', function () {

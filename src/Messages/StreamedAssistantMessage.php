@@ -55,6 +55,7 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
     public function setUsage(?array $usage): self
     {
         $this->usage = $usage;
+        $this->metadata['usage'] = $usage;
 
         return $this;
     }
@@ -70,5 +71,12 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
     public function getLastChunk(): ?string
     {
         return $this->lastChunk;
+    }
+
+    public function resetLastChunk(): self
+    {
+        $this->lastChunk = null;
+
+        return $this;
     }
 }
