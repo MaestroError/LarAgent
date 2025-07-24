@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\API\completions;
+namespace LarAgent\API\Completions;
 
 use ArrayAccess;
 use JsonSerializable;
@@ -9,7 +9,7 @@ class CompletionRequestDTO implements ArrayAccess, JsonSerializable
 {
     public function __construct(
         public readonly array $messages,
-        public readonly string $model,
+        public string $model,
         public readonly ?array $modalities = null,
         public readonly ?array $audio = null,
         public readonly ?int $n = null,
@@ -22,6 +22,7 @@ class CompletionRequestDTO implements ArrayAccess, JsonSerializable
         public readonly ?array $tools = null,
         public readonly mixed $tool_choice = null,
         public readonly ?bool $parallel_tool_calls = null,
+        public readonly bool $stream = false,
     ) {}
 
     public static function fromArray(array $data): self
@@ -41,6 +42,7 @@ class CompletionRequestDTO implements ArrayAccess, JsonSerializable
             tools: $data['tools'] ?? null,
             tool_choice: $data['tool_choice'] ?? null,
             parallel_tool_calls: $data['parallel_tool_calls'] ?? null,
+            stream: $data['stream'] ?? false,
         );
     }
 
@@ -61,6 +63,7 @@ class CompletionRequestDTO implements ArrayAccess, JsonSerializable
             'tools' => $this->tools,
             'tool_choice' => $this->tool_choice,
             'parallel_tool_calls' => $this->parallel_tool_calls,
+            'stream' => $this->stream,
         ];
     }
 

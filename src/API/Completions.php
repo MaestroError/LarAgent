@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use LarAgent\API\completions\CompletionRequestDTO;
+use LarAgent\API\Completions\CompletionRequestDTO;
 use LarAgent\Agent;
 use LarAgent\PhantomTool;
 use LarAgent\Message;
@@ -22,13 +22,21 @@ class Completions
     protected Agent $agent;
 
     protected bool $stream = false;
-    public static function make(Request $request, string $agentClass): array|\Generator
+    protected ?string $key = null;
+
+    public static function make(Request $request, string $agentClass, ?string $model = null, ?string $key = null): array|\Generator
     {
         $completion = static::validateRequest($request);
 
         $instance = new self();
         $instance->completion = $completion;
-        $instance->stream = (bool) $request->input('stream', false);
+        $instance->stream = $instance->completion->stream;
+        if ($model !== null) {
+            $instance->completion->model = $model;
+        }
+        if ($key) {
+            $instance->key = $key;
+        }
 
         $response = $instance->runAgent($agentClass);
 
@@ -114,7 +122,12 @@ class Completions
 
     protected function runAgent(string $agentClass)
     {
-        $this->agent = new $agentClass(Str::random(10));
+        if ($this->key) {
+            $key = $this->key;
+        } else {
+            $key = Str::random(10);
+        }
+        $this->agent = new $agentClass($key);
         $this->agent->returnMessage();
 
         $messages = $this->completion->messages;

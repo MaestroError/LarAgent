@@ -55,6 +55,11 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
         $this->metadata = $data;
     }
 
+    public function addMeta(array $data): void
+    {
+        $this->metadata = array_merge($this->metadata, $data);
+    }
+
     public function toArray(): array
     {
         $properties = [

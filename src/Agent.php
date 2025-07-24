@@ -1154,6 +1154,11 @@ class Agent
             $message = Message::user($this->prompt($this->message));
         }
 
+        $message->addMeta([
+            'agent' => basename(static::class),
+            'model' => $this->model(),
+        ]);
+
         if (! empty($this->images)) {
             foreach ($this->images as $imageUrl) {
                 $message = $message->withImage($imageUrl);
