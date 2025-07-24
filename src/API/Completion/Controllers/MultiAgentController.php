@@ -1,25 +1,47 @@
 <?php
 
-namespace LarAgent\API\Completions\Controllers;
+namespace LarAgent\API\Completion\Controllers;
 
 use Illuminate\Http\Request;
 use LarAgent\API\Completions;
 use Illuminate\Support\Facades\Log;
-use LarAgent\API\Completions\Traits\HasSessionId;
+use InvalidArgumentException;
+use LarAgent\API\Completion\Traits\HasSessionId;
 
-abstract class SingleAgentController
+abstract class MultiAgentController
 {
     use HasSessionId;
 
-    protected ?string $agentClass = null;
+    protected ?array $agents = null;
 
     protected ?array $models = null;
 
     public function completion(Request $request)
     {
+        $request->validate([
+            'model' => ['required', 'string'],
+        ]);
+
         $sessionId = $this->setSessionId();
+
+        $model = $request->model;
+
         try {
-            $response = Completions::make($request, $this->agentClass, null, $sessionId);
+            // Check the agent and model
+            if (!str_contains($model, '/')) {
+                $agentClass = $this->getAgent($model);
+                $model = '';
+            } else {
+                // Separate agent from model
+                $result = explode('/', $model, 2);
+                $agent = $result[0];
+
+                // Get agent class
+                $agentClass = $this->getAgent($agent);
+                $model = $result[1];
+            }
+
+            $response = Completions::make($request, $agentClass, $model, $sessionId);
     
             if ($response instanceof \Generator) {
                 // Return SSE
@@ -62,5 +84,15 @@ abstract class SingleAgentController
             "object" => "list",
             "data" => $models
         ]);
+    }
+
+    private function getAgent(string $agent)
+    {
+        foreach ($this->agents as $agentClass) {
+            if (basename($agentClass) === $agent) {
+                return $agentClass;
+            }
+        }
+        throw new InvalidArgumentException('Invalid model name, expected format: agentName/model or AgentName');
     }
 }

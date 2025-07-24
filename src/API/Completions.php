@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use LarAgent\API\Completions\CompletionRequestDTO;
+use LarAgent\API\Completion\CompletionRequestDTO;
 use LarAgent\Agent;
 use LarAgent\PhantomTool;
 use LarAgent\Message;
@@ -101,6 +101,7 @@ class Completions
             'tools' => ['nullable', 'array'],
             'tool_choice' => ['nullable'],
             'parallel_tool_calls' => ['nullable', 'boolean'],
+            'stream' => ['nullable', 'boolean'],
         ]);
 
         $validator->after(function ($validator) use ($data) {
@@ -180,6 +181,7 @@ class Completions
             $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
         }
 
+        Log::info('stream: ' . $this->stream);
         if ($this->stream) {
             return $this->agent->respondStreamed();
         }
@@ -265,6 +267,10 @@ class Completions
     {
         foreach ($stream as $chunk) {
             if ($chunk instanceof StreamedAssistantMessage) {
+                // Add usage data
+                $message = $chunk->toArrayWithMeta();
+                $usage = $message['metadata']['usage'] ?? null;
+
                 yield [
                     'id' => $this->agent->getChatSessionId(),
                     'object' => 'chat.completion.chunk',
@@ -279,8 +285,12 @@ class Completions
                         'logprobs' => null,
                         'finish_reason' => $chunk->isComplete() ? 'stop' : null,
                     ]],
+                    'usage' => $usage,
                 ];
             } elseif ($chunk instanceof ToolCallMessage) {
+                // Add usage data
+                $message = $chunk->toArrayWithMeta();
+                $usage = $message['metadata']['usage'] ?? null;
                 yield [
                     'id' => $this->agent->getChatSessionId(),
                     'object' => 'chat.completion.chunk',
@@ -295,6 +305,7 @@ class Completions
                         'logprobs' => null,
                         'finish_reason' => 'tool_calls',
                     ]],
+                    'usage' => $usage,
                 ];
             } elseif (is_array($chunk)) {
                 yield $chunk;

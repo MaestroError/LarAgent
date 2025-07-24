@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\API\Completions\Traits;
+namespace LarAgent\API\Completion\Traits;
 
 use Illuminate\Support\Str;
 

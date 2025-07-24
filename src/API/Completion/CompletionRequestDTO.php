@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\API\Completions;
+namespace LarAgent\API\Completion;
 
 use ArrayAccess;
 use JsonSerializable;
