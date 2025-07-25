@@ -181,7 +181,6 @@ class Completions
             $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
         }
 
-        Log::info('stream: ' . $this->stream);
         if ($this->stream) {
             return $this->agent->respondStreamed();
         }
