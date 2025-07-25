@@ -22,6 +22,14 @@ class LarAgent
 
     protected float $temperature = 1.0;
 
+    protected ?int $n = null;
+
+    protected ?float $topP = null;
+
+    protected ?float $frequencyPenalty = null;
+
+    protected ?float $presencePenalty = null;
+
     protected int $reinjectInstructionsPer = 0; // 0 Means never
 
     protected ?bool $parallelToolCalls = true;
@@ -48,6 +56,12 @@ class LarAgent
 
     /** @var callable|null Callback function for streaming */
     protected $streamCallback = null;
+
+    protected array $modalities = [];
+
+    protected ?array $audio = null;
+
+    protected bool $returnMessage = false;
 
     // Config methods
 
@@ -82,6 +96,13 @@ class LarAgent
         return $this;
     }
 
+    public function setReturnMessage(bool $returnMessage = true): self
+    {
+        $this->returnMessage = $returnMessage;
+
+        return $this;
+    }
+
     public function getMaxCompletionTokens(): int
     {
         return $this->maxCompletionTokens;
@@ -102,6 +123,54 @@ class LarAgent
     public function setTemperature(float $temperature): self
     {
         $this->temperature = $temperature;
+
+        return $this;
+    }
+
+    public function getN(): ?int
+    {
+        return $this->n;
+    }
+
+    public function setN(?int $n): self
+    {
+        $this->n = $n;
+
+        return $this;
+    }
+
+    public function getTopP(): ?float
+    {
+        return $this->topP;
+    }
+
+    public function setTopP(?float $topP): self
+    {
+        $this->topP = $topP;
+
+        return $this;
+    }
+
+    public function getFrequencyPenalty(): ?float
+    {
+        return $this->frequencyPenalty;
+    }
+
+    public function setFrequencyPenalty(?float $frequencyPenalty): self
+    {
+        $this->frequencyPenalty = $frequencyPenalty;
+
+        return $this;
+    }
+
+    public function getPresencePenalty(): ?float
+    {
+        return $this->presencePenalty;
+    }
+
+    public function setPresencePenalty(?float $presencePenalty): self
+    {
+        $this->presencePenalty = $presencePenalty;
 
         return $this;
     }
@@ -241,6 +310,19 @@ class LarAgent
     }
 
     /**
+     * Set the tool choice configuration
+     *
+     * @param  string|array|null  $toolChoice  Tool choice configuration
+     * @return $this
+     */
+    public function setToolChoice(string|array|null $toolChoice): self
+    {
+        $this->toolChoice = $toolChoice;
+
+        return $this;
+    }
+
+    /**
      * Enable or disable streaming mode
      *
      * @param  bool  $streaming  Whether to enable streaming
@@ -285,6 +367,30 @@ class LarAgent
         return $this;
     }
 
+    public function getModalities(): array
+    {
+        return $this->modalities;
+    }
+
+    public function setModalities(array $modalities): self
+    {
+        $this->modalities = $modalities;
+
+        return $this;
+    }
+
+    public function getAudio(): ?array
+    {
+        return $this->audio;
+    }
+
+    public function setAudio(?array $audio): self
+    {
+        $this->audio = $audio;
+
+        return $this;
+    }
+
     // Main API methods
 
     public function __construct(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory)
@@ -308,8 +414,14 @@ class LarAgent
         $this->temperature = $configs['temperature'] ?? $this->temperature;
         $this->reinjectInstructionsPer = $configs['reinjectInstructionsPer'] ?? $this->reinjectInstructionsPer;
         $this->model = $configs['model'] ?? $this->model;
+        $this->n = $configs['n'] ?? $this->n;
+        $this->topP = $configs['topP'] ?? $this->topP;
+        $this->frequencyPenalty = $configs['frequencyPenalty'] ?? $this->frequencyPenalty;
+        $this->presencePenalty = $configs['presencePenalty'] ?? $this->presencePenalty;
         $this->parallelToolCalls = array_key_exists('parallelToolCalls', $configs) ? $configs['parallelToolCalls'] : $this->parallelToolCalls;
         $this->toolChoice = $configs['toolChoice'] ?? $this->toolChoice;
+        $this->modalities = $configs['modalities'] ?? $this->modalities;
+        $this->audio = $configs['audio'] ?? $this->audio;
     }
 
     public function setTools(array $tools): self
@@ -519,6 +631,17 @@ class LarAgent
 
             $this->processTools($response);
 
+            // If tool choice is required or forced some tool
+            // Switch to auto tool choice to avoid infinite loop
+            if ($this->getToolChoice() !== 'none') {
+                $this->toolAuto();
+            }
+
+            // If no tool result added, return ToolCallMessage
+            if (! ($this->chatHistory->getLastMessage() instanceof ToolResultMessage)) {
+                return $response;
+            }
+
             // Continue the conversation with tool results
             if ($this->isStreaming()) {
                 return $this->runStreamed();
@@ -536,6 +659,11 @@ class LarAgent
         $this->chatHistory->writeToMemory();
 
         if ($this->driver->structuredOutputEnabled()) {
+
+            if ($this->returnMessage) {
+                return $response;
+            }
+
             $array = json_decode($response->getContent(), true);
             // Hook: Before structured output response
             if ($this->processBeforeStructuredOutput($array) === false) {
@@ -543,6 +671,17 @@ class LarAgent
             }
 
             return $array;
+        }
+
+        if ($this->getN() !== null && $this->getN() > 1) {
+            $decodedContent = json_decode($response->getContent(), true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                throw new \InvalidArgumentException(
+                    'Failed to decode response JSON: '.json_last_error_msg()
+                );
+            }
+
+            return $decodedContent;
         }
 
         return $response;
@@ -556,6 +695,22 @@ class LarAgent
             'temperature' => $this->getTemperature(),
         ];
 
+        if ($this->getN() !== null) {
+            $configs['n'] = $this->getN();
+        }
+
+        if ($this->getTopP() !== null) {
+            $configs['top_p'] = $this->getTopP();
+        }
+
+        if ($this->getFrequencyPenalty() !== null) {
+            $configs['frequency_penalty'] = $this->getFrequencyPenalty();
+        }
+
+        if ($this->getPresencePenalty() !== null) {
+            $configs['presence_penalty'] = $this->getPresencePenalty();
+        }
+
         if (! empty($this->tools)) {
             $PTC = $this->getParallelToolCalls();
             if ($PTC !== null) {
@@ -566,6 +721,14 @@ class LarAgent
             if ($toolChoice !== null) {
                 $configs['tool_choice'] = $toolChoice;
             }
+        }
+
+        if (! empty($this->modalities)) {
+            $configs['modalities'] = $this->modalities;
+        }
+
+        if (! empty($this->audio)) {
+            $configs['audio'] = $this->audio;
         }
 
         return $configs;
@@ -598,6 +761,11 @@ class LarAgent
         $args = json_decode($toolCall->getArguments(), true);
         // Hook: Before tool execution, skip tool if false returned
         if ($this->processBeforeToolExecution($tool) === false) {
+            return null;
+        }
+
+        // Continue if tool is phantom tool
+        if ($tool instanceof PhantomTool) {
             return null;
         }
 

@@ -141,6 +141,29 @@ it('excludes parallel_tool_calls from config when set to null', function () {
     expect($config)->not->toHaveKey('parallel_tool_calls');
 });
 
+it('includes optional config values when set', function () {
+    $driver = new FakeLlmDriver;
+    $chatHistory = new InMemoryChatHistory('test-chat-history');
+    $agent = LarAgent::setup($driver, $chatHistory);
+
+    $agent->setN(2);
+    $agent->setTopP(0.8);
+    $agent->setFrequencyPenalty(0.1);
+    $agent->setPresencePenalty(0.2);
+
+    $reflection = new ReflectionClass($agent);
+    $buildConfig = $reflection->getMethod('buildConfig');
+    $buildConfig->setAccessible(true);
+    $config = $buildConfig->invoke($agent);
+
+    expect($config)->toMatchArray([
+        'n' => 2,
+        'top_p' => 0.8,
+        'frequency_penalty' => 0.1,
+        'presence_penalty' => 0.2,
+    ]);
+});
+
 it('uses developer role for instructions when enabled', function () {
     $driver = new FakeLlmDriver;
     $chatHistory = new InMemoryChatHistory('test-chat-history');

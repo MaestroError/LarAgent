@@ -43,10 +43,14 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         // Handle the response
         $finishReason = $this->lastResponse->choices[0]->finishReason;
         $metaData = [
-            'usage' => $this->lastResponse->usage,
+            'usage' => $this->lastResponse->usage->toArray(),
         ];
 
-        if ($finishReason === 'tool_calls') {
+        // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
+        if (
+            $finishReason === 'tool_calls'
+            || (isset($options['tool_choice']) && is_array($options['tool_choice']) && isset($this->lastResponse->choices[0]->message->toolCalls))
+        ) {
 
             // Collect tool calls from the response
             $toolCalls = array_map(function ($toolCall) {
@@ -61,6 +65,18 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         if ($finishReason === 'stop') {
             $content = $this->lastResponse->choices[0]->message->content;
+
+            if (isset($options['n']) && $options['n'] > 1) {
+                $contentsArray = [];
+
+                foreach ($this->lastResponse->choices as $choice) {
+                    $contentsArray[] = $choice->message->content;
+                }
+
+                // @todo: get rid of encoding/decoding the same data
+                // Check: src\LarAgent.php 'processMessage' method
+                $content = json_encode($contentsArray);
+            }
 
             return new AssistantMessage($content, $metaData);
         }

@@ -41,7 +41,7 @@ test('it can create an agent', function () {
     expect($content)
         ->toContain('namespace App\AiAgents')
         ->toContain('class TestAgent extends Agent')
-        ->toContain('protected $model = \'gpt-4\'')
+        ->toContain('protected $model = \'gpt-4.1-nano\'')
         ->toContain('protected $history = \'in_memory\'')
         ->toContain('protected $provider = \'default\'');
 });

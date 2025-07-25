@@ -55,6 +55,11 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
         $this->metadata = $data;
     }
 
+    public function addMeta(array $data): void
+    {
+        $this->metadata = array_merge($this->metadata, $data);
+    }
+
     public function toArray(): array
     {
         $properties = [
@@ -91,6 +96,10 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
 
         foreach ($data as $key => $value) {
             if (property_exists($this, $key)) {
+                // Temp fix for null content
+                if ($key == 'content' && $value == null) {
+                    $value = '';
+                }
                 $this->{$key} = $value;
             } else {
                 $this->{$key} = $value;
@@ -136,10 +145,11 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
     // Additional
     public function __toString(): string
     {
-        if (is_string($this->getContent())) {
-            return $this->getContent();
+        $content = $this->getContent();
+        if (is_string($content)) {
+            return $content;
         } else {
-            return $this->getContent()[0]['text'];
+            return $content[0]['text'] ?? '';
         }
     }
 

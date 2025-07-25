@@ -8,9 +8,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(TestCase::class);
 
+/**
+ * To run this manual test, you will need to add your Groq API key to the groq-api-key.php file
+ * just `return 'your-api-key';`
+ */
 beforeEach(function () {
     // get api key from Groq https://console.groq.com/keys
     $yourApiKey = include 'groq-api-key.php';
+
+    config()->set('laragent.fallback_provider', 'groq');
 
     config()->set('laragent.providers.groq', [
         'label' => 'groq',

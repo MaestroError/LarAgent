@@ -10,12 +10,17 @@ class UserMessage extends Message implements MessageInterface
 {
     public function __construct(string $content, array $metadata = [])
     {
-        parent::__construct(Role::USER->value, $content, $metadata);
+        $this->content = [
+            [
+                'type' => 'text',
+                'text' => $content,
+            ],
+        ];
+        parent::__construct(Role::USER->value, $this->content, $metadata);
     }
 
     public function withImage(string $imageUrl): self
     {
-        $content = $this->getContent();
         $imageArray = [
             'type' => 'image_url',
             'image_url' => [
@@ -23,20 +28,29 @@ class UserMessage extends Message implements MessageInterface
             ],
         ];
 
-        if (is_string($content)) {
-            $this->setContent([
-                [
-                    'type' => 'text',
-                    'text' => $content,
-                ],
-                [...$imageArray],
-            ]);
-        }
+        $this->content[] = $imageArray;
 
-        if (is_array($content)) {
-            $content[] = $imageArray;
-            $this->setContent($content);
-        }
+        return $this;
+    }
+
+    /**
+     * Add audio to the message
+     *
+     * @param  string  $format  The format of the audio
+     * @param  string  $data  The audio data in Base64
+     * @return static
+     */
+    public function withAudio(string $format, string $data): self
+    {
+        $audioArray = [
+            'type' => 'input_audio',
+            'input_audio' => [
+                'data' => $data,
+                'format' => $format,
+            ],
+        ];
+
+        $this->content[] = $audioArray;
 
         return $this;
     }

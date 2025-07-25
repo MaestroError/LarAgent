@@ -34,3 +34,4 @@ testbench.yaml
 /openai-api-key.php
 /chat-history/*
 /json_History/*
+/gemini-api-key.php
