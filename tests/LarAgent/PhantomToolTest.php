@@ -2,7 +2,7 @@
 
 use LarAgent\Agent;
 use LarAgent\PhantomTool;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class PhantomToolAgent extends Agent
 {

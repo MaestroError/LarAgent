@@ -69,7 +69,7 @@ test('it fails when agent does not exist', function () {
 test('it can clear chat history for existing agent', function () {
     // Create some chat history first
     $agent = \App\AiAgents\TestAgent::for('test_key');
-    $agent->message('Hello')->respond();
+    $agent->withModelInChatSessionId()->message('Hello')->respond();
 
     // Verify chat history exists
     $chatKeys = $agent->getChatKeys();

@@ -6,45 +6,58 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
-use LarAgent\API\completions\CompletionRequestDTO;
+use LarAgent\API\Completion\CompletionRequestDTO;
 use LarAgent\Agent;
 use LarAgent\PhantomTool;
 use LarAgent\Message;
+use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Messages\StreamedAssistantMessage;
+use LarAgent\Messages\ToolCallMessage;
+use Illuminate\Support\Facades\Log;
 
 class Completions
 {
     protected CompletionRequestDTO $completion;
 
     protected Agent $agent;
-    public static function make(Request $request, string $agentClass): array
+
+    protected bool $stream = false;
+    protected ?string $key = null;
+
+    public static function make(Request $request, string $agentClass, ?string $model = null, ?string $key = null): array|\Generator
     {
         $completion = static::validateRequest($request);
 
         $instance = new self();
         $instance->completion = $completion;
+        $instance->stream = $instance->completion->stream;
+        if ($model !== null) {
+            $instance->completion->model = $model;
+        }
+        if ($key) {
+            $instance->key = $key;
+        }
 
         $response = $instance->runAgent($agentClass);
 
-        if (is_array($response) && isset($response['tool_calls'])) {
+        if ($response instanceof \Generator) {
+            return $instance->streamChunks($response);
+        }
+
+        if ($response instanceof MessageInterface) {
+            $message = $response->toArrayWithMeta();
+            // Keep usage data separately
+            $usage = $message['metadata']['usage'] ?? null;
+            unset($message['metadata']['usage']);
+
             $choices = [[
                 'index' => 0,
-                'message' => $response,
+                'message' => $message,
                 'logprobs' => null,
-                'finish_reason' => 'tool_calls',
+                'finish_reason' => $response instanceof ToolCallMessage ? 'tool_calls' : 'stop',
             ]];
         } else {
-            $content = (string) $response;
-            $choices = [[
-                'index' => 0,
-                'message' => [
-                    'role' => 'assistant',
-                    'content' => $content,
-                    'refusal' => null,
-                    'annotations' => [],
-                ],
-                'logprobs' => null,
-                'finish_reason' => 'stop',
-            ]];
+            throw new \InvalidArgumentException('Response is not a MessageInterface instance');
         }
 
         return [
@@ -53,6 +66,7 @@ class Completions
             'created' => time(),
             'model' => $instance->agent->model(),
             'choices' => $choices,
+            'usage' => $usage,
         ];
 
 
@@ -66,7 +80,9 @@ class Completions
             'messages' => ['required', 'array'],
             'messages.*' => ['array'],
             'messages.*.role' => ['required'],
-            'messages.*.content' => ['required'],
+            'messages.*.content' => ['nullable'],
+            'messages.*.tool_calls' => ['nullable'],
+            'messages.*.tool_call_id' => ['nullable'],
             'model' => ['required', 'string'],
             'modalities' => ['nullable', 'array'],
             'modalities.*' => ['string'],
@@ -85,6 +101,7 @@ class Completions
             'tools' => ['nullable', 'array'],
             'tool_choice' => ['nullable'],
             'parallel_tool_calls' => ['nullable', 'boolean'],
+            'stream' => ['nullable', 'boolean'],
         ]);
 
         $validator->after(function ($validator) use ($data) {
@@ -95,14 +112,24 @@ class Completions
             }
         });
 
-        $validated = $validator->validate();
+        if ($validator->fails()) {
+            throw new \Illuminate\Validation\ValidationException($validator);
+        }
+
+        $validated = $validator->validated();
 
         return CompletionRequestDTO::fromArray($validated);
     }
 
     protected function runAgent(string $agentClass)
     {
-        $this->agent = new $agentClass(Str::random(10));
+        if ($this->key) {
+            $key = $this->key;
+        } else {
+            $key = Str::random(10);
+        }
+        $this->agent = new $agentClass($key);
+        $this->agent->returnMessage();
 
         $messages = $this->completion->messages;
         if (! empty($messages)) {
@@ -110,12 +137,16 @@ class Completions
             foreach ($messages as $message) {
                 $this->agent->addMessage(Message::fromArray($message));
             }
-            $this->agent->message($last['content']);
+
+            $this->agent->message(Message::fromArray($last));
         }
+
+        $this->agent->withoutModelInChatSessionId();
 
         if ($this->completion->model) {
             $this->agent->withModel($this->completion->model);
         }
+
         if ($this->completion->temperature !== null) {
             $this->agent->temperature($this->completion->temperature);
         }
@@ -135,6 +166,7 @@ class Completions
             $this->agent->maxCompletionTokens($this->completion->max_completion_tokens);
         }
 
+
         $this->registerResponseSchema();
 
         // @todo Pass modalities and audio options to agent
@@ -149,7 +181,7 @@ class Completions
             $this->agent->parallelToolCalls($this->completion->parallel_tool_calls);
         }
 
-        if ($this->completion['stream'] ?? false) {
+        if ($this->stream) {
             return $this->agent->respondStreamed();
         }
 
@@ -230,8 +262,59 @@ class Completions
         }
     }
 
+    protected function streamChunks(\Generator $stream): \Generator
+    {
+        foreach ($stream as $chunk) {
+            if ($chunk instanceof StreamedAssistantMessage) {
+                // Add usage data
+                $message = $chunk->toArrayWithMeta();
+                $usage = $message['metadata']['usage'] ?? null;
+
+                yield [
+                    'id' => $this->agent->getChatSessionId(),
+                    'object' => 'chat.completion.chunk',
+                    'created' => time(),
+                    'model' => $this->agent->model(),
+                    'choices' => [[
+                        'index' => 0,
+                        'delta' => [
+                            'role' => 'assistant',
+                            'content' => $chunk->getLastChunk(),
+                        ],
+                        'logprobs' => null,
+                        'finish_reason' => $chunk->isComplete() ? 'stop' : null,
+                    ]],
+                    'usage' => $usage,
+                ];
+            } elseif ($chunk instanceof ToolCallMessage) {
+                // Add usage data
+                $message = $chunk->toArrayWithMeta();
+                $usage = $message['metadata']['usage'] ?? null;
+                yield [
+                    'id' => $this->agent->getChatSessionId(),
+                    'object' => 'chat.completion.chunk',
+                    'created' => time(),
+                    'model' => $this->agent->model(),
+                    'choices' => [[
+                        'index' => 0,
+                        'delta' => [
+                            'role' => 'tool_calls',
+                            'tool_calls' => $chunk->toArrayWithMeta()['tool_calls'] ?? [],
+                        ],
+                        'logprobs' => null,
+                        'finish_reason' => 'tool_calls',
+                    ]],
+                    'usage' => $usage,
+                ];
+            } elseif (is_array($chunk)) {
+                yield $chunk;
+            }
+        }
+    }
+
     public static function phantomToolCallback(...$args)
     {
         // return 'Phantom tool called with arguments: ' . json_encode($args);
     }
+
 }

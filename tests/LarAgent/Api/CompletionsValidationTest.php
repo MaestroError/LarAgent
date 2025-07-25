@@ -4,7 +4,7 @@ use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 use LarAgent\API\Completions;
 use LarAgent\Agent;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class DummyAgent extends Agent
 {

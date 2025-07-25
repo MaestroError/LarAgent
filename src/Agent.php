@@ -29,6 +29,12 @@ class Agent
 
     protected LlmDriverInterface $llmDriver;
 
+    /**
+     * When true respond() will return MessageInterface instance instead of
+     * casting it to string or array.
+     */
+    protected bool $returnMessage = false;
+
     protected ChatHistoryInterface $chatHistory;
 
     /** @var string|null */
@@ -91,6 +97,13 @@ class Agent
      * @var string
      */
     protected $chatKey;
+
+    /**
+     * Include model name in chat session ID
+     *
+     * @var bool
+     */
+    protected $includeModelInChatSessionId = false;
 
     /** @var int */
     protected $maxCompletionTokens;
@@ -186,11 +199,11 @@ class Agent
     /**
      * Set the message for the agent to process
      *
-     * @param  string|UserMessage  $message  The message to process
+     * @param  string|MessageInterface  $message  The message to process
      */
-    public function message(string|UserMessage $message): static
+    public function message(string|MessageInterface $message): static
     {
-        if ($message instanceof UserMessage) {
+        if ($message instanceof MessageInterface) {
             $this->readyMessage = $message;
         } else {
             $this->message = $message;
@@ -203,9 +216,9 @@ class Agent
      * Process a message and get the agent's response
      *
      * @param  string|null  $message  Optional message to process
-     * @return string|array The agent's response
+     * @return string|array|MessageInterface The agent's response
      */
-    public function respond(?string $message = null): string|array|ToolCallMessage
+    public function respond(?string $message = null): string|array|MessageInterface
     {
         if ($message) {
             $this->message($message);
@@ -220,6 +233,9 @@ class Agent
         $this->prepareAgent($message);
 
         try {
+            if ($this->returnMessage) {
+                $this->agent->setReturnMessage(true);
+            }
             $response = $this->agent->run();
         } catch (\Throwable $th) {
             $this->onEngineError($th);
@@ -238,15 +254,25 @@ class Agent
                 // Run fallback provider
                 $this->changeProvider($fallbackProvider);
 
-                return $this->respond($message);
+                return $this->respond();
             }
         }
 
         $this->onConversationEnd($response);
+
+        if ($this->returnMessage) {
+            return $response;
+        }
+
         if ($response instanceof ToolCallMessage) {
             return $response->toArrayWithMeta();
         }
-        return $response;
+
+        if (is_array($response)) {
+            return $response;
+        }
+
+        return (string) $response;
     }
 
     protected function changeProvider(string $provider)
@@ -286,6 +312,9 @@ class Agent
         $generator = (function () use ($instance, $message, $callback) {
             try {
                 // Run the agent with streaming enabled
+                if ($instance->returnMessage) {
+                    $instance->agent->setReturnMessage(true);
+                }
                 $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
                     if ($streamedMessage instanceof StreamedAssistantMessage) {
                         // Call onConversationEnd when the stream message is complete
@@ -522,6 +551,11 @@ class Agent
         return $this->chatSessionId;
     }
 
+    public function keyIncludesModelName(): bool
+    {
+        return $this->includeModelInChatSessionId;
+    }
+
     public function getProviderName(): string
     {
         return $this->providerName;
@@ -555,6 +589,16 @@ class Agent
     public function setChatHistory(ChatHistoryInterface $chatHistory): static
     {
         $this->chatHistory = $chatHistory;
+
+        return $this;
+    }
+
+    /**
+     * Configure respond() to return MessageInterface instance.
+     */
+    public function returnMessage(bool $return = true): static
+    {
+        $this->returnMessage = $return;
 
         return $this;
     }
@@ -796,11 +840,32 @@ class Agent
     {
         $this->model = $model;
 
+        if ($this->keyIncludesModelName()) {
+            $this->refreshChatHistory();
+        }
+
+        return $this;
+    }
+
+    protected function refreshChatHistory(): void {
         // Update chat session ID with new model
         $this->setChatSessionId($this->getChatKey());
 
         // Create new chat history with updated session ID
         $this->setupChatHistory();
+    }
+
+    public function withoutModelInChatSessionId(): static
+    {
+        $this->includeModelInChatSessionId = false;
+
+        return $this;
+    }
+
+    public function withModelInChatSessionId(): static
+    {
+        $this->includeModelInChatSessionId = true;
+        $this->refreshChatHistory();
 
         return $this;
     }
@@ -860,10 +925,18 @@ class Agent
 
     protected function buildSessionId()
     {
+        if ($this->keyIncludesModelName()) {
+            return sprintf(
+                '%s_%s_%s',
+                class_basename(static::class),
+                $this->model(),
+                $this->getChatKey()
+            );
+        }
+
         return sprintf(
-            '%s_%s_%s',
+            '%s_%s',
             class_basename(static::class),
-            $this->model(),
             $this->getChatKey()
         );
     }
@@ -1080,6 +1153,11 @@ class Agent
         } else {
             $message = Message::user($this->prompt($this->message));
         }
+
+        $message->addMeta([
+            'agent' => basename(static::class),
+            'model' => $this->model(),
+        ]);
 
         if (! empty($this->images)) {
             foreach ($this->images as $imageUrl) {

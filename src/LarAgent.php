@@ -61,6 +61,8 @@ class LarAgent
 
     protected ?array $audio = null;
 
+    protected bool $returnMessage = false;
+
     // Config methods
 
     public function getModel(): string
@@ -90,6 +92,13 @@ class LarAgent
     public function setContextWindowSize(int $contextWindowSize): self
     {
         $this->contextWindowSize = $contextWindowSize;
+
+        return $this;
+    }
+
+    public function setReturnMessage(bool $returnMessage = true): self
+    {
+        $this->returnMessage = $returnMessage;
 
         return $this;
     }
@@ -650,6 +659,11 @@ class LarAgent
         $this->chatHistory->writeToMemory();
 
         if ($this->driver->structuredOutputEnabled()) {
+            
+            if ($this->returnMessage) {
+                return $response;
+            }
+
             $array = json_decode($response->getContent(), true);
             // Hook: Before structured output response
             if ($this->processBeforeStructuredOutput($array) === false) {

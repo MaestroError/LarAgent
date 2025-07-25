@@ -3,7 +3,8 @@
 use Illuminate\Http\Request;
 use LarAgent\API\Completions;
 use LarAgent\Agent;
-use LarAgent\Tests\Fakes\FakeLlmDriver;
+use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class SchemaDummyAgent extends Agent
 {
@@ -30,7 +31,7 @@ class SchemaDummyAgent extends Agent
         ]);
     }
 
-    public function respond(?string $message = null): string|array
+    public function respond(?string $message = null): string|array|MessageInterface
     {
         $response = parent::respond($message);
         self::$capturedSchema = $this->structuredOutput();
