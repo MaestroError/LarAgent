@@ -2,7 +2,6 @@
 
 require_once __DIR__.'/vendor/autoload.php';
 
-use LarAgent\Attributes\Tool;
 use LarAgent\PhantomTool;
 
 function config(string $key): mixed
@@ -46,12 +45,13 @@ class WeatherAgent extends LarAgent\Agent
             User info: ".json_encode($user);
     }
 
-    public function registerTools() {
+    public function registerTools()
+    {
         return [
             PhantomTool::create('phantom_tool', 'Get the current weather in a given location')
                 ->addProperty('location', 'string', 'The city and state, e.g. San Francisco, CA')
                 ->setRequired('location')
-                ->setCallback("phantomTool"),
+                ->setCallback('phantomTool'),
         ];
     }
 
@@ -60,7 +60,6 @@ class WeatherAgent extends LarAgent\Agent
         return $message.'. Always check if I have other questions.';
     }
 }
-
 
 $response = WeatherAgent::for('test_chat')->forceTool('phantom_tool')->respond('What is weather in New York?');
 echo "\n---\n";

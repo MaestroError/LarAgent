@@ -5,15 +5,13 @@ namespace LarAgent\API;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
-use LarAgent\API\Completion\CompletionRequestDTO;
 use LarAgent\Agent;
-use LarAgent\PhantomTool;
-use LarAgent\Message;
+use LarAgent\API\Completion\CompletionRequestDTO;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Message;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use Illuminate\Support\Facades\Log;
+use LarAgent\PhantomTool;
 
 class Completions
 {
@@ -22,13 +20,14 @@ class Completions
     protected Agent $agent;
 
     protected bool $stream = false;
+
     protected ?string $key = null;
 
     public static function make(Request $request, string $agentClass, ?string $model = null, ?string $key = null): array|\Generator
     {
         $completion = static::validateRequest($request);
 
-        $instance = new self();
+        $instance = new self;
         $instance->completion = $completion;
         $instance->stream = $instance->completion->stream;
         if ($model !== null) {
@@ -68,7 +67,6 @@ class Completions
             'choices' => $choices,
             'usage' => $usage,
         ];
-
 
     }
 
@@ -166,7 +164,6 @@ class Completions
             $this->agent->maxCompletionTokens($this->completion->max_completion_tokens);
         }
 
-
         $this->registerResponseSchema();
 
         // @todo Pass modalities and audio options to agent
@@ -231,29 +228,29 @@ class Completions
                     $function = $tool['function'];
                     $name = $function['name'] ?? null;
                     $description = $function['description'] ?? '';
-                    
+
                     if ($name) {
                         $phantomTool = PhantomTool::create($name, $description)
                             ->setCallback([self::class, 'phantomToolCallback']);
-                        
+
                         // Add properties
                         if (isset($function['parameters']) && isset($function['parameters']['properties'])) {
                             foreach ($function['parameters']['properties'] as $propName => $propDetails) {
                                 $type = $propDetails['type'] ?? 'string';
                                 $propDescription = $propDetails['description'] ?? '';
                                 $enum = $propDetails['enum'] ?? [];
-                                
+
                                 $phantomTool->addProperty($propName, $type, $propDescription, $enum);
                             }
                         }
-                        
+
                         // Set required properties
                         if (isset($function['parameters']['required']) && is_array($function['parameters']['required'])) {
                             foreach ($function['parameters']['required'] as $requiredProp) {
                                 $phantomTool->setRequired($requiredProp);
                             }
                         }
-                        
+
                         // Register the tool with the agent
                         $this->agent->withTool($phantomTool);
                     }
@@ -316,5 +313,4 @@ class Completions
     {
         // return 'Phantom tool called with arguments: ' . json_encode($args);
     }
-
 }

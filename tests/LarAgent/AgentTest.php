@@ -282,7 +282,8 @@ it('includes toolChoice when using tool selection methods', function () {
 });
 
 it('passes optional parameters to driver config', function () {
-    class SimpleAgentForConfig extends TestAgent {
+    class SimpleAgentForConfig extends TestAgent
+    {
         protected function onInitialize() {}
     }
 
@@ -292,7 +293,7 @@ it('passes optional parameters to driver config', function () {
     $driverProp = $reflection->getProperty('llmDriver');
     $driverProp->setAccessible(true);
     $driver = $driverProp->getValue($agent);
-    
+
     $n = 3;
     // Add $n mock responses
     for ($i = 0; $i < $n; $i++) {
@@ -445,7 +446,8 @@ it('uses developer role for instructions when enabled', function () {
 });
 
 it('generateAudio injects audio configuration into driver', function () {
-    class AudioAgent extends TestAgent {
+    class AudioAgent extends TestAgent
+    {
         protected function onInitialize() {}
     }
 
@@ -469,7 +471,8 @@ it('generateAudio injects audio configuration into driver', function () {
 });
 
 it('omits audio configuration when not used', function () {
-    class NoAudioAgent extends TestAgent {
+    class NoAudioAgent extends TestAgent
+    {
         protected function onInitialize() {}
     }
 
@@ -491,36 +494,36 @@ it('omits audio configuration when not used', function () {
 
 it('can accept UserMessage instance in message method', function () {
     $agent = TestAgent::for('test_user_message');
-    $driver = new FakeLlmDriver();
+    $driver = new FakeLlmDriver;
     $driver->addMockResponse('stop', ['content' => 'test response']);
-    
+
     // Create a UserMessage instance with custom metadata
     $userMessage = Message::user('Test message content');
     $userMessage->setMetadata(['custom_field' => 'test_value']);
-    
+
     // Pass the UserMessage instance directly to message()
     $agent->message($userMessage);
-    
+
     // Access the readyMessage property to verify the UserMessage was stored
     $reflection = new ReflectionClass($agent);
     $readyMessageProp = $reflection->getProperty('readyMessage');
     $readyMessageProp->setAccessible(true);
     $storedMessage = $readyMessageProp->getValue($agent);
-    
+
     // UserMessage stores content as an array with type and text
     $expectedContent = [
         [
             'type' => 'text',
             'text' => 'Test message content',
-        ]
+        ],
     ];
-    
+
     expect($storedMessage)->toBe($userMessage);
     expect($storedMessage->getContent())->toBeArray();
     expect($storedMessage->getContent())->toEqual($expectedContent);
     expect($storedMessage->getMetadata())->toHaveKey('custom_field');
     expect($storedMessage->getMetadata()['custom_field'])->toBe('test_value');
-    
+
     // Also verify that string casting works correctly
-    expect((string)$storedMessage)->toBe('Test message content');
+    expect((string) $storedMessage)->toBe('Test message content');
 });

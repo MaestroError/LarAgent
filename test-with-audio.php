@@ -2,8 +2,6 @@
 
 require_once __DIR__.'/vendor/autoload.php';
 
-use LarAgent\Attributes\Tool;
-
 function config(string $key): mixed
 {
     $yourApiKey = include 'openai-api-key.php';
@@ -51,8 +49,8 @@ $base64Audio = '//NkxAAAAANIAAAAAExBTUVVVVVMQU1FMy4xMDBVVVVVVVVVVVVVVVVVVVVVVVVV
 $audios = [
     [
         'format' => 'mp3',
-        'data' => $base64Audio
-    ]
+        'data' => $base64Audio,
+    ],
 ];
 
 echo WeatherAgent::for('test_chat')->withAudios($audios)->respond();

@@ -2,14 +2,16 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
-use LarAgent\API\Completions;
 use LarAgent\Agent;
+use LarAgent\API\Completions;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class DummyAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
+
     protected $driver = FakeLlmDriver::class;
 
     public function instructions()
@@ -65,4 +67,3 @@ it('validates a correct request', function () {
     expect($result)->toHaveKey('choices')
         ->and($result['model'])->toBe('gpt-4o');
 });
-

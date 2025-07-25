@@ -2,8 +2,6 @@
 
 require_once __DIR__.'/vendor/autoload.php';
 
-use LarAgent\Attributes\Tool;
-
 function config(string $key): mixed
 {
     $yourApiKey = include 'openai-api-key.php';
@@ -32,8 +30,8 @@ class PropertyTestAgent extends LarAgent\Agent
 
     public function instructions()
     {
-        return "You are an AI assistant demonstrating agent property capabilities. 
-                Keep responses short and focused on the specific question asked.";
+        return 'You are an AI assistant demonstrating agent property capabilities. 
+                Keep responses short and focused on the specific question asked.';
     }
 }
 

@@ -1,8 +1,8 @@
 <?php
 
 use Illuminate\Http\Request;
-use LarAgent\API\Completions;
 use LarAgent\Agent;
+use LarAgent\API\Completions;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
@@ -23,13 +23,17 @@ class ApiStreamedDriver extends FakeLlmDriver
             $msg = new StreamedAssistantMessage('');
             $msg->appendContent($data['content']);
             $msg->setComplete(true);
-            if ($callback) { $callback($msg); }
+            if ($callback) {
+                $callback($msg);
+            }
             yield $msg;
         } elseif ($finish === 'tool_calls') {
             $id = '1';
             $calls[] = new ToolCall($id, $data['toolName'], $data['arguments']);
             $message = new ToolCallMessage($calls, $this->toolCallsToMessage($calls));
-            if ($callback) { $callback($message); }
+            if ($callback) {
+                $callback($message);
+            }
             yield $message;
         }
     }
@@ -38,7 +42,9 @@ class ApiStreamedDriver extends FakeLlmDriver
 class StreamingApiAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
+
     protected $driver = ApiStreamedDriver::class;
 
     public function instructions()

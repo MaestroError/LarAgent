@@ -2,8 +2,6 @@
 
 require_once __DIR__.'/vendor/autoload.php';
 
-use LarAgent\Attributes\Tool;
-
 function config(string $key): mixed
 {
     $yourApiKey = include 'openai-api-key.php';

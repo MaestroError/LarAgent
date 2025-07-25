@@ -1,14 +1,16 @@
 <?php
 
 use Illuminate\Http\Request;
-use LarAgent\API\Completions;
 use LarAgent\Agent;
+use LarAgent\API\Completions;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class MetadataDummyAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
+
     protected $driver = FakeLlmDriver::class;
 
     public function instructions()

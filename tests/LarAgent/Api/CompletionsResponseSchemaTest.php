@@ -1,15 +1,17 @@
 <?php
 
 use Illuminate\Http\Request;
-use LarAgent\API\Completions;
 use LarAgent\Agent;
+use LarAgent\API\Completions;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class SchemaDummyAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
+
     protected $driver = FakeLlmDriver::class;
 
     public static ?array $capturedSchema = null;

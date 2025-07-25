@@ -638,7 +638,7 @@ class LarAgent
             }
 
             // If no tool result added, return ToolCallMessage
-            if (!($this->chatHistory->getLastMessage() instanceof ToolResultMessage)) {
+            if (! ($this->chatHistory->getLastMessage() instanceof ToolResultMessage)) {
                 return $response;
             }
 
@@ -646,7 +646,7 @@ class LarAgent
             if ($this->isStreaming()) {
                 return $this->runStreamed();
             }
-            
+
             // Reset message to null to skip adding it again in chat history
             $this->message = null;
 
@@ -659,7 +659,7 @@ class LarAgent
         $this->chatHistory->writeToMemory();
 
         if ($this->driver->structuredOutputEnabled()) {
-            
+
             if ($this->returnMessage) {
                 return $response;
             }
@@ -677,9 +677,10 @@ class LarAgent
             $decodedContent = json_decode($response->getContent(), true);
             if (json_last_error() !== JSON_ERROR_NONE) {
                 throw new \InvalidArgumentException(
-                    'Failed to decode response JSON: ' . json_last_error_msg()
+                    'Failed to decode response JSON: '.json_last_error_msg()
                 );
             }
+
             return $decodedContent;
         }
 

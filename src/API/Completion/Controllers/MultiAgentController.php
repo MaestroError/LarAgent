@@ -3,10 +3,10 @@
 namespace LarAgent\API\Completion\Controllers;
 
 use Illuminate\Http\Request;
-use LarAgent\API\Completions;
 use Illuminate\Support\Facades\Log;
 use InvalidArgumentException;
 use LarAgent\API\Completion\Traits\HasSessionId;
+use LarAgent\API\Completions;
 
 abstract class MultiAgentController
 {
@@ -28,7 +28,7 @@ abstract class MultiAgentController
 
         try {
             // Check the agent and model
-            if (!str_contains($model, '/')) {
+            if (! str_contains($model, '/')) {
                 $agentClass = $this->getAgent($model);
                 $model = '';
             } else {
@@ -42,7 +42,7 @@ abstract class MultiAgentController
             }
 
             $response = Completions::make($request, $agentClass, $model, $sessionId);
-    
+
             if ($response instanceof \Generator) {
                 // Return SSE
                 return response()->stream(function () use ($response) {
@@ -59,9 +59,10 @@ abstract class MultiAgentController
                 ]);
             } else {
                 return response()->json($response);
-            }   
+            }
         } catch (\Throwable $th) {
             Log::error($th);
+
             return response()->json([
                 'error' => $th->getMessage(),
             ], 500);
@@ -74,15 +75,16 @@ abstract class MultiAgentController
         $appName = config('laragent.app_name');
         foreach ($this->models as $model) {
             $models[] = [
-                "id" => $model,
-                "object" => "model",
-                "created" => 1753357877,
-                "owned_by" => $appName
+                'id' => $model,
+                'object' => 'model',
+                'created' => 1753357877,
+                'owned_by' => $appName,
             ];
         }
+
         return response()->json([
-            "object" => "list",
-            "data" => $models
+            'object' => 'list',
+            'data' => $models,
         ]);
     }
 

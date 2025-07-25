@@ -7,7 +7,9 @@ use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 class PhantomToolAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
+
     protected $driver = FakeLlmDriver::class;
 
     public function registerTools()

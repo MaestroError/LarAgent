@@ -3,10 +3,10 @@
 namespace LarAgent\API\Completion\Controllers;
 
 use Illuminate\Http\Request;
-use LarAgent\API\Completions;
 use Illuminate\Support\Facades\Log;
-use LarAgent\API\Completion\Traits\HasSessionId;
 use InvalidArgumentException;
+use LarAgent\API\Completion\Traits\HasSessionId;
+use LarAgent\API\Completions;
 
 abstract class SingleAgentController
 {
@@ -25,14 +25,14 @@ abstract class SingleAgentController
         $sessionId = $this->setSessionId();
 
         try {
-            
+
             // Check the model name
-            if(!in_array($request->model, $this->models)) {
+            if (! in_array($request->model, $this->models)) {
                 throw new InvalidArgumentException('Invalid model name');
             }
 
             $response = Completions::make($request, $this->agentClass, null, $sessionId);
-    
+
             if ($response instanceof \Generator) {
                 // Return SSE
                 return response()->stream(function () use ($response) {
@@ -49,9 +49,10 @@ abstract class SingleAgentController
                 ]);
             } else {
                 return response()->json($response);
-            }   
+            }
         } catch (\Throwable $th) {
             Log::error($th);
+
             return response()->json([
                 'error' => $th->getMessage(),
             ], 500);
@@ -64,15 +65,16 @@ abstract class SingleAgentController
         $appName = config('laragent.app_name');
         foreach ($this->models as $model) {
             $models[] = [
-                "id" => $model,
-                "object" => "model",
-                "created" => 1753357877,
-                "owned_by" => $appName
+                'id' => $model,
+                'object' => 'model',
+                'created' => 1753357877,
+                'owned_by' => $appName,
             ];
         }
+
         return response()->json([
-            "object" => "list",
-            "data" => $models
+            'object' => 'list',
+            'data' => $models,
         ]);
     }
 }

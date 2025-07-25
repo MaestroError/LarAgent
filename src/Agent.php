@@ -704,8 +704,7 @@ class Agent
         return $this;
     }
 
-
-        // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
+    // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
     public function generateAudio(string $format, string $voice): static
     {
         $this->audio = ['format' => $format, 'voice' => $voice];
@@ -847,7 +846,8 @@ class Agent
         return $this;
     }
 
-    protected function refreshChatHistory(): void {
+    protected function refreshChatHistory(): void
+    {
         // Update chat session ID with new model
         $this->setChatSessionId($this->getChatKey());
 

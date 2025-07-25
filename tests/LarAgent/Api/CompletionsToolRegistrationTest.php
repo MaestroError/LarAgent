@@ -1,15 +1,16 @@
 <?php
 
 use Illuminate\Http\Request;
-use LarAgent\API\Completions;
 use LarAgent\Agent;
-use LarAgent\PhantomTool;
+use LarAgent\API\Completions;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 
 class ToolsApiAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
+
     protected $driver = FakeLlmDriver::class;
 
     public static array $registeredTools = [];

@@ -77,7 +77,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
                 // Check: src\LarAgent.php 'processMessage' method
                 $content = json_encode($contentsArray);
             }
-            
+
             return new AssistantMessage($content, $metaData);
         }
 

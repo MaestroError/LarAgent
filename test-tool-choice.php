@@ -22,7 +22,6 @@ function config(string $key): mixed
     ][$key];
 }
 
-
 enum Unit: string
 {
     case CELSIUS = 'celsius';
@@ -63,11 +62,11 @@ class WeatherAgent extends LarAgent\Agent
     #[Tool('Get the current weather in a given location', ['unit' => 'Unit of temperature'])]
     public static function weatherToolForNewYork(Unit $unit)
     {
-        echo "New York tool";
+        echo 'New York tool';
+
         return 'The weather in New York is '.'50'.' degrees '.$unit->value;
     }
 }
-
 
 echo WeatherAgent::for('test_chat')->toolRequired()->respond('Who is president of US?');
 echo "\n---\n";
