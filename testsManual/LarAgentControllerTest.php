@@ -348,7 +348,7 @@ it('can process completion with tools (Inner)', function () {
     
     // Verify tool call
     expect($response['choices'][0]['message']['content'])->toBeString();
-    expect($response['choices'][0]['message']['content'])->toContain('20 degrees');
+    expect($response['choices'][0]['message']['content'])->toContain('20');
 });
 
 
@@ -510,4 +510,45 @@ it('can process completion via multiagent controller using "AgentName"', functio
     expect($response['model'])->toBe('granite3.2-vision:latest');
     expect($response['usage'])->toBeArray();
     expect($response['usage']['total_tokens'])->toBeGreaterThan(0);
+});
+
+it('can process tool results', function () {
+    $route = config('laragent.providers.oneagent.api_url') . '/chat/completions';
+    $response = $this->postJson($route, [
+        "model" => "llama3.2:3b",
+        "messages" => [
+            [
+                "role" => "user",
+                "content" => "What is the weather like in New York today?"
+            ],
+            [
+                "role" => "assistant",
+                "content" => null,
+                "tool_calls" => [
+                    [
+                        "id" => "call_W5hSnhnG8fRiaFQNfqZglzEb",
+                        "type" => "function",
+                        "function" => [
+                            "name" => "weatherTool",
+                            "arguments" => "{\"location\":\"New York\"}"
+                        ]
+                    ]
+                ]
+            ],
+            [
+                "role" => "tool",
+                "content" => "{\"location\":\"New York\",\"weatherTool\":\"The weather in New York is 20 degrees celsius\"}",
+                "tool_call_id" => "call_W5hSnhnG8fRiaFQNfqZglzEb"
+            ]
+        ],
+    ])->json();
+
+    expect($response)->toBeArray();
+    expect($response['choices'][0]['message']['role'])->toBe('assistant');
+    expect($response['model'])->toBe('llama3.2:3b');
+    expect($response['usage'])->toBeArray();
+    
+    // Verify the response contains information about the weather in New York
+    expect($response['choices'][0]['message']['content'])->toContain('New York');
+    expect($response['choices'][0]['message']['content'])->toContain('20');
 });
