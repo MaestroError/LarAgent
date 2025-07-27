@@ -8,7 +8,12 @@ it('creates a user message with content and metadata', function () {
     $message = new UserMessage('What is the weather in Boston?', ['key' => 'value']);
 
     expect($message->getRole())->toBe(Role::USER->value)
-        ->and($message->getContent())->toBe('What is the weather in Boston?')
+        ->and($message->getContent())->toBe([
+            [
+                'type' => 'text',
+                'text' => 'What is the weather in Boston?',
+            ],
+        ])
         ->and($message->getMetadata())->toHaveKey('key', 'value');
 });
 
@@ -17,7 +22,12 @@ it('converts the message to an array', function () {
 
     expect($message->toArray())->toMatchArray([
         'role' => Role::USER->value,
-        'content' => 'What is the weather in Boston?',
+        'content' => [
+            [
+                'type' => 'text',
+                'text' => 'What is the weather in Boston?',
+            ],
+        ],
     ]);
 });
 
@@ -26,7 +36,12 @@ it('supports array access', function () {
 
     expect(isset($message['role']))->toBeTrue()
         ->and($message['role'])->toBe(Role::USER->value)
-        ->and($message['content'])->toBe('What is the weather in Boston?');
+        ->and($message['content'])->toBe([
+            [
+                'type' => 'text',
+                'text' => 'What is the weather in Boston?',
+            ],
+        ]);
 });
 
 it('throws an exception when trying to modify via array access', function () {
@@ -73,5 +88,10 @@ it('can set metadata', function () {
 it('handles empty content gracefully', function () {
     $message = new UserMessage('');
 
-    expect($message->getContent())->toBe('');
+    expect($message->getContent())->toBe([
+        [
+            'type' => 'text',
+            'text' => '',
+        ],
+    ]);
 });

@@ -53,7 +53,11 @@ class TestAgent extends Agent
 
     protected function afterResponse($message)
     {
-        $message->setContent($message.'. Edited via event');
+        if ($this->n > 1) {
+            return;
+        } else {
+            $message->setContent($message.'. Edited via event');
+        }
     }
 
     protected function afterToolExecution($tool, &$result)
@@ -185,12 +189,12 @@ it('can dynamically change model', function () {
 it('can get chat keys filtered by agent class', function () {
     // Create a few chat sessions with different agents and models
     $agent1 = TestAgent::for('user1');
-    $agent1->withModel('gpt-4')->respond('First message from user1');
+    $agent1->withModelInChatSessionId()->withModel('gpt-4')->respond('First message from user1');
 
     // Create a different agent class to ensure filtering works
     class AnotherAgent extends TestAgent {}
     $otherAgent = AnotherAgent::for('user3');
-    $otherAgent->respond('Message from other agent');
+    $otherAgent->withModelInChatSessionId()->respond('Message from other agent');
 
     // Get chat keys for TestAgent
     $testAgentKeys = $agent1->getChatKeys();
@@ -209,6 +213,7 @@ it('can get chat keys filtered by agent class', function () {
     expect($otherAgentKeys)
         ->toBeArray()
         ->and($otherAgentKeys)->toHaveCount(1)
+        ->and($otherAgentKeys)->toEqual(['AnotherAgent_gpt-4o-mini_user3'])
         ->and($otherAgentKeys)->toContain('AnotherAgent_gpt-4o-mini_user3')
         ->and($otherAgentKeys)->not->toContain('TestAgent_gpt-4_user1');
 });
@@ -239,6 +244,77 @@ it('excludes parallel_tool_calls from config when set to null', function () {
 
     expect($config)->toHaveKey('parallelToolCalls')
         ->and($config['parallelToolCalls'])->toBeNull();
+});
+
+it('includes toolChoice when using tool selection methods', function () {
+    $agent = TestAgent::for('test_session');
+    $reflection = new ReflectionClass($agent);
+    $buildConfigs = $reflection->getMethod('buildConfigsFromAgent');
+    $buildConfigs->setAccessible(true);
+
+    $agent->withTool(Tool::create('dummy', 'd')->setCallback(fn () => 'x'));
+
+    $agent->toolAuto();
+    $config = $buildConfigs->invoke($agent);
+    expect($config)->toHaveKey('toolChoice')
+        ->and($config['toolChoice'])->toBe('auto')
+        ->and($agent->getToolChoice())->toBe('auto');
+
+    $agent->toolNone();
+    $config = $buildConfigs->invoke($agent);
+    expect($config['toolChoice'])->toBe('none')
+        ->and($agent->getToolChoice())->toBe('none');
+
+    $agent->toolRequired();
+    $config = $buildConfigs->invoke($agent);
+    expect($config['toolChoice'])->toBe('required')
+        ->and($agent->getToolChoice())->toBe('required');
+
+    $agent->forceTool('test_tool');
+    $config = $buildConfigs->invoke($agent);
+    expect($config['toolChoice'])->toMatchArray([
+        'type' => 'function',
+        'function' => ['name' => 'test_tool'],
+    ])->and($agent->getToolChoice())->toMatchArray([
+        'type' => 'function',
+        'function' => ['name' => 'test_tool'],
+    ]);
+});
+
+it('passes optional parameters to driver config', function () {
+    class SimpleAgentForConfig extends TestAgent
+    {
+        protected function onInitialize() {}
+    }
+
+    $agent = SimpleAgentForConfig::for('test_session');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+
+    $n = 3;
+    // Add $n mock responses
+    for ($i = 0; $i < $n; $i++) {
+        $content[] = 'ok';
+    }
+    $driver->addMockResponse('stop', [
+        'content' => json_encode($content),
+    ]);
+
+    $agent->n($n)->topP(0.7)->frequencyPenalty(0.2)->presencePenalty(0.1);
+
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->toMatchArray([
+        'n' => 3,
+        'top_p' => 0.7,
+        'frequency_penalty' => 0.2,
+        'presence_penalty' => 0.1,
+    ]);
 });
 
 it('can add tool using class reference', function () {
@@ -367,4 +443,87 @@ it('uses developer role for instructions when enabled', function () {
         }
     }
     expect($hasDevMessage)->toBeTrue();
+});
+
+it('generateAudio injects audio configuration into driver', function () {
+    class AudioAgent extends TestAgent
+    {
+        protected function onInitialize() {}
+    }
+
+    $agent = AudioAgent::for('audio_key');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+    $driver->addMockResponse('stop', ['content' => 'ok']);
+
+    $agent->generateAudio('mp3', 'nova');
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->toMatchArray([
+        'modalities' => ['text', 'audio'],
+        'audio' => ['format' => 'mp3', 'voice' => 'nova'],
+    ]);
+});
+
+it('omits audio configuration when not used', function () {
+    class NoAudioAgent extends TestAgent
+    {
+        protected function onInitialize() {}
+    }
+
+    $agent = NoAudioAgent::for('audio_key');
+
+    $reflection = new ReflectionClass($agent);
+    $driverProp = $reflection->getProperty('llmDriver');
+    $driverProp->setAccessible(true);
+    $driver = $driverProp->getValue($agent);
+    $driver->addMockResponse('stop', ['content' => 'ok']);
+
+    $agent->respond('test');
+
+    $config = $driver->getConfig();
+
+    expect($config)->not->toHaveKey('audio')
+        ->and($config)->not->toHaveKey('modalities');
+});
+
+it('can accept UserMessage instance in message method', function () {
+    $agent = TestAgent::for('test_user_message');
+    $driver = new FakeLlmDriver;
+    $driver->addMockResponse('stop', ['content' => 'test response']);
+
+    // Create a UserMessage instance with custom metadata
+    $userMessage = Message::user('Test message content');
+    $userMessage->setMetadata(['custom_field' => 'test_value']);
+
+    // Pass the UserMessage instance directly to message()
+    $agent->message($userMessage);
+
+    // Access the readyMessage property to verify the UserMessage was stored
+    $reflection = new ReflectionClass($agent);
+    $readyMessageProp = $reflection->getProperty('readyMessage');
+    $readyMessageProp->setAccessible(true);
+    $storedMessage = $readyMessageProp->getValue($agent);
+
+    // UserMessage stores content as an array with type and text
+    $expectedContent = [
+        [
+            'type' => 'text',
+            'text' => 'Test message content',
+        ],
+    ];
+
+    expect($storedMessage)->toBe($userMessage);
+    expect($storedMessage->getContent())->toBeArray();
+    expect($storedMessage->getContent())->toEqual($expectedContent);
+    expect($storedMessage->getMetadata())->toHaveKey('custom_field');
+    expect($storedMessage->getMetadata()['custom_field'])->toBe('test_value');
+
+    // Also verify that string casting works correctly
+    expect((string) $storedMessage)->toBe('Test message content');
 });

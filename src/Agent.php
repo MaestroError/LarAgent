@@ -11,6 +11,8 @@ use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\DTO\AgentDTO;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
+use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\UserMessage;
 
 /**
  * Class Agent
@@ -27,10 +29,19 @@ class Agent
 
     protected LlmDriverInterface $llmDriver;
 
+    /**
+     * When true respond() will return MessageInterface instance instead of
+     * casting it to string or array.
+     */
+    protected bool $returnMessage = false;
+
     protected ChatHistoryInterface $chatHistory;
 
     /** @var string|null */
     protected $message;
+
+    /** @var UserMessage|null - ready made message to send to the agent */
+    protected $readyMessage = null;
 
     /** @var string */
     protected $instructions;
@@ -87,6 +98,13 @@ class Agent
      */
     protected $chatKey;
 
+    /**
+     * Include model name in chat session ID
+     *
+     * @var bool
+     */
+    protected $includeModelInChatSessionId = false;
+
     /** @var int */
     protected $maxCompletionTokens;
 
@@ -98,6 +116,21 @@ class Agent
 
     /** @var ?bool */
     protected $parallelToolCalls;
+
+    /** @var string|array|null */
+    protected $toolChoice;
+
+    /** @var int|null */
+    protected $n;
+
+    /** @var float|null */
+    protected $topP;
+
+    /** @var float|null */
+    protected $frequencyPenalty;
+
+    /** @var float|null */
+    protected $presencePenalty;
 
     /** @var string */
     protected $chatSessionId;
@@ -113,6 +146,15 @@ class Agent
 
     /** @var array */
     protected $images = [];
+
+    /** @var array|null */
+    protected $audioFiles = null;
+
+    /** @var array */
+    protected $modalities = [];
+
+    /** @var array|null */
+    protected $audio = null;
 
     public function __construct($key)
     {
@@ -157,11 +199,15 @@ class Agent
     /**
      * Set the message for the agent to process
      *
-     * @param  string  $message  The message to process
+     * @param  string|MessageInterface  $message  The message to process
      */
-    public function message(string $message): static
+    public function message(string|MessageInterface $message): static
     {
-        $this->message = $message;
+        if ($message instanceof MessageInterface) {
+            $this->readyMessage = $message;
+        } else {
+            $this->message = $message;
+        }
 
         return $this;
     }
@@ -170,9 +216,9 @@ class Agent
      * Process a message and get the agent's response
      *
      * @param  string|null  $message  Optional message to process
-     * @return string|array The agent's response
+     * @return string|array|MessageInterface The agent's response
      */
-    public function respond(?string $message = null): string|array
+    public function respond(?string $message = null): string|array|MessageInterface
     {
         if ($message) {
             $this->message($message);
@@ -187,6 +233,9 @@ class Agent
         $this->prepareAgent($message);
 
         try {
+            if ($this->returnMessage) {
+                $this->agent->setReturnMessage(true);
+            }
             $response = $this->agent->run();
         } catch (\Throwable $th) {
             $this->onEngineError($th);
@@ -205,13 +254,25 @@ class Agent
                 // Run fallback provider
                 $this->changeProvider($fallbackProvider);
 
-                return $this->respond($message);
+                return $this->respond();
             }
         }
 
         $this->onConversationEnd($response);
 
-        return $response;
+        if ($this->returnMessage) {
+            return $response;
+        }
+
+        if ($response instanceof ToolCallMessage) {
+            return $response->toArrayWithMeta();
+        }
+
+        if (is_array($response)) {
+            return $response;
+        }
+
+        return (string) $response;
     }
 
     protected function changeProvider(string $provider)
@@ -251,6 +312,9 @@ class Agent
         $generator = (function () use ($instance, $message, $callback) {
             try {
                 // Run the agent with streaming enabled
+                if ($instance->returnMessage) {
+                    $instance->agent->setReturnMessage(true);
+                }
                 $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
                     if ($streamedMessage instanceof StreamedAssistantMessage) {
                         // Call onConversationEnd when the stream message is complete
@@ -487,6 +551,11 @@ class Agent
         return $this->chatSessionId;
     }
 
+    public function keyIncludesModelName(): bool
+    {
+        return $this->includeModelInChatSessionId;
+    }
+
     public function getProviderName(): string
     {
         return $this->providerName;
@@ -520,6 +589,16 @@ class Agent
     public function setChatHistory(ChatHistoryInterface $chatHistory): static
     {
         $this->chatHistory = $chatHistory;
+
+        return $this;
+    }
+
+    /**
+     * Configure respond() to return MessageInterface instance.
+     */
+    public function returnMessage(bool $return = true): static
+    {
+        $this->returnMessage = $return;
 
         return $this;
     }
@@ -561,6 +640,16 @@ class Agent
         return array_filter($keys, function ($key) use ($agentClass) {
             return str_starts_with($key, $agentClass.'_');
         });
+    }
+
+    public function getModalities(): array
+    {
+        return $this->modalities;
+    }
+
+    public function getAudio(): ?array
+    {
+        return $this->audio;
     }
 
     public function withTool(string|ToolInterface $tool): static
@@ -606,6 +695,24 @@ class Agent
         return $this;
     }
 
+    public function withAudios(array $audioStrings): static
+    {
+        // ['data' => 'base64', 'format' => 'wav']
+        // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
+        $this->audioFiles = $audioStrings;
+
+        return $this;
+    }
+
+    // Possible formats: "wav", "mp3", "ogg", "flac", "m4a", "webm"
+    public function generateAudio(string $format, string $voice): static
+    {
+        $this->audio = ['format' => $format, 'voice' => $voice];
+        $this->modalities = ['text', 'audio'];
+
+        return $this;
+    }
+
     public function temperature(float $temp): static
     {
         $this->temperature = $temp;
@@ -613,15 +720,152 @@ class Agent
         return $this;
     }
 
+    public function n(int $n): static
+    {
+        $this->n = $n;
+
+        return $this;
+    }
+
+    public function topP(float $topP): static
+    {
+        $this->topP = $topP;
+
+        return $this;
+    }
+
+    public function frequencyPenalty(float $penalty): static
+    {
+        $this->frequencyPenalty = $penalty;
+
+        return $this;
+    }
+
+    public function presencePenalty(float $penalty): static
+    {
+        $this->presencePenalty = $penalty;
+
+        return $this;
+    }
+
+    public function maxCompletionTokens(int $tokens): static
+    {
+        $this->maxCompletionTokens = $tokens;
+
+        return $this;
+    }
+
+    public function parallelToolCalls(?bool $parallel): static
+    {
+        $this->parallelToolCalls = $parallel;
+
+        return $this;
+    }
+
+    public function responseSchema(?array $schema): static
+    {
+        $this->responseSchema = $schema;
+
+        return $this;
+    }
+
+    /**
+     * Set tool choice to 'auto' - model can choose to use zero, one, or multiple tools.
+     * Only applies if tools are registered.
+     */
+    public function toolAuto(): static
+    {
+        $this->toolChoice = 'auto';
+
+        return $this;
+    }
+
+    /**
+     * Set tool choice to 'none' - prevent the model from using any tools.
+     * This simulates the behavior of not passing any functions.
+     */
+    public function toolNone(): static
+    {
+        $this->toolChoice = 'none';
+
+        return $this;
+    }
+
+    /**
+     * Set tool choice to 'required' - model must use at least one tool.
+     * Only applies if tools are registered.
+     */
+    public function toolRequired(): static
+    {
+        $this->toolChoice = 'required';
+
+        return $this;
+    }
+
+    /**
+     * Force the model to use a specific tool.
+     * Only applies if the specified tool is registered.
+     */
+    public function forceTool(string $toolName): static
+    {
+        $this->toolChoice = [
+            'type' => 'function',
+            'function' => [
+                'name' => $toolName,
+            ],
+        ];
+
+        return $this;
+    }
+
+    /**
+     * Get the current tool choice configuration.
+     * Returns null if no tools are registered or tool choice is not set.
+     */
+    public function getToolChoice()
+    {
+        if (empty($this->tools) || $this->toolChoice === null) {
+            return null;
+        }
+
+        if ($this->toolChoice === 'none') {
+            return 'none';
+        }
+
+        return $this->toolChoice;
+    }
+
     public function withModel(string $model): static
     {
         $this->model = $model;
 
+        if ($this->keyIncludesModelName()) {
+            $this->refreshChatHistory();
+        }
+
+        return $this;
+    }
+
+    protected function refreshChatHistory(): void
+    {
         // Update chat session ID with new model
         $this->setChatSessionId($this->getChatKey());
 
         // Create new chat history with updated session ID
         $this->setupChatHistory();
+    }
+
+    public function withoutModelInChatSessionId(): static
+    {
+        $this->includeModelInChatSessionId = false;
+
+        return $this;
+    }
+
+    public function withModelInChatSessionId(): static
+    {
+        $this->includeModelInChatSessionId = true;
+        $this->refreshChatHistory();
 
         return $this;
     }
@@ -644,6 +888,10 @@ class Agent
             'contextWindowSize' => $this->contextWindowSize ?? null,
             'maxCompletionTokens' => $this->maxCompletionTokens ?? null,
             'temperature' => $this->temperature ?? null,
+            'n' => $this->n ?? null,
+            'topP' => $this->topP ?? null,
+            'frequencyPenalty' => $this->frequencyPenalty ?? null,
+            'presencePenalty' => $this->presencePenalty ?? null,
             'reinjectInstructionsPer' => $this->reinjectInstructionsPer ?? null,
             'parallelToolCalls' => $this->parallelToolCalls ?? null,
             'chatSessionId' => $this->chatSessionId,
@@ -677,10 +925,18 @@ class Agent
 
     protected function buildSessionId()
     {
+        if ($this->keyIncludesModelName()) {
+            return sprintf(
+                '%s_%s_%s',
+                class_basename(static::class),
+                $this->model(),
+                $this->getChatKey()
+            );
+        }
+
         return sprintf(
-            '%s_%s_%s',
+            '%s_%s',
             class_basename(static::class),
-            $this->model(),
             $this->getChatKey()
         );
     }
@@ -716,6 +972,18 @@ class Agent
         }
         if (! isset($this->temperature) && isset($providerData['default_temperature'])) {
             $this->temperature = $providerData['default_temperature'];
+        }
+        if (! isset($this->n) && isset($providerData['default_n'])) {
+            $this->n = $providerData['default_n'];
+        }
+        if (! isset($this->topP) && isset($providerData['default_top_p'])) {
+            $this->topP = $providerData['default_top_p'];
+        }
+        if (! isset($this->frequencyPenalty) && isset($providerData['default_frequency_penalty'])) {
+            $this->frequencyPenalty = $providerData['default_frequency_penalty'];
+        }
+        if (! isset($this->presencePenalty) && isset($providerData['default_presence_penalty'])) {
+            $this->presencePenalty = $providerData['default_presence_penalty'];
         }
         if (! isset($this->parallelToolCalls) && isset($providerData['parallel_tool_calls'])) {
             $this->parallelToolCalls = $providerData['parallel_tool_calls'];
@@ -768,8 +1036,31 @@ class Agent
         if (property_exists($this, 'temperature')) {
             $config['temperature'] = $this->temperature;
         }
+        if (property_exists($this, 'n')) {
+            $config['n'] = $this->n;
+        }
+        if (property_exists($this, 'topP')) {
+            $config['topP'] = $this->topP;
+        }
+        if (property_exists($this, 'frequencyPenalty')) {
+            $config['frequencyPenalty'] = $this->frequencyPenalty;
+        }
+        if (property_exists($this, 'presencePenalty')) {
+            $config['presencePenalty'] = $this->presencePenalty;
+        }
         if (property_exists($this, 'parallelToolCalls')) {
             $config['parallelToolCalls'] = $this->parallelToolCalls;
+        }
+        if (property_exists($this, 'toolChoice')) {
+            $config['toolChoice'] = $this->toolChoice;
+        }
+
+        if (! empty($this->modalities)) {
+            $config['modalities'] = $this->modalities;
+        }
+
+        if (! empty($this->audio)) {
+            $config['audio'] = $this->audio;
         }
 
         return $config;
@@ -857,11 +1148,26 @@ class Agent
 
     protected function prepareMessage(): MessageInterface
     {
-        $message = Message::user($this->prompt($this->message));
+        if ($this->readyMessage) {
+            $message = $this->readyMessage;
+        } else {
+            $message = Message::user($this->prompt($this->message));
+        }
+
+        $message->addMeta([
+            'agent' => basename(static::class),
+            'model' => $this->model(),
+        ]);
 
         if (! empty($this->images)) {
             foreach ($this->images as $imageUrl) {
                 $message = $message->withImage($imageUrl);
+            }
+        }
+
+        if (! empty($this->audioFiles)) {
+            foreach ($this->audioFiles as $audioFile) {
+                $message = $message->withAudio($audioFile['format'], $audioFile['data']);
             }
         }
 
