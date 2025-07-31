@@ -56,16 +56,29 @@ return [
             'label' => 'groq',
             'api_key' => env('GROQ_API_KEY'),
             'api_url' => 'https://api.groq.com/openai/v1',
-            'model' => 'llama-3.1-8b-instant',
             'driver' => \LarAgent\Drivers\Groq\GroqDriver::class,
             'default_context_window' => 131072,
             'default_max_completion_tokens' => 131072,
             'default_temperature' => 1,
+        ],
+
+        /**
+         * Assumes you have ollama server running with default settings
+         * Where URL is http://localhost:11434/v1 and no api_key
+         * If you have ollama server running with custom settings
+         * You can set api_key and api_url in the provider below
+         */
+        'ollama' => [
+            'label' => 'ollama',
+            'driver' => \LarAgent\Drivers\OpenAi\OllamaDriver::class,
+            'default_context_window' => 131072,
+            'default_max_completion_tokens' => 131072,
+            'default_temperature' => 0.8,
         ],
     ],
 
     /**
      * Fallback provider to use when any provider fails.
      */
-    'fallback_provider' => 'default',
+    'fallback_provider' => null,
 ];
