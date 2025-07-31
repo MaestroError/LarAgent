@@ -5,6 +5,7 @@ namespace LarAgent\Drivers\OpenAi;
 class OllamaDriver extends OpenAiCompatible
 {
     protected string $default_api_url = 'http://localhost:11434/v1';
+
     protected string $default_api_key = 'ollama';
 
     public function __construct(array $provider = [])
