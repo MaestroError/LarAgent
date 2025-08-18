@@ -273,7 +273,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         $payload = [];
 
         if (empty($options['model'])) {
-            $options['model'] = $this->settings['model'] ?? 'claude-3-5-sonnet-latest';
+            $options['model'] = $this->settings['model'] ?? 'claude-3-7-sonnet-latest';
         }
 
         $payload['model'] = $options['model'];

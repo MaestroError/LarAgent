@@ -79,7 +79,7 @@ return [
         'claude' => [
             'label' => 'claude',
             'api_key' => env('ANTHROPIC_API_KEY'),
-            'model' => 'claude-3-5-sonnet-latest',
+            'model' => 'claude-3-7-sonnet-latest',
             'driver' => \LarAgent\Drivers\Anthropic\ClaudeDriver::class,
             'default_context_window' => 200000,
             'default_max_completion_tokens' => 8192,

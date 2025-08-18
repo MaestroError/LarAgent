@@ -16,7 +16,7 @@ beforeEach(function () {
 
     config()->set('laragent.providers.claude', [
         'label' => 'claude',
-        'model' => 'claude-3-5-sonnet-latest',
+        'model' => 'claude-3-7-sonnet-latest',
         'api_key' => $yourApiKey,
         'driver' => ClaudeDriver::class,
         'default_context_window' => 200000,
@@ -130,7 +130,7 @@ class ClaudeTestAgent extends Agent
 {
     protected $provider = 'claude';
 
-    protected $model = 'claude-3-5-sonnet-latest';
+    protected $model = 'claude-3-7-sonnet-latest';
 
     protected $history = 'in_memory';
 
@@ -395,6 +395,7 @@ it('can use vision model with image url', function () {
     $agent = ClaudeTestAgent::for('vision_test');
     $agent->withImages([
         'https://blog.laragent.ai/content/images/2025/05/light.png',
+        'https://blog.laragent.ai/content/images/size/w2000/2025/07/ChatGPT-Image-Jul-28--2025--11_01_48-AM.png',
     ]);
 
     $response = $agent->respond('What is the text in this image?');
