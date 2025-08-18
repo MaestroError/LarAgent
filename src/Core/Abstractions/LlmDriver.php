@@ -117,6 +117,32 @@ abstract class LlmDriver implements LlmDriverInterface
         return $toolSchema;
     }
 
+    /**
+     * Format an array of image URLs for the API payload.
+     * This method defines the structure of images for the specific LLM API.
+     * Override this method in driver implementations to customize the image format.
+     */
+    public function formatImagesForPayload(?array $images = null): array
+    {
+        if ($images === null) {
+            throw new \Exception('No images provided to formatImagesForPayload().');
+        }
+
+        $formattedImages = [];
+
+        // Default OpenAI-compatible format
+        foreach ($images as $url) {
+            $formattedImages[] = [
+                'type' => 'image_url',
+                'image_url' => [
+                    'url' => $url,
+                ],
+            ];
+        }
+
+        return $formattedImages;
+    }
+
     abstract public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array;
 
     abstract public function toolCallsToMessage(array $toolCalls): array;
