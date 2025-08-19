@@ -383,17 +383,19 @@ class Agent
                             'delta' => $delta,
                             'content' => $chunk->getContent(),
                             'complete' => $chunk->isComplete(),
-                        ])."\n";
+                        ]) . "\n";
                     } elseif ($format === 'sse') {
                         echo "event: chunk\n";
-                        echo 'data: '.json_encode([
+                        echo 'data: ' . json_encode([
                             'delta' => $delta,
                             'content' => $chunk->getContent(),
                             'complete' => $chunk->isComplete(),
-                        ])."\n\n";
+                        ]) . "\n\n";
                     }
 
-                    ob_flush();
+                    if (ob_get_level() > 0) {
+                        ob_flush();
+                    }
                     flush();
                 } elseif (is_array($chunk)) {
                     // Handle structured output (JSON schema response)
@@ -405,15 +407,15 @@ class Agent
                             'delta' => '',
                             'content' => $chunk,
                             'complete' => true,
-                        ])."\n";
+                        ]) . "\n";
                     } elseif ($format === 'sse') {
                         echo "event: structured\n";
-                        echo 'data: '.json_encode([
+                        echo 'data: ' . json_encode([
                             'type' => 'structured',
                             'delta' => '',
                             'content' => $chunk,
                             'complete' => true,
-                        ])."\n\n";
+                        ]) . "\n\n";
                     }
 
                     ob_flush();
@@ -429,7 +431,7 @@ class Agent
             // Signal completion
             if ($format === 'sse') {
                 echo "event: complete\n";
-                echo 'data: '.json_encode(['content' => $accumulated])."\n\n";
+                echo 'data: ' . json_encode(['content' => $accumulated]) . "\n\n";
                 ob_flush();
                 flush();
             }
@@ -638,7 +640,7 @@ class Agent
         $agentClass = class_basename(static::class);
 
         return array_filter($keys, function ($key) use ($agentClass) {
-            return str_starts_with($key, $agentClass.'_');
+            return str_starts_with($key, $agentClass . '_');
         });
     }
 
@@ -895,13 +897,13 @@ class Agent
             'reinjectInstructionsPer' => $this->reinjectInstructionsPer ?? null,
             'parallelToolCalls' => $this->parallelToolCalls ?? null,
             'chatSessionId' => $this->chatSessionId,
-        ], fn ($value) => ! is_null($value));
+        ], fn($value) => ! is_null($value));
 
         return new AgentDTO(
             provider: $this->provider,
             providerName: $this->providerName,
             message: $this->message,
-            tools: array_map(fn (ToolInterface $tool) => $tool->getName(), $this->getTools()),
+            tools: array_map(fn(ToolInterface $tool) => $tool->getName(), $this->getTools()),
             instructions: $this->instructions,
             responseSchema: $this->responseSchema,
             configuration: [
@@ -1231,9 +1233,10 @@ class Agent
 
                 $instance = $this;
                 // Bind the method to the tool, handling both static and instance methods
-                $tool->setCallback($method->isStatic()
-                    ? [static::class, $method->getName()]
-                    : [$this, $method->getName()]
+                $tool->setCallback(
+                    $method->isStatic()
+                        ? [static::class, $method->getName()]
+                        : [$this, $method->getName()]
                 );
                 $tools[] = $tool;
             }
@@ -1251,7 +1254,7 @@ class Agent
             return [
                 'type' => 'string',
                 'enum' => [
-                    'values' => array_map(fn ($case) => $case->value, $enumClass::cases()),
+                    'values' => array_map(fn($case) => $case->value, $enumClass::cases()),
                     'enumClass' => $enumClass, // Store the enum class name for conversion
                 ],
             ];
