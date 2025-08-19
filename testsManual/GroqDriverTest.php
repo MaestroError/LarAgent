@@ -20,11 +20,11 @@ beforeEach(function () {
 
     config()->set('laragent.providers.groq', [
         'label' => 'groq',
-        'model' => 'llama-3.1-8b-instant',
+        'model' => 'openai/gpt-oss-120b',
         'driver' => GroqDriver::class,
         'api_key' => $yourApiKey,
         'default_context_window' => 131072,
-        'default_max_completion_tokens' => 131072,
+        'default_max_completion_tokens' => 65536,
         'default_temperature' => 1,
     ]);
 });
@@ -130,7 +130,7 @@ class GroqTestAgent extends Agent
 {
     protected $provider = 'groq';
 
-    protected $model = 'llama-3.1-8b-instant';
+    protected $model = 'openai/gpt-oss-120b';
 
     protected $history = 'in_memory';
 
@@ -265,7 +265,7 @@ class SimpleStructuredOutputGroqTestAgent extends GroqTestAgent
 {
     public function instructions()
     {
-        return 'Extract product data (name of the product and price of the product with currency symbol) from the user message. Provide your output in json format with only the keys: name and product.';
+        return 'Extract product data (name of the product and price of the product with currency symbol) from the user message. Provide your output in json format with only the keys: name and price.';
     }
 
     public function prompt($message)
