@@ -243,6 +243,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     // set the final usage on the streamed text message
                     $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
                     $streamedMessage->setUsage($merged);
+                    $streamedMessage->setComplete(true);
                     break;
                 }
             }
@@ -252,16 +253,19 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
             }
         }
 
-        // Final flush for text
-        if ($streamedMessage->getContent()) {
-            $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
+        // Finalize the stream: attach merged usage, trigger callback, 
+        // mark the message as complete, and yield the final message.
+        $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
+        $streamedMessage->setUsage($merged);
 
-            $meta = $streamedMessage->toArrayWithMeta();
-            $meta['metadata']['usage'] = $merged;
-            $meta['metadata']['usage_timeline'] = $usageTimeline;
-
-            yield $streamedMessage;
+        if ($callback) {
+            $callback($streamedMessage);
         }
+
+        $streamedMessage->setComplete(true);
+
+        yield $streamedMessage;
+
     }
 
     protected function preparePayload(array $messages, array $options = []): array

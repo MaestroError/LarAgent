@@ -198,8 +198,14 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
 
         // No explicit finish_reason — finalize stream message
+        if ($lastUsage) {
+            $stream->setUsage($lastUsage);
+        }
         $stream->setComplete(true);
 
+        if ($callback) {
+            $callback($stream);
+        }
         yield $stream;
     }
 
