@@ -20,12 +20,11 @@ beforeEach(function () {
 
     config()->set('laragent.providers.groq', [
         'label' => 'groq',
-        'model' => 'llama-3.1-8b-instant',
+        'model' => 'openai/gpt-oss-120b',
         'driver' => GroqDriver::class,
         'api_key' => $yourApiKey,
-        'api_url' => 'https://api.groq.com/openai/v1',
         'default_context_window' => 131072,
-        'default_max_completion_tokens' => 131072,
+        'default_max_completion_tokens' => 65536,
         'default_temperature' => 1,
     ]);
 });
@@ -89,8 +88,8 @@ class TemperatureTool extends Tool
     public function execute(array $input): mixed
     {
         $temperatures = [
-            'Kuala Lumpur' => '32°C',
-            'Tokyo' => '26°C',
+            'Kuala Lumpur' => '32 celsius',
+            'Tokyo' => '26 celsius',
         ];
 
         return $temperatures[$input['location']] ?? 'Temperature data not available';
@@ -131,7 +130,7 @@ class GroqTestAgent extends Agent
 {
     protected $provider = 'groq';
 
-    protected $model = 'llama-3.1-8b-instant';
+    protected $model = 'openai/gpt-oss-120b';
 
     protected $history = 'in_memory';
 
@@ -266,7 +265,7 @@ class SimpleStructuredOutputGroqTestAgent extends GroqTestAgent
 {
     public function instructions()
     {
-        return 'Extract product data (name of the product and price of the product with currency symbol) from the user message. Provide your output in json format with only the keys: name and product.';
+        return 'Extract product data (name of the product and price of the product with currency symbol) from the user message. Provide your output in json format with only the keys: name and price.';
     }
 
     public function prompt($message)
@@ -371,6 +370,53 @@ it('can stream responses using streamResponse in plain format', function () {
     // Ensure the body contains the expected text
     expect($output)->toContain('This is a streaming response');
 });
+
+it('can stream with tools use', function () {
+    $agent = ToolTestAgent::for('stream_response_test');
+
+    // Get the response
+    $response = $agent->streamResponse('What is the current weather in Malaysia in celsius?', 'plain');
+
+    // Verify it's a StreamedResponse
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+
+    // Check headers directly from the response object
+    expect($response->headers->get('Content-Type'))->toBe('text/plain');
+
+    // Capture the streamed output
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_get_clean(); // inner buffer flushed by response
+    $output = ob_get_clean();
+
+    // Ensure the body contains the expected text
+    expect(strtolower($output))->toContain('malaysia')->toContain('celsius');
+});
+
+it('can stream with multiple tools use', function () {
+    $agent = ParallelToolTestAgent::for('parallel_stream_response_test');
+
+    // Get the response
+    $response = $agent->streamResponse("What's the weather and temperature like in Kuala Lumpur and Tokyo?", 'plain');
+
+    // Verify it's a StreamedResponse
+    expect($response)->toBeInstanceOf(StreamedResponse::class);
+
+    // Check headers directly from the response object
+    expect($response->headers->get('Content-Type'))->toBe('text/plain');
+
+    // Capture the streamed output
+    ob_start();
+    ob_start();
+    $response->sendContent();
+    ob_get_clean(); // inner buffer flushed by response
+    $output = ob_get_clean();
+
+    // Ensure the body contains the expected text
+    expect(strtolower($output))->toContain('kuala lumpur')->toContain('tokyo')->toContain('celsius');
+});
+
 
 it('can use tool', function () {
     $agent = ToolTestAgent::for('tool_test');
