@@ -38,47 +38,37 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
         $payload = $this->preparePayload($messages, $options);
 
-        // Only include tool_choice if tools are defined
-        if (! empty($payload['tools'])) {
-            $payload['tool_choice'] = 'auto';
-        }
-
         $response = $this->client->chat()->completions()->create($payload);
-
         $this->lastResponse = $response;
-        $finishReason = $response['choices'][0]['finish_reason'];
 
-        // If the model wants to call a tool, return a ToolCallMessage for LarAgent to handle
-        if ($finishReason === 'tool_calls' &&
-            isset($response['choices'][0]['message']['tool_calls']) &&
-            ! empty($response['choices'][0]['message']['tool_calls'])
+        $finishReason = $response['choices'][0]['finish_reason'] ?? null;
+        $metaData = ['usage' => $response['usage'] ?? []];
+
+        if (
+            $finishReason === 'tool_calls'
+            && isset($response['choices'][0]['message']['tool_calls'])
+            && ! empty($response['choices'][0]['message']['tool_calls'])
         ) {
-            $toolCalls = [];
-            foreach ($response['choices'][0]['message']['tool_calls'] as $toolCall) {
-
-                $toolCalls[] = new ToolCall(
-                    $toolCall['id'],
-                    $toolCall['function']['name'] ?? '',
-                    $toolCall['function']['arguments'] ?? '{}'
+            $toolCalls = array_map(function ($tc) {
+                return new ToolCall(
+                    $tc['id'],
+                    $tc['function']['name'] ?? '',
+                    $tc['function']['arguments'] ?? '{}'
                 );
-            }
-
-            $message = $this->toolCallsToMessage($toolCalls);
+            }, $response['choices'][0]['message']['tool_calls']);
 
             $toolCallMessage = new ToolCallMessage(
-                toolCalls: $toolCalls,
-                message: $message,
-                metadata: ['usage' => $response['usage'] ?? []]
+                $toolCalls,
+                $this->toolCallsToMessage($toolCalls),
+                $metaData
             );
 
             return $toolCallMessage;
         }
 
-        // Direct response, no tool_calls
         if ($finishReason === 'stop') {
             $content = $response['choices'][0]['message']['content'] ?? '';
-
-            $assistantMessage = new AssistantMessage($content, ['usage' => $response['usage'] ?? []]);
+            $assistantMessage = new AssistantMessage($content, $metaData);
 
             return $assistantMessage;
         }
@@ -95,24 +85,18 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         $payload = $this->preparePayload($messages, $options);
         $payload['stream'] = true;
 
-        if (! empty($payload['tools'])) {
-            $payload['tool_choice'] = 'auto';
-        }
+        $stream = new StreamedAssistantMessage;
+        $toolCalls = [];
+        $toolCallsSummary = [];
+        $finishReason = null;
+        $lastUsage = null;
 
         $response = $this->client->chat()->completions()->create($payload);
-        $stream = new StreamedAssistantMessage;
-
-        $toolMode = false;
-        $pending = []; // index => ['id' => null, 'name' => '', 'args' => '']
-        $lastUsage = null; // prefer x_groq.usage; fallback to usage
 
         foreach ($response->chunks() as $chunk) {
             $this->lastResponse = $chunk;
 
-            $choice = $chunk['choices'][0] ?? [];
-            $delta = $choice['delta'] ?? [];
-
-            // ---- USAGE: prefer x_groq.usage; fallback to usage ----
+            // Usage info (Groq uses `x_groq.usage` or `usage`)
             if (isset($chunk['x_groq']['usage']) && is_array($chunk['x_groq']['usage'])) {
                 $lastUsage = (array) $chunk['x_groq']['usage'];
                 $stream->setUsage($lastUsage);
@@ -121,28 +105,16 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                 $stream->setUsage($lastUsage);
             }
 
-            // ---- TOOL CALLS ----
-            if (isset($delta['tool_calls'])) {
-                $toolMode = true;
+            $choice = $chunk['choices'][0] ?? [];
+            $delta = $choice['delta'] ?? [];
+            $finishReason = $choice['finish_reason'] ?? $finishReason;
 
-                foreach ($delta['tool_calls'] as $tc) {
-                    $i = $tc['index'] ?? 0;
-                    $pending[$i] = $pending[$i] ?? ['id' => null, 'name' => '', 'args' => ''];
-
-                    if (isset($tc['id'])) {
-                        $pending[$i]['id'] = $tc['id'];
-                    }
-                    if (isset($tc['function']['name'])) {
-                        $pending[$i]['name'] = $tc['function']['name'];
-                    }
-                    if (isset($tc['function']['arguments'])) {
-                        $pending[$i]['args'] .= $tc['function']['arguments'];
-                    }
-                }
+            // Tool calls
+            if ($this->hasToolCalls($delta)) {
+                $this->processToolCallDelta($delta, $toolCalls, $toolCallsSummary);
             }
-
-            // ---- NORMAL CONTENT ----
-            if (! $toolMode && isset($delta['content']) && $delta['content'] !== '') {
+            // Normal text
+            elseif (isset($delta['content'])) {
                 $stream->appendContent($delta['content']);
 
                 if ($callback) {
@@ -150,63 +122,92 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                 }
                 yield $stream;
             }
+        }
 
-            // ---- FINISH REASON ----
-            if (isset($choice['finish_reason'])) {
-                $finish = $choice['finish_reason'];
+        // If we have tool calls, convert them to a ToolCallMessage
+        if (! empty($toolCallsSummary) && $finishReason === 'tool_calls') {
+            $toolCallObjects = array_map(function ($tc) {
+                return new ToolCall(
+                    $tc['id'] ?? 'tool_call_'.uniqid(),
+                    $tc['function']['name'] ?? '',
+                    $tc['function']['arguments'] ?? '{}'
+                );
+            }, array_values($toolCallsSummary));
 
-                // Tool calls finished (or stop after tool deltas): emit ToolCallMessage
-                if ($toolMode && ($finish === 'tool_calls' || $finish === 'stop')) {
-                    $toolCalls = [];
-                    foreach ($pending as $tc) {
-                        $toolCalls[] = new ToolCall(
-                            $tc['id'] ?? uniqid('tool_', true),
-                            $tc['name'] ?? '',
-                            $tc['args'] !== '' ? $tc['args'] : '{}'
-                        );
-                    }
+            $toolMsg = new ToolCallMessage(
+                $toolCallObjects,
+                $this->toolCallsToMessage($toolCallObjects),
+                $lastUsage ? ['usage' => $lastUsage] : []
+            );
 
-                    $msg = $this->toolCallsToMessage($toolCalls);
-                    $toolMsg = new ToolCallMessage(
-                        toolCalls: $toolCalls,
-                        message: $msg,
-                        metadata: ['usage' => $lastUsage ?? []]
-                    );
+            if ($callback) {
+                $callback($toolMsg);
+            }
+            yield $toolMsg;
+        }
 
-                    if ($callback) {
-                        $callback($toolMsg);
-                    }
-                    yield $toolMsg;
+        // Normal assistant message
+        if ($finishReason === 'stop') {
+            if ($lastUsage) {
+                $stream->setUsage($lastUsage);
+            }
+            $stream->setComplete(true);
 
-                    return;
+            if ($callback) {
+                $callback($stream);
+            }
+
+            yield $stream;
+        }
+    }
+
+    protected function hasToolCalls(mixed $delta): bool
+    {
+        return isset($delta['tool_calls']) && ! empty($delta['tool_calls']);
+    }
+
+    protected function processToolCallDelta(mixed $delta, array &$toolCalls, array &$toolCallsSummary): void
+    {
+        foreach ($delta['tool_calls'] as $toolCallDelta) {
+            $index = $toolCallDelta['index'] ?? 0;
+
+            if (! isset($toolCalls[$index])) {
+                $toolCalls[$index] = [
+                    'id' => $toolCallDelta['id'] ?? null,
+                    'type' => $toolCallDelta['type'] ?? 'function',
+                    'function' => [
+                        'name' => $toolCallDelta['function']['name'] ?? '',
+                        'arguments' => '',
+                    ],
+                ];
+            }
+
+            if (! empty($toolCallDelta['function']['name'])) {
+                $toolCalls[$index]['function']['name'] = $toolCallDelta['function']['name'];
+            }
+
+            if (isset($toolCallDelta['function']['arguments'])) {
+                $toolCalls[$index]['function']['arguments'] .= $toolCallDelta['function']['arguments'];
+            }
+
+            if (! empty($toolCallDelta['id'])) {
+                $toolCalls[$index]['id'] = $toolCallDelta['id'];
+            }
+
+            // If arguments parse as valid JSON, treat as complete
+            if (! empty($toolCalls[$index]['function']['name']) &&
+                strpos($toolCalls[$index]['function']['arguments'], '}') !== false &&
+                json_decode($toolCalls[$index]['function']['arguments']) !== null
+            ) {
+                if (! empty($toolCalls[$index]['id'])) {
+                    $toolCallsSummary[$toolCalls[$index]['id']] = $toolCalls[$index];
+                } else {
+                    $toolCallsSummary['index_'.$index] = $toolCalls[$index];
                 }
 
-                // Normal completion of assistant content
-                if ($finish === 'stop') {
-                    if ($lastUsage) {
-                        $stream->setUsage($lastUsage);
-                    }
-                    $stream->setComplete(true);
-
-                    if ($callback) {
-                        $callback($stream);
-                    }
-
-                    return;
-                }
+                $toolCalls[$index]['function']['arguments'] = '';
             }
         }
-
-        // No explicit finish_reason — finalize stream message
-        if ($lastUsage) {
-            $stream->setUsage($lastUsage);
-        }
-        $stream->setComplete(true);
-
-        if ($callback) {
-            $callback($stream);
-        }
-        yield $stream;
     }
 
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
@@ -258,7 +259,6 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
             $schema = $this->getResponseSchema();
 
             if (is_array($schema) && isset($schema['schema']) && isset($schema['name'])) {
-                // Valid json_schema format
                 $payload['response_format'] = [
                     'type' => 'json_schema',
                     'json_schema' => [
@@ -267,10 +267,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                     ],
                 ];
             } elseif (is_array($schema) && ($schema['type'] ?? null) === 'json_object') {
-                // json_object format
-                $payload['response_format'] = [
-                    'type' => 'json_object',
-                ];
+                $payload['response_format'] = ['type' => 'json_object'];
             }
         }
 
