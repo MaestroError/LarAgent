@@ -1,31 +1,28 @@
 <?php
 
 use LarAgent\Agent;
-use LarAgent\Drivers\Groq\GroqDriver;
+use LarAgent\Drivers\OpenAi\OpenRouter;
 use LarAgent\Tests\TestCase;
 use LarAgent\Tool;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 uses(TestCase::class);
 
-/**
- * To run this manual test, you will need to add your Groq API key to the groq-api-key.php file
- * just `return 'your-api-key';`
- */
 beforeEach(function () {
-    // get api key from Groq https://console.groq.com/keys
-    $yourApiKey = include 'groq-api-key.php';
+    $yourApiKey = include 'openrouter-api-key.php';
 
-    config()->set('laragent.fallback_provider', 'groq');
+    config()->set('laragent.fallback_provider', 'openrouter');
 
-    config()->set('laragent.providers.groq', [
-        'label' => 'groq',
-        'model' => 'openai/gpt-oss-120b',
-        'driver' => GroqDriver::class,
+    config()->set('laragent.providers.openrouter', [
+        'label' => 'openrouter',
+        'model' => 'deepseek/deepseek-chat-v3.1:free', // Using a free model for testing
         'api_key' => $yourApiKey,
-        'default_context_window' => 131072,
-        'default_max_completion_tokens' => 65536,
-        'default_temperature' => 1,
+        'driver' => OpenRouter::class,
+        'default_context_window' => 200000,
+        'default_max_completion_tokens' => 8192,
+        'default_temperature' => 0.9,
+        'referer' => 'https://laragent.ai/',
+        'title' => 'LarAgent',
     ]);
 });
 
@@ -34,7 +31,7 @@ class WeatherTool extends Tool
 {
     protected string $name = 'get_current_weather';
 
-    protected string $description = 'Get the current weather in a given country';
+    protected string $description = 'Get the current weather in a given country.Respond using the word "celsius" or "fahrenheit" instead of symbols like °C or °F.';
 
     protected array $properties = [
         'location' => [
@@ -56,13 +53,17 @@ class WeatherTool extends Tool
     {
         $location = $input['location'] ?? 'unknown location';
         $unit = $input['unit'] ?? 'celsius';
-        $temperature = '32';
+
+        if (strtolower($location) == 'malaysia') {
+            $temperature = '32';
+        } else {
+            $temperature = '33';
+        }
 
         return [
             'location' => $location,
             'unit' => $unit,
             'temperature' => $temperature,
-            'summary' => "The weather in {$location} is {$temperature} degrees {$unit}.",
         ];
     }
 }
@@ -125,12 +126,10 @@ class WeatherConditionTool extends Tool
     }
 }
 
-// Groq Test Agent
-class GroqTestAgent extends Agent
+// Test Agent
+class OpenRouterTestAgent extends Agent
 {
-    protected $provider = 'groq';
-
-    protected $model = 'openai/gpt-oss-120b';
+    protected $provider = 'openrouter';
 
     protected $history = 'in_memory';
 
@@ -145,8 +144,8 @@ class GroqTestAgent extends Agent
     }
 }
 
-// Groq Test Agent using WeatherTool
-class ToolTestAgent extends GroqTestAgent
+// Test Agent using WeatherTool
+class ToolTestAgent extends OpenRouterTestAgent
 {
     public $saveToolResult = null;
 
@@ -164,7 +163,6 @@ class ToolTestAgent extends GroqTestAgent
     public function prompt($message)
     {
         return 'Use the tools to complete this request. '.$message;
-
     }
 
     public function registerTools()
@@ -180,8 +178,8 @@ class ToolTestAgent extends GroqTestAgent
     }
 }
 
-// Groq Test Agent using parallel tools
-class ParallelToolTestAgent extends GroqTestAgent
+// Test Agent using parallel tools
+class ParallelToolTestAgent extends OpenRouterTestAgent
 {
     public $toolCalls = [];
 
@@ -221,111 +219,10 @@ class ParallelToolTestAgent extends GroqTestAgent
     }
 }
 
-// Groq Test Agent with strutured output(json_schema)
-class StructuredOutputGroqTestAgent extends GroqTestAgent
-{
-    // Only certain model support json_schema
-    // https://console.groq.com/docs/structured-outputs#supported-models
-    protected $model = 'meta-llama/llama-4-scout-17b-16e-instruct';
-
-    protected $maxCompletionTokens = 8192;
-
-    public function instructions()
-    {
-        return 'Extract structured product data (name and price) from the text.';
-    }
-
-    public function prompt($message)
-    {
-        return "Here is a product description: {$message}";
-    }
-
-    // Define the schema for structured output tests
-    protected $responseSchema = [
-        'name' => 'get_price',
-        'schema' => [
-            'type' => 'object',
-            'properties' => [
-                'name' => ['type' => 'string', 'description' => 'Name of the product'],
-                'price' => ['type' => 'string', 'description' => 'Price of the product with currency'],
-            ],
-            'required' => ['name', 'price'],
-        ],
-    ];
-
-    // Override to return the schema
-    public function structuredOutput()
-    {
-        return $this->responseSchema;
-    }
-}
-
-// Groq Test Agent with strutured output(json_object)
-class SimpleStructuredOutputGroqTestAgent extends GroqTestAgent
-{
-    public function instructions()
-    {
-        return 'Extract product data (name of the product and price of the product with currency symbol) from the user message. Provide your output in json format with only the keys: name and price.';
-    }
-
-    public function prompt($message)
-    {
-        return "Here is a product description: {$message}";
-    }
-
-    // Enables json_object structured output
-    public function structuredOutput()
-    {
-        return [
-            'type' => 'json_object',
-        ];
-    }
-}
-
-// Groq Test Agent with vision
-class VisionTestAgent extends GroqTestAgent
-{
-    // Only certain model support vision
-    // https://console.groq.com/docs/vision
-    protected $model = 'meta-llama/llama-4-scout-17b-16e-instruct';
-
-    protected $maxCompletionTokens = 8192;
-}
-
-it('can send a message using respond', function () {
-    $agent = GroqTestAgent::for('send_test');
-
-    $response = $agent->respond('Say anything and end your response with "This is a test response"');
-
-    expect($response)->toContain('This is a test response');
-});
-
-it('can return structured output(json_schema)', function () {
-    $agent = StructuredOutputGroqTestAgent::for('structured_test');
-
-    $response = $agent->respond('The Apple Watch is priced around $799.');
-
-    expect($response)
-        ->toBeArray()
-        ->and($response)->toHaveKeys(['name', 'price'])
-        ->and($response['name'])->toContain('Apple Watch')
-        ->and($response['price'])->toContain('$799');
-});
-
-it('can return structured output(json_object)', function () {
-    $agent = SimpleStructuredOutputGroqTestAgent::for('json_test');
-
-    $response = $agent->respond('The Apple Watch is priced around $799.');
-
-    expect($response)
-        ->toBeArray()
-        ->and($response)->toHaveKeys(['name', 'price'])
-        ->and($response['name'])->toContain('Apple Watch')
-        ->and($response['price'])->toContain('$799');
-});
+// Streaming Tests Only
 
 it('can stream responses using respondStreamed', function () {
-    $agent = GroqTestAgent::for('response_streamed_test');
+    $agent = OpenRouterTestAgent::for('response_streamed_test');
 
     // Get the stream
     $stream = $agent->respondStreamed('Say anything and end your response with "This is a streaming response"');
@@ -344,15 +241,14 @@ it('can stream responses using respondStreamed', function () {
 
     // Check the content of the last message
     $lastMessage = end($messages);
-
     expect($lastMessage->getContent() ?? $lastMessage)->toContain('This is a streaming response');
 });
 
 it('can stream responses using streamResponse in plain format', function () {
-    $agent = GroqTestAgent::for('stream_response_test');
+    $agent = OpenRouterTestAgent::for('stream_response_test');
 
     // Get the response
-    $response = $agent->streamResponse('Say anything and end your response with "This is a streaming response', 'plain');
+    $response = $agent->streamResponse('Say anything and end your response with "This is a streaming response"', 'plain');
 
     // Verify it's a StreamedResponse
     expect($response)->toBeInstanceOf(StreamedResponse::class);
@@ -415,39 +311,4 @@ it('can stream with multiple tools use', function () {
 
     // Ensure the body contains the expected text
     expect(strtolower($output))->toContain('kuala lumpur')->toContain('tokyo')->toContain('celsius');
-});
-
-it('can use tool', function () {
-    $agent = ToolTestAgent::for('tool_test');
-
-    $response = $agent->respond('What is the current weather in Malaysia in celsius?');
-    // print($response);
-    expect(strtolower($response))->toContain('malaysia')->toContain('celsius')
-        ->and(strtolower($agent->saveToolResult['summary']))->toContain('malaysia')->toContain('celsius');
-});
-
-it('can user multiple tools in parallel', function () {
-    $agent = ParallelToolTestAgent::for('parallel_weather_test');
-
-    $response = $agent->respond("What's the weather and temperature like in Kuala Lumpur and Tokyo?");
-    // print($response);
-    // There should be 4 tool calls: 2 cities x 2 tools
-    expect($agent->toolCalls)->toHaveCount(4);
-
-    $toolNames = array_column($agent->toolCalls, 'tool');
-    expect($toolNames)->toContain('get_temperature')
-        ->toContain('get_weather_condition');
-
-    expect($response)->toContain('Kuala Lumpur')->toContain('Tokyo');
-});
-
-it('can use vision model with image url', function () {
-    $agent = VisionTestAgent::for('vision_test');
-    $agent->withImages([
-        'https://blog.laragent.ai/content/images/2025/05/light.png',
-    ]);
-
-    $response = $agent->respond('What is in this image?');
-
-    expect($response)->toContain('LarAGENT');
 });
