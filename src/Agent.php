@@ -159,6 +159,7 @@ class Agent
     public function __construct($key)
     {
         $this->setupProviderData();
+        $this->setName();
         $this->setChatSessionId($key);
         $this->setupChatHistory();
         $this->onInitialize();
@@ -502,6 +503,16 @@ class Agent
     }
 
     /**
+     * Get the name of the agent
+     *
+     * @return string The agent's name
+     */
+    public function name()
+    {
+        return $this->name;
+    }
+
+    /**
      * Create a new chat history instance
      *
      * @param  string  $sessionId  The session ID for the chat history
@@ -637,7 +648,7 @@ class Agent
     public function getChatKeys(): array
     {
         $keys = $this->chatHistory->loadKeysFromMemory();
-        $agentClass = class_basename(static::class);
+        $agentClass = $this->name();
 
         return array_filter($keys, function ($key) use ($agentClass) {
             return str_starts_with($key, $agentClass . '_');
@@ -917,6 +928,13 @@ class Agent
 
     // Helper methods
 
+    protected function setName(): static
+    {
+        $this->name = class_basename(static::class);
+
+        return $this;
+    }
+
     protected function setChatSessionId(string $id): static
     {
         $this->chatKey = $id;
@@ -930,7 +948,7 @@ class Agent
         if ($this->keyIncludesModelName()) {
             return sprintf(
                 '%s_%s_%s',
-                class_basename(static::class),
+                $this->name(),
                 $this->model(),
                 $this->getChatKey()
             );
@@ -938,7 +956,7 @@ class Agent
 
         return sprintf(
             '%s_%s',
-            class_basename(static::class),
+            $this->name(),
             $this->getChatKey()
         );
     }
@@ -1157,7 +1175,7 @@ class Agent
         }
 
         $message->addMeta([
-            'agent' => basename(static::class),
+            'agent' => $this->name(),
             'model' => $this->model(),
         ]);
 
