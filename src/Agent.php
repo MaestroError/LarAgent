@@ -92,6 +92,14 @@ class Agent
     protected $saveChatKeys;
 
     /**
+     * Name of the agent
+     * Basename of the class by default
+     *
+     * @var string
+     */
+    protected $name;
+
+    /**
      * Chat key associated with this agent
      *
      * @var string
