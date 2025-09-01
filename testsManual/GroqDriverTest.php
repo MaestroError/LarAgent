@@ -417,7 +417,6 @@ it('can stream with multiple tools use', function () {
     expect(strtolower($output))->toContain('kuala lumpur')->toContain('tokyo')->toContain('celsius');
 });
 
-
 it('can use tool', function () {
     $agent = ToolTestAgent::for('tool_test');
 

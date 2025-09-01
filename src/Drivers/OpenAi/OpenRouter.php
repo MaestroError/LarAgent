@@ -20,8 +20,8 @@ class OpenRouter extends OpenAiCompatible
         // Construct parent class and client
         parent::__construct($provider);
         $this->client = $this->buildClient($provider['api_key'], $provider['api_url'], [
-            "HTTP-Referer" => $this->referer,
-            "X-Title" => $this->title,
+            'HTTP-Referer' => $this->referer,
+            'X-Title' => $this->title,
         ]);
     }
 }
