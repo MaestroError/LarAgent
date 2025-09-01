@@ -18,14 +18,17 @@ class OpenAiCompatible extends BaseOpenAiDriver
         }
     }
 
-    protected function buildClient(string $apiKey, string $baseUrl): mixed
+    protected function buildClient(string $apiKey, string $baseUrl, array $headers = []): mixed
     {
         $client = OpenAI::factory()
             ->withApiKey($apiKey)
             ->withBaseUri($baseUrl)
-            ->withHttpClient($httpClient = new \GuzzleHttp\Client([]))
-            ->make();
+            ->withHttpClient($httpClient = new \GuzzleHttp\Client([]));
 
-        return $client;
+        foreach ($headers as $key => $value) {
+            $client->withHttpHeader($key, $value);
+        }
+
+        return $client->make();
     }
 }

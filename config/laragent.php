@@ -61,6 +61,26 @@ return [
             'default_temperature' => 1,
         ],
 
+        'claude' => [
+            'label' => 'claude',
+            'api_key' => env('ANTHROPIC_API_KEY'),
+            'model' => 'claude-3-7-sonnet-latest',
+            'driver' => \LarAgent\Drivers\Anthropic\ClaudeDriver::class,
+            'default_context_window' => 200000,
+            'default_max_completion_tokens' => 8192,
+            'default_temperature' => 1,
+        ],
+
+        'openrouter' => [
+            'label' => 'openrouter',
+            'api_key' => env('OPENROUTER_API_KEY'),
+            'model' => 'openai/gpt-oss-20b:free',
+            'driver' => \LarAgent\Drivers\OpenAi\OpenRouter::class,
+            'default_context_window' => 200000,
+            'default_max_completion_tokens' => 8192,
+            'default_temperature' => 1,
+        ],
+
         /**
          * Assumes you have ollama server running with default settings
          * Where URL is http://localhost:11434/v1 and no api_key
@@ -73,16 +93,6 @@ return [
             'default_context_window' => 131072,
             'default_max_completion_tokens' => 131072,
             'default_temperature' => 0.8,
-        ],
-
-        'claude' => [
-            'label' => 'claude',
-            'api_key' => env('ANTHROPIC_API_KEY'),
-            'model' => 'claude-3-7-sonnet-latest',
-            'driver' => \LarAgent\Drivers\Anthropic\ClaudeDriver::class,
-            'default_context_window' => 200000,
-            'default_max_completion_tokens' => 8192,
-            'default_temperature' => 1,
         ],
     ],
 
