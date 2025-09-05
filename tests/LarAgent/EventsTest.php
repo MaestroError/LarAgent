@@ -4,7 +4,6 @@ use Illuminate\Support\Facades\Event;
 use LarAgent\Agent;
 use LarAgent\Events\AfterResponse;
 use LarAgent\Events\AfterSend;
-use LarAgent\Events\AfterToolExecution;
 use LarAgent\Events\AgentInitialized;
 use LarAgent\Events\BeforeResponse;
 use LarAgent\Events\BeforeSend;
