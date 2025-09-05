@@ -25,11 +25,106 @@ use LarAgent\Events\ToolChanged;
 trait Events
 {
     /**
+     * Registry of method names to event classes for automatic dispatching.
+     */
+    protected array $eventHooks = [];
+
+    /**
+     * Track which lifecycle events have been dispatched to avoid duplicates.
+     */
+    protected array $dispatchedEvents = [];
+
+    /**
      * Check if Laravel events can be dispatched.
      */
     protected function canDispatchLaravelEvents(): bool
     {
         return class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO');
+    }
+
+    /**
+     * Register event hooks for automatic dispatching.
+     */
+    protected function registerEventHooks(): void
+    {
+        $this->eventHooks = [
+            'onInitialize' => AgentInitialized::class,
+            'onConversationStart' => ConversationStarted::class,
+            'onConversationEnd' => ConversationEnded::class,
+            'onToolChange' => ToolChanged::class,
+            'onClear' => AgentCleared::class,
+            'onEngineError' => EngineError::class,
+        ];
+    }
+
+    /**
+     * Register an event hook for a method.
+     */
+    protected function registerEventHook(string $methodName, string $eventClass): void
+    {
+        $this->eventHooks[$methodName] = $eventClass;
+    }
+
+    /**
+     * Ensure a lifecycle event is dispatched, even if the override method doesn't call parent.
+     */
+    protected function ensureEventDispatched(string $methodName, array $parameters = []): void
+    {
+        // Create a unique key for this event dispatch
+        $eventKey = $methodName . '_' . serialize($parameters);
+        
+        // Only dispatch once per unique event
+        if (isset($this->dispatchedEvents[$eventKey])) {
+            return;
+        }
+
+        $this->dispatchedEvents[$eventKey] = true;
+
+        if (!$this->canDispatchLaravelEvents() || !isset($this->eventHooks[$methodName])) {
+            return;
+        }
+
+        $eventClass = $this->eventHooks[$methodName];
+        $event = $this->createEventInstance($eventClass, $methodName, $parameters);
+        
+        if ($event) {
+            Event::dispatch($event);
+        }
+    }
+
+    /**
+     * Create event instance based on event class and method parameters.
+     */
+    protected function createEventInstance(string $eventClass, string $methodName, array $parameters)
+    {
+        $agentDto = $this->toDTO();
+
+        switch ($eventClass) {
+            case AgentInitialized::class:
+                return new AgentInitialized($agentDto);
+                
+            case ConversationStarted::class:
+                return new ConversationStarted($agentDto);
+                
+            case ConversationEnded::class:
+                $message = $parameters[0] ?? null;
+                return new ConversationEnded($message, $agentDto);
+                
+            case ToolChanged::class:
+                $tool = $parameters[0] ?? null;
+                $added = $parameters[1] ?? true;
+                return new ToolChanged($tool, $added, $agentDto);
+                
+            case AgentCleared::class:
+                return new AgentCleared($agentDto);
+                
+            case EngineError::class:
+                $throwable = $parameters[0] ?? null;
+                return new EngineError($throwable, $agentDto);
+                
+            default:
+                return null;
+        }
     }
 
     /**
@@ -173,10 +268,8 @@ trait Events
      */
     protected function onInitialize()
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new AgentInitialized($this->toDTO()));
-        }
+        // Ensure the event is dispatched through the registry system
+        $this->ensureEventDispatched(__FUNCTION__);
 
         // Triggered when the agent is fully initialized
     }
@@ -186,10 +279,8 @@ trait Events
      */
     protected function onConversationStart()
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new ConversationStarted($this->toDTO()));
-        }
+        // Ensure the event is dispatched through the registry system
+        $this->ensureEventDispatched(__FUNCTION__);
 
         // Triggered when a new conversation starts
     }
@@ -199,10 +290,8 @@ trait Events
      */
     protected function onConversationEnd(MessageInterface|array|null $message)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new ConversationEnded($message, $this->toDTO()));
-        }
+        // Ensure the event is dispatched through the registry system
+        $this->ensureEventDispatched(__FUNCTION__, [$message]);
 
         // Triggered when a conversation ends
     }
@@ -212,10 +301,8 @@ trait Events
      */
     protected function onToolChange(ToolInterface $tool, bool $added = true)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new ToolChanged($tool, $added, $this->toDTO()));
-        }
+        // Ensure the event is dispatched through the registry system
+        $this->ensureEventDispatched(__FUNCTION__, [$tool, $added]);
 
         // Triggered when a tool is added or removed
     }
@@ -225,10 +312,8 @@ trait Events
      */
     protected function onClear()
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new AgentCleared($this->toDTO()));
-        }
+        // Ensure the event is dispatched through the registry system
+        $this->ensureEventDispatched(__FUNCTION__);
 
         // Triggered when the agent state is cleared
     }
@@ -246,10 +331,8 @@ trait Events
      */
     protected function onEngineError(\Throwable $th)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new EngineError($th, $this->toDTO()));
-        }
+        // Ensure the event is dispatched through the registry system
+        $this->ensureEventDispatched(__FUNCTION__, [$th]);
 
         // Triggered when an engine error occurs
     }

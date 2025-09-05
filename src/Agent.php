@@ -166,10 +166,14 @@ class Agent
 
     public function __construct($key)
     {
+        $this->registerEventHooks();
         $this->setupProviderData();
         $this->setName();
         $this->setChatSessionId($key);
         $this->setupChatHistory();
+        
+        // Ensure AgentInitialized event is dispatched, even if onInitialize is overridden without parent call
+        $this->ensureEventDispatched('onInitialize');
         $this->onInitialize();
     }
 
@@ -235,6 +239,8 @@ class Agent
 
         $this->setupBeforeRespond();
 
+        // Ensure ConversationStarted event is dispatched, even if onConversationStart is overridden
+        $this->ensureEventDispatched('onConversationStart');
         $this->onConversationStart();
 
         $message = $this->prepareMessage();
@@ -267,6 +273,8 @@ class Agent
             }
         }
 
+        // Ensure ConversationEnded event is dispatched, even if onConversationEnd is overridden
+        $this->ensureEventDispatched('onConversationEnd', [$response]);
         $this->onConversationEnd($response);
 
         if ($this->returnMessage) {
@@ -310,6 +318,8 @@ class Agent
 
         $this->setupBeforeRespond();
 
+        // Ensure ConversationStarted event is dispatched, even if onConversationStart is overridden
+        $this->ensureEventDispatched('onConversationStart');
         $this->onConversationStart();
 
         $message = $this->prepareMessage();
@@ -326,8 +336,9 @@ class Agent
                 }
                 $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
                     if ($streamedMessage instanceof StreamedAssistantMessage) {
-                        // Call onConversationEnd when the stream message is complete
+                        // Ensure ConversationEnded event is dispatched when the stream message is complete
                         if ($streamedMessage->isComplete()) {
+                            $instance->ensureEventDispatched('onConversationEnd', [$streamedMessage]);
                             $instance->onConversationEnd($streamedMessage);
                         }
                     }

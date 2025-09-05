@@ -42,10 +42,39 @@ class EventTestAgent extends Agent
 
     protected function onInitialize()
     {
-        parent::onInitialize();
+        // Test the registry system - NOT calling parent::onInitialize()
         $this->llmDriver->addMockResponse('stop', [
             'content' => 'Test response',
         ]);
+    }
+}
+
+// Test agent for events with overridden method that doesn't call parent
+class OverriddenEventTestAgent extends Agent
+{
+    protected $model = 'gpt-4o-mini';
+
+    protected $history = 'in_memory';
+
+    protected $driver = FakeLlmDriver::class;
+
+    public function instructions()
+    {
+        return 'You are a test agent for events with overridden initialization.';
+    }
+
+    public function registerTools()
+    {
+        return [];
+    }
+
+    // Override onInitialize WITHOUT calling parent - this should still dispatch events
+    protected function onInitialize()
+    {
+        $this->llmDriver->addMockResponse('stop', [
+            'content' => 'Test response from overridden agent',
+        ]);
+        // Intentionally NOT calling parent::onInitialize()
     }
 }
 
@@ -57,6 +86,22 @@ it('dispatches AgentInitialized event when agent is initialized', function () {
     // Trigger initialization by calling respond
     $agent->respond('test message');
 
+    Event::assertDispatched(AgentInitialized::class, function ($event) {
+        return $event->agentDto !== null &&
+               $event->agentDto->providerName !== null;
+    });
+});
+
+it('dispatches events even when methods are overridden without calling parent', function () {
+    Event::fake();
+
+    $agent = OverriddenEventTestAgent::for('test_override_events');
+
+    // Trigger initialization by calling respond
+    $agent->respond('test message');
+
+    // Even though OverriddenEventTestAgent doesn't call parent::onInitialize(),
+    // the AgentInitialized event should still be dispatched via the registry system
     Event::assertDispatched(AgentInitialized::class, function ($event) {
         return $event->agentDto !== null &&
                $event->agentDto->providerName !== null;
