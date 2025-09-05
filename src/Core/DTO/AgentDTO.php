@@ -10,7 +10,7 @@ class AgentDTO
         public readonly ?string $message,
         public readonly array $tools = [],
         public readonly ?string $instructions = null,
-        public readonly array $responseSchema = [],
+        public readonly ?array $responseSchema = [],
         public readonly array $configuration = []
     ) {}
 

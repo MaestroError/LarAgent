@@ -121,18 +121,25 @@ it('includes agent DTO in all events', function () {
     $agent = EventTestAgent::for('test_events');
     $agent->respond('test message');
 
-    // Get all dispatched events
-    $dispatchedEvents = Event::dispatched();
+    $eventClasses = [
+        AgentInitialized::class,
+        BeforeResponse::class,
+        BeforeSend::class,
+        BeforeToolExecution::class,
+        ConversationEnded::class,
+    ];
 
-    // Check that all LarAgent events have agentDto
-    foreach ($dispatchedEvents as $eventClass => $events) {
-        if (str_starts_with($eventClass, 'LarAgent\\Events\\')) {
-            foreach ($events as $event) {
-                expect($event[0]->agentDto)->not->toBeNull()
-                    ->and($event[0]->agentDto)->toHaveProperty('provider')
-                    ->and($event[0]->agentDto)->toHaveProperty('providerName')
-                    ->and($event[0]->agentDto)->toHaveProperty('tools');
-            }
+    // Go through each event class
+    foreach ($eventClasses as $eventClass) {
+        // Get all dispatched events of this class
+        $dispatchedEvents = Event::dispatched($eventClass);
+
+        foreach ($dispatchedEvents as $eventInstance) {
+            // Check the properties on the event instance
+            expect($eventInstance[0]->agentDto)->not->toBeNull()
+                ->and($eventInstance[0]->agentDto)->toHaveProperty('provider')
+                ->and($eventInstance[0]->agentDto)->toHaveProperty('providerName')
+                ->and($eventInstance[0]->agentDto)->toHaveProperty('tools');
         }
     }
 });
