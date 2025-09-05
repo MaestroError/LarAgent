@@ -2,9 +2,26 @@
 
 namespace LarAgent\Core\Traits;
 
+use Illuminate\Support\Facades\Event;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
+use LarAgent\Events\AfterResponse;
+use LarAgent\Events\AfterSend;
+use LarAgent\Events\AfterToolExecution;
+use LarAgent\Events\AgentCleared;
+use LarAgent\Events\AgentInitialized;
+use LarAgent\Events\AgentTerminated;
+use LarAgent\Events\BeforeReinjectingInstructions;
+use LarAgent\Events\BeforeResponse;
+use LarAgent\Events\BeforeSaveHistory;
+use LarAgent\Events\BeforeSend;
+use LarAgent\Events\BeforeStructuredOutput;
+use LarAgent\Events\BeforeToolExecution;
+use LarAgent\Events\ConversationEnded;
+use LarAgent\Events\ConversationStarted;
+use LarAgent\Events\EngineError;
+use LarAgent\Events\ToolChanged;
 
 trait Events
 {
@@ -15,6 +32,11 @@ trait Events
      */
     protected function beforeReinjectingInstructions(ChatHistoryInterface $chatHistory)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new BeforeReinjectingInstructions($chatHistory, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -25,6 +47,11 @@ trait Events
      */
     protected function beforeSend(ChatHistoryInterface $history, ?MessageInterface $message)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new BeforeSend($history, $message, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -35,6 +62,11 @@ trait Events
      */
     protected function afterSend(ChatHistoryInterface $history, MessageInterface $message)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new AfterSend($history, $message, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -45,6 +77,11 @@ trait Events
      */
     protected function beforeSaveHistory(ChatHistoryInterface $history)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new BeforeSaveHistory($history, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -55,6 +92,11 @@ trait Events
      */
     protected function beforeResponse(ChatHistoryInterface $history, ?MessageInterface $message)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new BeforeResponse($history, $message, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -65,6 +107,11 @@ trait Events
      */
     protected function afterResponse(MessageInterface $message)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new AfterResponse($message, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -75,6 +122,11 @@ trait Events
      */
     protected function beforeToolExecution(ToolInterface $tool)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new BeforeToolExecution($tool, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -86,6 +138,11 @@ trait Events
      */
     protected function afterToolExecution(ToolInterface $tool, &$result)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new AfterToolExecution($tool, $result, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -96,6 +153,11 @@ trait Events
      */
     protected function beforeStructuredOutput(array &$response)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new BeforeStructuredOutput($response, $this->toDTO()));
+        }
+        
         return true;
     }
 
@@ -104,6 +166,11 @@ trait Events
      */
     protected function onInitialize()
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new AgentInitialized($this->toDTO()));
+        }
+        
         // Triggered when the agent is fully initialized
     }
 
@@ -112,6 +179,11 @@ trait Events
      */
     protected function onConversationStart()
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new ConversationStarted($this->toDTO()));
+        }
+        
         // Triggered when a new conversation starts
     }
 
@@ -120,6 +192,11 @@ trait Events
      */
     protected function onConversationEnd(MessageInterface|array|null $message)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new ConversationEnded($message, $this->toDTO()));
+        }
+        
         // Triggered when a conversation ends
     }
 
@@ -128,6 +205,11 @@ trait Events
      */
     protected function onToolChange(ToolInterface $tool, bool $added = true)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new ToolChanged($tool, $added, $this->toDTO()));
+        }
+        
         // Triggered when a tool is added or removed
     }
 
@@ -136,6 +218,11 @@ trait Events
      */
     protected function onClear()
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new AgentCleared($this->toDTO()));
+        }
+        
         // Triggered when the agent state is cleared
     }
 
@@ -144,6 +231,11 @@ trait Events
      */
     protected function onTerminate()
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new AgentTerminated($this->toDTO()));
+        }
+        
         // Triggered when the agent is being terminated
     }
 
@@ -152,6 +244,11 @@ trait Events
      */
     protected function onEngineError(\Throwable $th)
     {
+        // Dispatch Laravel event if available
+        if (class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO')) {
+            Event::dispatch(new EngineError($th, $this->toDTO()));
+        }
+        
         // Triggered when an engine error occurs
     }
 }
