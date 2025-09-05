@@ -27,8 +27,6 @@ trait Events
 {
     /**
      * Check if Laravel events can be dispatched.
-     *
-     * @return bool
      */
     protected function canDispatchLaravelEvents(): bool
     {
@@ -46,7 +44,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new BeforeReinjectingInstructions($chatHistory, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -61,7 +59,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new BeforeSend($history, $message, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -76,7 +74,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new AfterSend($history, $message, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -91,7 +89,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new BeforeSaveHistory($history, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -106,7 +104,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new BeforeResponse($history, $message, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -121,7 +119,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new AfterResponse($message, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -136,7 +134,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new BeforeToolExecution($tool, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -152,7 +150,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new AfterToolExecution($tool, $result, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -167,7 +165,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new BeforeStructuredOutput($response, $this->toDTO()));
         }
-        
+
         return true;
     }
 
@@ -180,7 +178,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new AgentInitialized($this->toDTO()));
         }
-        
+
         // Triggered when the agent is fully initialized
     }
 
@@ -193,7 +191,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new ConversationStarted($this->toDTO()));
         }
-        
+
         // Triggered when a new conversation starts
     }
 
@@ -206,7 +204,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new ConversationEnded($message, $this->toDTO()));
         }
-        
+
         // Triggered when a conversation ends
     }
 
@@ -219,7 +217,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new ToolChanged($tool, $added, $this->toDTO()));
         }
-        
+
         // Triggered when a tool is added or removed
     }
 
@@ -232,7 +230,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new AgentCleared($this->toDTO()));
         }
-        
+
         // Triggered when the agent state is cleared
     }
 
@@ -245,7 +243,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new AgentTerminated($this->toDTO()));
         }
-        
+
         // Triggered when the agent is being terminated
     }
 
@@ -258,7 +256,7 @@ trait Events
         if ($this->canDispatchLaravelEvents()) {
             Event::dispatch(new EngineError($th, $this->toDTO()));
         }
-        
+
         // Triggered when an engine error occurs
     }
 }
