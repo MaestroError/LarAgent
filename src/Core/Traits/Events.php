@@ -11,7 +11,6 @@ use LarAgent\Events\AfterSend;
 use LarAgent\Events\AfterToolExecution;
 use LarAgent\Events\AgentCleared;
 use LarAgent\Events\AgentInitialized;
-use LarAgent\Events\AgentTerminated;
 use LarAgent\Events\BeforeReinjectingInstructions;
 use LarAgent\Events\BeforeResponse;
 use LarAgent\Events\BeforeSaveHistory;
@@ -239,11 +238,6 @@ trait Events
      */
     protected function onTerminate()
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new AgentTerminated($this->toDTO()));
-        }
-
         // Triggered when the agent is being terminated
     }
 

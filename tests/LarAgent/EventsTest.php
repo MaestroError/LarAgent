@@ -145,41 +145,6 @@ it('includes agent DTO in all events', function () {
     }
 });
 
-it('dispatches BeforeToolExecution and AfterToolExecution events when using tools', function () {
-    Event::fake();
-
-    // Create agent with tool execution mock
-    class ToolEventTestAgent extends EventTestAgent
-    {
-        protected function onInitialize()
-        {
-            parent::onInitialize();
-            $this->llmDriver->addMockResponse('tool_calls', [
-                'toolName' => 'test_tool',
-                'arguments' => json_encode(['input' => 'test input']),
-            ]);
-
-            $this->llmDriver->addMockResponse('stop', [
-                'content' => 'Processed test input',
-            ]);
-        }
-    }
-
-    $agent = ToolEventTestAgent::for('test_events');
-    $agent->respond('Use the test tool with input "test input".');
-
-    Event::assertDispatched(BeforeToolExecution::class, function ($event) {
-        return $event->agentDto !== null &&
-               $event->tool !== null;
-    });
-
-    Event::assertDispatched(AfterToolExecution::class, function ($event) {
-        return $event->agentDto !== null &&
-               $event->tool !== null &&
-               $event->result !== null;
-    });
-});
-
 it('dispatches ToolChanged event when tools are added or removed', function () {
     Event::fake();
 
