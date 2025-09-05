@@ -43,6 +43,7 @@ class EventTestAgent extends Agent
 
     protected function onInitialize()
     {
+        parent::onInitialize();
         $this->llmDriver->addMockResponse('stop', [
             'content' => 'Test response',
         ]);
@@ -152,6 +153,7 @@ it('dispatches BeforeToolExecution and AfterToolExecution events when using tool
     {
         protected function onInitialize()
         {
+            parent::onInitialize();
             $this->llmDriver->addMockResponse('tool_calls', [
                 'toolName' => 'test_tool',
                 'arguments' => json_encode(['input' => 'test input']),
@@ -211,39 +213,7 @@ it('dispatches ToolChanged event when tools are added or removed', function () {
 
 it('does not dispatch events when Laravel Event facade is not available', function () {
     // This test ensures the trait works even without Laravel
-    $agent = new class extends Agent
-    {
-        protected $model = 'gpt-4o-mini';
-
-        protected $history = 'in_memory';
-
-        protected $driver = FakeLlmDriver::class;
-
-        public function instructions()
-        {
-            return 'test';
-        }
-
-        protected function onInitialize()
-        {
-            $this->llmDriver->addMockResponse('stop', ['content' => 'test']);
-        }
-
-        // Override to simulate Event facade not available
-        protected function beforeSend($history, $message)
-        {
-            // Manually call parent without Event facade
-            if (method_exists($this, 'toDTO')) {
-                // Should not throw error even if Event is not available
-                $dto = $this->toDTO();
-                expect($dto)->not->toBeNull();
-            }
-
-            return true;
-        }
-    };
-
-    $agent = $agent::for('test_no_events');
+    $agent = EventTestAgent::for('test_no_events');
 
     // This should not throw any errors
     expect(fn () => $agent->respond('test'))->not->toThrow(Exception::class);
