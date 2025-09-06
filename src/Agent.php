@@ -166,15 +166,11 @@ class Agent
 
     public function __construct($key)
     {
-        $this->registerEventHooks();
         $this->setupProviderData();
         $this->setName();
         $this->setChatSessionId($key);
         $this->setupChatHistory();
-        
-        // Ensure AgentInitialized event is dispatched, even if onInitialize is overridden without parent call
-        $this->ensureEventDispatched('onInitialize');
-        $this->onInitialize();
+        $this->callEvent('onInitialize');
     }
 
     public function __destruct()
@@ -239,9 +235,7 @@ class Agent
 
         $this->setupBeforeRespond();
 
-        // Ensure ConversationStarted event is dispatched, even if onConversationStart is overridden
-        $this->ensureEventDispatched('onConversationStart');
-        $this->onConversationStart();
+        $this->callEvent('onConversationStart');
 
         $message = $this->prepareMessage();
 
@@ -253,7 +247,7 @@ class Agent
             }
             $response = $this->agent->run();
         } catch (\Throwable $th) {
-            $this->onEngineError($th);
+            $this->callEvent('onEngineError', [$th]);
             // Run fallback provider
             $fallbackProvider = config('laragent.fallback_provider');
 
@@ -273,9 +267,7 @@ class Agent
             }
         }
 
-        // Ensure ConversationEnded event is dispatched, even if onConversationEnd is overridden
-        $this->ensureEventDispatched('onConversationEnd', [$response]);
-        $this->onConversationEnd($response);
+        $this->callEvent('onConversationEnd', [$response]);
 
         if ($this->returnMessage) {
             return $response;
@@ -318,9 +310,7 @@ class Agent
 
         $this->setupBeforeRespond();
 
-        // Ensure ConversationStarted event is dispatched, even if onConversationStart is overridden
-        $this->ensureEventDispatched('onConversationStart');
-        $this->onConversationStart();
+        $this->callEvent('onConversationStart');
 
         $message = $this->prepareMessage();
 
@@ -336,10 +326,9 @@ class Agent
                 }
                 $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
                     if ($streamedMessage instanceof StreamedAssistantMessage) {
-                        // Ensure ConversationEnded event is dispatched when the stream message is complete
+                        // Call onConversationEnd when the stream message is complete
                         if ($streamedMessage->isComplete()) {
-                            $instance->ensureEventDispatched('onConversationEnd', [$streamedMessage]);
-                            $instance->onConversationEnd($streamedMessage);
+                            $instance->callEvent('onConversationEnd', [$streamedMessage]);
                         }
                     }
 
@@ -353,7 +342,7 @@ class Agent
                     yield $chunk;
                 }
             } catch (\Throwable $th) {
-                $instance->onEngineError($th);
+                $instance->callEvent('onEngineError', [$th]);
                 $fallbackProvider = config('laragent.fallback_provider');
 
                 if (! $fallbackProvider || $fallbackProvider === $instance->provider) {
@@ -647,7 +636,7 @@ class Agent
 
     public function clear(): static
     {
-        $this->onClear();
+        $this->callEvent('onClear');
         $this->chatHistory->clear();
         $this->chatHistory->writeToMemory();
 
@@ -690,7 +679,7 @@ class Agent
             $tool = new $tool;
         }
         $this->tools[] = $tool;
-        $this->onToolChange($tool, true);
+        $this->callEvent('onToolChange', [$tool, true]);
 
         return $this;
     }
@@ -703,7 +692,7 @@ class Agent
             if ($existingTool->getName() !== $toolName) {
                 return true;
             }
-            $this->onToolChange($existingTool, false);
+            $this->callEvent('onToolChange', [$existingTool, false]);
 
             return false;
         });
@@ -1110,63 +1099,63 @@ class Agent
         $instance = $this;
 
         $this->agent->beforeReinjectingInstructions(function ($agent, $chatHistory) use ($instance) {
-            $returnValue = $instance->beforeReinjectingInstructions($chatHistory);
+            $returnValue = $instance->callEvent('beforeReinjectingInstructions', [$chatHistory]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->beforeSend(function ($agent, $history, $message) use ($instance) {
-            $returnValue = $instance->beforeSend($history, $message);
+            $returnValue = $instance->callEvent('beforeSend', [$history, $message]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->afterSend(function ($agent, $history, $message) use ($instance) {
-            $returnValue = $instance->afterSend($history, $message);
+            $returnValue = $instance->callEvent('afterSend', [$history, $message]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->beforeSaveHistory(function ($agent, $history) use ($instance) {
-            $returnValue = $instance->beforeSaveHistory($history);
+            $returnValue = $instance->callEvent('beforeSaveHistory', [$history]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->beforeResponse(function ($agent, $history, $message) use ($instance) {
-            $returnValue = $instance->beforeResponse($history, $message);
+            $returnValue = $instance->callEvent('beforeResponse', [$history, $message]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->afterResponse(function ($agent, $message) use ($instance) {
-            $returnValue = $instance->afterResponse($message);
+            $returnValue = $instance->callEvent('afterResponse', [$message]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->beforeToolExecution(function ($agent, $tool) use ($instance) {
-            $returnValue = $instance->beforeToolExecution($tool);
+            $returnValue = $instance->callEvent('beforeToolExecution', [$tool]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->afterToolExecution(function ($agent, $tool, &$result) use ($instance) {
-            $returnValue = $instance->afterToolExecution($tool, $result);
+            $returnValue = $instance->callEvent('afterToolExecution', [$tool, &$result]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
         $this->agent->beforeStructuredOutput(function ($agent, &$response) use ($instance) {
-            $returnValue = $instance->beforeStructuredOutput($response);
+            $returnValue = $instance->callEvent('beforeStructuredOutput', [&$response]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;

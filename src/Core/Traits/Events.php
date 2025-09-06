@@ -25,14 +25,28 @@ use LarAgent\Events\ToolChanged;
 trait Events
 {
     /**
-     * Registry of method names to event classes for automatic dispatching.
+     * Mapping of method names to their corresponding event classes.
      */
-    protected array $eventHooks = [];
-
-    /**
-     * Track which lifecycle events have been dispatched to avoid duplicates.
-     */
-    protected array $dispatchedEvents = [];
+    protected array $eventMapping = [
+        // Lifecycle events
+        'onInitialize' => AgentInitialized::class,
+        'onConversationStart' => ConversationStarted::class,
+        'onConversationEnd' => ConversationEnded::class,
+        'onToolChange' => ToolChanged::class,
+        'onClear' => AgentCleared::class,
+        'onEngineError' => EngineError::class,
+        
+        // Hook events (before/after)
+        'beforeReinjectingInstructions' => BeforeReinjectingInstructions::class,
+        'beforeSend' => BeforeSend::class,
+        'afterSend' => AfterSend::class,
+        'beforeSaveHistory' => BeforeSaveHistory::class,
+        'beforeResponse' => BeforeResponse::class,
+        'afterResponse' => AfterResponse::class,
+        'beforeToolExecution' => BeforeToolExecution::class,
+        'afterToolExecution' => AfterToolExecution::class,
+        'beforeStructuredOutput' => BeforeStructuredOutput::class,
+    ];
 
     /**
      * Check if Laravel events can be dispatched.
@@ -43,53 +57,30 @@ trait Events
     }
 
     /**
-     * Register event hooks for automatic dispatching.
+     * Call an event method and dispatch its corresponding Laravel event.
+     *
+     * @param string $functionName The name of the method to call
+     * @param array $args The arguments to pass to both the event and the method
+     * @return mixed The result of the method call
      */
-    protected function registerEventHooks(): void
+    protected function callEvent(string $functionName, array $args = []): mixed
     {
-        $this->eventHooks = [
-            'onInitialize' => AgentInitialized::class,
-            'onConversationStart' => ConversationStarted::class,
-            'onConversationEnd' => ConversationEnded::class,
-            'onToolChange' => ToolChanged::class,
-            'onClear' => AgentCleared::class,
-            'onEngineError' => EngineError::class,
-        ];
-    }
-
-    /**
-     * Register an event hook for a method.
-     */
-    protected function registerEventHook(string $methodName, string $eventClass): void
-    {
-        $this->eventHooks[$methodName] = $eventClass;
-    }
-
-    /**
-     * Ensure a lifecycle event is dispatched, even if the override method doesn't call parent.
-     */
-    protected function ensureEventDispatched(string $methodName, array $parameters = []): void
-    {
-        // Create a unique key for this event dispatch
-        $eventKey = $methodName . '_' . serialize($parameters);
-        
-        // Only dispatch once per unique event
-        if (isset($this->dispatchedEvents[$eventKey])) {
-            return;
+        // Dispatch Laravel event if available and method is mapped
+        if ($this->canDispatchLaravelEvents() && isset($this->eventMapping[$functionName])) {
+            $eventClass = $this->eventMapping[$functionName];
+            $event = $this->createEventInstance($eventClass, $functionName, $args);
+            
+            if ($event) {
+                Event::dispatch($event);
+            }
         }
 
-        $this->dispatchedEvents[$eventKey] = true;
-
-        if (!$this->canDispatchLaravelEvents() || !isset($this->eventHooks[$methodName])) {
-            return;
+        // Call the actual method if it exists
+        if (method_exists($this, $functionName)) {
+            return $this->$functionName(...$args);
         }
 
-        $eventClass = $this->eventHooks[$methodName];
-        $event = $this->createEventInstance($eventClass, $methodName, $parameters);
-        
-        if ($event) {
-            Event::dispatch($event);
-        }
+        return null;
     }
 
     /**
@@ -121,6 +112,47 @@ trait Events
             case EngineError::class:
                 $throwable = $parameters[0] ?? null;
                 return new EngineError($throwable, $agentDto);
+
+            // Hook events
+            case BeforeReinjectingInstructions::class:
+                $chatHistory = $parameters[0] ?? null;
+                return new BeforeReinjectingInstructions($chatHistory, $agentDto);
+
+            case BeforeSend::class:
+                $history = $parameters[0] ?? null;
+                $message = $parameters[1] ?? null;
+                return new BeforeSend($history, $message, $agentDto);
+
+            case AfterSend::class:
+                $history = $parameters[0] ?? null;
+                $message = $parameters[1] ?? null;
+                return new AfterSend($history, $message, $agentDto);
+
+            case BeforeSaveHistory::class:
+                $history = $parameters[0] ?? null;
+                return new BeforeSaveHistory($history, $agentDto);
+
+            case BeforeResponse::class:
+                $history = $parameters[0] ?? null;
+                $message = $parameters[1] ?? null;
+                return new BeforeResponse($history, $message, $agentDto);
+
+            case AfterResponse::class:
+                $message = $parameters[0] ?? null;
+                return new AfterResponse($message, $agentDto);
+
+            case BeforeToolExecution::class:
+                $tool = $parameters[0] ?? null;
+                return new BeforeToolExecution($tool, $agentDto);
+
+            case AfterToolExecution::class:
+                $tool = $parameters[0] ?? null;
+                $result = $parameters[1] ?? null;
+                return new AfterToolExecution($tool, $result, $agentDto);
+
+            case BeforeStructuredOutput::class:
+                $response = $parameters[0] ?? null;
+                return new BeforeStructuredOutput($response, $agentDto);
                 
             default:
                 return null;
@@ -134,11 +166,6 @@ trait Events
      */
     protected function beforeReinjectingInstructions(ChatHistoryInterface $chatHistory)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new BeforeReinjectingInstructions($chatHistory, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -149,11 +176,6 @@ trait Events
      */
     protected function beforeSend(ChatHistoryInterface $history, ?MessageInterface $message)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new BeforeSend($history, $message, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -164,11 +186,6 @@ trait Events
      */
     protected function afterSend(ChatHistoryInterface $history, MessageInterface $message)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new AfterSend($history, $message, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -179,11 +196,6 @@ trait Events
      */
     protected function beforeSaveHistory(ChatHistoryInterface $history)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new BeforeSaveHistory($history, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -194,11 +206,6 @@ trait Events
      */
     protected function beforeResponse(ChatHistoryInterface $history, ?MessageInterface $message)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new BeforeResponse($history, $message, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -209,11 +216,6 @@ trait Events
      */
     protected function afterResponse(MessageInterface $message)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new AfterResponse($message, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -224,11 +226,6 @@ trait Events
      */
     protected function beforeToolExecution(ToolInterface $tool)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new BeforeToolExecution($tool, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -240,11 +237,6 @@ trait Events
      */
     protected function afterToolExecution(ToolInterface $tool, &$result)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new AfterToolExecution($tool, $result, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -255,11 +247,6 @@ trait Events
      */
     protected function beforeStructuredOutput(array &$response)
     {
-        // Dispatch Laravel event if available
-        if ($this->canDispatchLaravelEvents()) {
-            Event::dispatch(new BeforeStructuredOutput($response, $this->toDTO()));
-        }
-
         return true;
     }
 
@@ -268,9 +255,6 @@ trait Events
      */
     protected function onInitialize()
     {
-        // Ensure the event is dispatched through the registry system
-        $this->ensureEventDispatched(__FUNCTION__);
-
         // Triggered when the agent is fully initialized
     }
 
@@ -279,9 +263,6 @@ trait Events
      */
     protected function onConversationStart()
     {
-        // Ensure the event is dispatched through the registry system
-        $this->ensureEventDispatched(__FUNCTION__);
-
         // Triggered when a new conversation starts
     }
 
@@ -290,9 +271,6 @@ trait Events
      */
     protected function onConversationEnd(MessageInterface|array|null $message)
     {
-        // Ensure the event is dispatched through the registry system
-        $this->ensureEventDispatched(__FUNCTION__, [$message]);
-
         // Triggered when a conversation ends
     }
 
@@ -301,9 +279,6 @@ trait Events
      */
     protected function onToolChange(ToolInterface $tool, bool $added = true)
     {
-        // Ensure the event is dispatched through the registry system
-        $this->ensureEventDispatched(__FUNCTION__, [$tool, $added]);
-
         // Triggered when a tool is added or removed
     }
 
@@ -312,9 +287,6 @@ trait Events
      */
     protected function onClear()
     {
-        // Ensure the event is dispatched through the registry system
-        $this->ensureEventDispatched(__FUNCTION__);
-
         // Triggered when the agent state is cleared
     }
 
@@ -331,9 +303,6 @@ trait Events
      */
     protected function onEngineError(\Throwable $th)
     {
-        // Ensure the event is dispatched through the registry system
-        $this->ensureEventDispatched(__FUNCTION__, [$th]);
-
         // Triggered when an engine error occurs
     }
 }
