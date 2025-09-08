@@ -68,11 +68,23 @@ trait Events
         // Dispatch Laravel event if available and method is mapped
         if ($this->canDispatchLaravelEvents() && isset($this->eventMapping[$functionName])) {
             $eventClass = $this->eventMapping[$functionName];
-            $event = $this->createEventInstance($eventClass, $functionName, $args);
             
-            if ($event) {
-                Event::dispatch($event);
+            // Events that only take AgentDTO
+            $dtoOnlyEvents = [
+                'onInitialize',
+                'onConversationStart',
+                'onClear'
+            ];
+            
+            if (in_array($functionName, $dtoOnlyEvents)) {
+                $event = new $eventClass($this->toDTO());
+            } else {
+                // Events that take parameters + AgentDTO at the end
+                $eventArgs = [...$args, $this->toDTO()];
+                $event = new $eventClass(...$eventArgs);
             }
+            
+            Event::dispatch($event);
         }
 
         // Call the actual method if it exists
@@ -81,82 +93,6 @@ trait Events
         }
 
         return null;
-    }
-
-    /**
-     * Create event instance based on event class and method parameters.
-     */
-    protected function createEventInstance(string $eventClass, string $methodName, array $parameters)
-    {
-        $agentDto = $this->toDTO();
-
-        switch ($eventClass) {
-            case AgentInitialized::class:
-                return new AgentInitialized($agentDto);
-                
-            case ConversationStarted::class:
-                return new ConversationStarted($agentDto);
-                
-            case ConversationEnded::class:
-                $message = $parameters[0] ?? null;
-                return new ConversationEnded($message, $agentDto);
-                
-            case ToolChanged::class:
-                $tool = $parameters[0] ?? null;
-                $added = $parameters[1] ?? true;
-                return new ToolChanged($tool, $added, $agentDto);
-                
-            case AgentCleared::class:
-                return new AgentCleared($agentDto);
-                
-            case EngineError::class:
-                $throwable = $parameters[0] ?? null;
-                return new EngineError($throwable, $agentDto);
-
-            // Hook events
-            case BeforeReinjectingInstructions::class:
-                $chatHistory = $parameters[0] ?? null;
-                return new BeforeReinjectingInstructions($chatHistory, $agentDto);
-
-            case BeforeSend::class:
-                $history = $parameters[0] ?? null;
-                $message = $parameters[1] ?? null;
-                return new BeforeSend($history, $message, $agentDto);
-
-            case AfterSend::class:
-                $history = $parameters[0] ?? null;
-                $message = $parameters[1] ?? null;
-                return new AfterSend($history, $message, $agentDto);
-
-            case BeforeSaveHistory::class:
-                $history = $parameters[0] ?? null;
-                return new BeforeSaveHistory($history, $agentDto);
-
-            case BeforeResponse::class:
-                $history = $parameters[0] ?? null;
-                $message = $parameters[1] ?? null;
-                return new BeforeResponse($history, $message, $agentDto);
-
-            case AfterResponse::class:
-                $message = $parameters[0] ?? null;
-                return new AfterResponse($message, $agentDto);
-
-            case BeforeToolExecution::class:
-                $tool = $parameters[0] ?? null;
-                return new BeforeToolExecution($tool, $agentDto);
-
-            case AfterToolExecution::class:
-                $tool = $parameters[0] ?? null;
-                $result = $parameters[1] ?? null;
-                return new AfterToolExecution($tool, $result, $agentDto);
-
-            case BeforeStructuredOutput::class:
-                $response = $parameters[0] ?? null;
-                return new BeforeStructuredOutput($response, $agentDto);
-                
-            default:
-                return null;
-        }
     }
 
     /**
