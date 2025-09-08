@@ -12,7 +12,7 @@ class BeforeToolExecution
     use Dispatchable, SerializesModels;
 
     public function __construct(
-        public readonly ToolInterface $tool,
-        public readonly AgentDTO $agentDto
+        public readonly AgentDTO $agentDto,
+        public readonly ToolInterface $tool
     ) {}
 }

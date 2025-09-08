@@ -12,7 +12,7 @@ class EngineError
     use Dispatchable, SerializesModels;
 
     public function __construct(
-        public readonly Throwable $exception,
-        public readonly AgentDTO $agentDto
+        public readonly AgentDTO $agentDto,
+        public readonly Throwable $exception
     ) {}
 }

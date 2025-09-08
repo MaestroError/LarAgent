@@ -12,7 +12,7 @@ class AfterResponse
     use Dispatchable, SerializesModels;
 
     public function __construct(
-        public readonly MessageInterface $message,
-        public readonly AgentDTO $agentDto
+        public readonly AgentDTO $agentDto,
+        public readonly MessageInterface $message
     ) {}
 }

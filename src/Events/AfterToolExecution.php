@@ -12,8 +12,8 @@ class AfterToolExecution
     use Dispatchable, SerializesModels;
 
     public function __construct(
+        public readonly AgentDTO $agentDto,
         public readonly ToolInterface $tool,
-        public readonly mixed $result,
-        public readonly AgentDTO $agentDto
+        public readonly mixed $result
     ) {}
 }

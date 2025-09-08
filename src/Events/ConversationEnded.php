@@ -12,7 +12,7 @@ class ConversationEnded
     use Dispatchable, SerializesModels;
 
     public function __construct(
-        public readonly MessageInterface|array|null $message,
-        public readonly AgentDTO $agentDto
+        public readonly AgentDTO $agentDto,
+        public readonly MessageInterface|array|null $message
     ) {}
 }

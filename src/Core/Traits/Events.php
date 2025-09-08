@@ -79,9 +79,8 @@ trait Events
             if (in_array($functionName, $dtoOnlyEvents)) {
                 $event = new $eventClass($this->toDTO());
             } else {
-                // Events that take parameters + AgentDTO at the end
-                $eventArgs = [...$args, $this->toDTO()];
-                $event = new $eventClass(...$eventArgs);
+                // Events that take AgentDTO first, then other parameters
+                $event = new $eventClass($this->toDTO(), ...$args);
             }
             
             Event::dispatch($event);

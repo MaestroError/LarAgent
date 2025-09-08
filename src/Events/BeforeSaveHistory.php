@@ -12,7 +12,7 @@ class BeforeSaveHistory
     use Dispatchable, SerializesModels;
 
     public function __construct(
-        public readonly ChatHistoryInterface $history,
-        public readonly AgentDTO $agentDto
+        public readonly AgentDTO $agentDto,
+        public readonly ChatHistoryInterface $history
     ) {}
 }

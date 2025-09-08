@@ -13,8 +13,8 @@ class AfterSend
     use Dispatchable, SerializesModels;
 
     public function __construct(
+        public readonly AgentDTO $agentDto,
         public readonly ChatHistoryInterface $history,
-        public readonly MessageInterface $message,
-        public readonly AgentDTO $agentDto
+        public readonly MessageInterface $message
     ) {}
 }

@@ -12,8 +12,8 @@ class ToolChanged
     use Dispatchable, SerializesModels;
 
     public function __construct(
+        public readonly AgentDTO $agentDto,
         public readonly ToolInterface $tool,
-        public readonly bool $added,
-        public readonly AgentDTO $agentDto
+        public readonly bool $added
     ) {}
 }
