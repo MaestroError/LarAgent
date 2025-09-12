@@ -27,7 +27,9 @@ function config(string $key): mixed
 class GeminiTestAgent extends LarAgent\Agent
 {
     protected $provider = 'gemini';
+
     protected $model = 'gemini-1.5-flash';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -43,7 +45,7 @@ echo "=======================\n\n";
 echo "Test 1: Basic response\n";
 $response = GeminiTestAgent::for('gemini_test_1')
     ->respond('Hello! What model are you based on?');
-echo "Response: " . $response . "\n\n";
+echo 'Response: '.$response."\n\n";
 
 // Test 2: Conversation
 echo "Test 2: Conversation\n";
@@ -51,7 +53,7 @@ $agent = GeminiTestAgent::for('gemini_test_2');
 $response1 = $agent->respond('My name is Test User');
 $response2 = $agent->respond('What is my name?');
 
-echo "First response: " . $response1 . "\n";
-echo "Second response: " . $response2 . "\n\n";
+echo 'First response: '.$response1."\n";
+echo 'Second response: '.$response2."\n\n";
 
 echo "Gemini agent test completed! ✅\n";

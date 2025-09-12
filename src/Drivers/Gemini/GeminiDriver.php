@@ -2,22 +2,24 @@
 
 namespace LarAgent\Drivers\Gemini;
 
+use Generator;
+use GuzzleHttp\Client;
+use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\ToolCallMessage;
-use LarAgent\ToolCall;
-use GuzzleHttp\Client;
-use GuzzleHttp\Exception\RequestException;
 use RuntimeException;
-use Generator;
 
 class GeminiDriver extends LlmDriver
 {
     protected Client $httpClient;
+
     protected string $apiKey;
+
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/';
+
     protected mixed $lastResponse;
+
     protected array $config = [];
 
     public function __construct(array $settings = [])
@@ -43,8 +45,8 @@ class GeminiDriver extends LlmDriver
     /**
      * Send a message to the LLM and receive a response using native Gemini API.
      *
-     * @param array $messages Array of messages to send
-     * @param array $options Configuration options
+     * @param  array  $messages  Array of messages to send
+     * @param  array  $options  Configuration options
      * @return AssistantMessage The response from the LLM
      *
      * @throws RuntimeException
@@ -86,81 +88,80 @@ class GeminiDriver extends LlmDriver
             }
 
             throw new RuntimeException('Unexpected response format from Gemini API');
-
         } catch (RequestException $e) {
-            throw new RuntimeException("Gemini API request failed: " . $e->getMessage(), 0, $e);
+            throw new RuntimeException('Gemini API request failed: '.$e->getMessage(), 0, $e);
         }
     }
 
     /**
      * Prepare the payload for API request with common settings.
      *
-     * @param array $messages The messages to send
-     * @param array $options Configuration options
+     * @param  array  $messages  The messages to send
+     * @param  array  $options  Configuration options
      * @return array The prepared payload
      */
     protected function preparePayload(array $messages, array $options = []): array
     {
-    // We collect system instructions separately
-    $systemInstructions = [];
-    $filteredMessages = [];
+        // We collect system instructions separately
+        $systemInstructions = [];
+        $filteredMessages = [];
 
-    foreach ($messages as $message) {
-        $role = $message['role'];
-        if ($role === 'system' || $role === 'developer') {
-            // For system messages we use only text content
-            if (isset($message['content']) && is_string($message['content'])) {
-                $systemInstructions[] = $message['content'];
+        foreach ($messages as $message) {
+            $role = $message['role'];
+            if ($role === 'system' || $role === 'developer') {
+                // For system messages we use only text content
+                if (isset($message['content']) && is_string($message['content'])) {
+                    $systemInstructions[] = $message['content'];
+                }
+            } elseif ($role !== 'tool') {
+                $filteredMessages[] = $message;
             }
-        } elseif ($role !== 'tool') {
-            $filteredMessages[] = $message;
         }
-    }
 
-    // Convert the remaining messages to the format Gemini
-    $contents = [];
-    foreach ($filteredMessages as $message) {
-        $role = $this->mapRoleToGeminiRole($message['role']);
-        $parts = [];
+        // Convert the remaining messages to the format Gemini
+        $contents = [];
+        foreach ($filteredMessages as $message) {
+            $role = $this->mapRoleToGeminiRole($message['role']);
+            $parts = [];
 
-        // We process different message formats
-        if (isset($message['content']) && is_string($message['content'])) {
-            // Regular text message
-            $parts[] = ['text' => $message['content']];
-        } elseif (isset($message['parts']) && is_array($message['parts'])) {
-            // Message with parts (for tools)
-            $parts = $message['parts'];
-        } elseif (isset($message['content']) && is_array($message['content'])) {
-            // Check that parts is not empty
-            foreach ($message['content'] as $contentPart) {
-                if (isset($contentPart['text']) && is_string($contentPart['text'])) {
-                    $parts[] = ['text' => $contentPart['text']];
-                } elseif (isset($contentPart['type']) && $contentPart['type'] === 'text') {
-                    $parts[] = ['text' => $contentPart['text'] ?? ''];
+            // We process different message formats
+            if (isset($message['content']) && is_string($message['content'])) {
+                // Regular text message
+                $parts[] = ['text' => $message['content']];
+            } elseif (isset($message['parts']) && is_array($message['parts'])) {
+                // Message with parts (for tools)
+                $parts = $message['parts'];
+            } elseif (isset($message['content']) && is_array($message['content'])) {
+                // Check that parts is not empty
+                foreach ($message['content'] as $contentPart) {
+                    if (isset($contentPart['text']) && is_string($contentPart['text'])) {
+                        $parts[] = ['text' => $contentPart['text']];
+                    } elseif (isset($contentPart['type']) && $contentPart['type'] === 'text') {
+                        $parts[] = ['text' => $contentPart['text'] ?? ''];
+                    }
                 }
             }
+
+            // Check that parts is not empty
+            if (! empty($parts)) {
+                $contents[] = [
+                    'role' => $role,
+                    'parts' => $parts,
+                ];
+            }
         }
 
-        // Check that parts is not empty
-        if (!empty($parts)) {
-            $contents[] = [
-                'role' => $role,
-                'parts' => $parts
+        $payload = ['contents' => $contents];
+
+        // Add system instructions if any
+        if (! empty($systemInstructions)) {
+            $instructionText = implode("\n", $systemInstructions);
+            $payload['systemInstruction'] = [
+                'parts' => [
+                    ['text' => $instructionText],
+                ],
             ];
         }
-    }
-
-    $payload = ['contents' => $contents];
-
-    // Add system instructions if any
-    if (!empty($systemInstructions)) {
-        $instructionText = implode("\n", $systemInstructions);
-        $payload['systemInstruction'] = [
-            'parts' => [
-                ['text' => $instructionText]
-            ]
-        ];
-    }
 
         // Add generation config
         $generationConfig = [];
@@ -177,17 +178,17 @@ class GeminiDriver extends LlmDriver
             $generationConfig['topK'] = $options['top_k'];
         }
 
-        if (!empty($generationConfig)) {
+        if (! empty($generationConfig)) {
             $payload['generationConfig'] = $generationConfig;
         }
 
         // Add tools if any are registered
-        if (!empty($this->tools)) {
+        if (! empty($this->tools)) {
             $payload['tools'] = [
                 'functionDeclarations' => array_map(
-                    fn($tool) => $this->formatToolForPayload($tool),
+                    fn ($tool) => $this->formatToolForPayload($tool),
                     $this->tools
-                )
+                ),
             ];
         }
 
@@ -197,7 +198,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Map LarAgent roles to Gemini roles.
      *
-     * @param string $role The LarAgent role
+     * @param  string  $role  The LarAgent role
      * @return string The Gemini role
      */
     protected function mapRoleToGeminiRole(string $role): string
@@ -205,7 +206,7 @@ class GeminiDriver extends LlmDriver
         return match ($role) {
             'user' => 'user',
             'assistant' => 'model',
-           // 'system' => 'user',  Gemini doesn't have system role, map to user
+            // 'system' => 'user',  Gemini doesn't have system role, map to user
             default => 'user',
         };
     }
@@ -213,7 +214,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Extract usage information from Gemini response.
      *
-     * @param array $responseData The response from Gemini API
+     * @param  array  $responseData  The response from Gemini API
      * @return array Usage information
      */
     protected function extractUsage(array $responseData): array
@@ -238,7 +239,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Format a tool for the Gemini API payload.
      *
-     * @param mixed $tool The tool instance
+     * @param  mixed  $tool  The tool instance
      * @return array Formatted tool for Gemini API
      */
     public function formatToolForPayload($tool): array
@@ -248,7 +249,7 @@ class GeminiDriver extends LlmDriver
             'description' => $tool->getDescription(),
         ];
 
-        if (!empty($tool->getProperties())) {
+        if (! empty($tool->getProperties())) {
             $toolSchema['parameters'] = [
                 'type' => 'OBJECT',
                 'properties' => $tool->getProperties(),
@@ -262,8 +263,8 @@ class GeminiDriver extends LlmDriver
     /**
      * Convert a tool call result to a message format.
      *
-     * @param ToolCallInterface $toolCall The tool call instance
-     * @param mixed $result The result of the tool execution
+     * @param  ToolCallInterface  $toolCall  The tool call instance
+     * @param  mixed  $result  The result of the tool execution
      * @return array Message format for tool result
      */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
@@ -279,17 +280,17 @@ class GeminiDriver extends LlmDriver
                         'response' => [
                             'name' => $toolCall->getToolName(),
                             'content' => $responseContent,
-                        ]
-                    ]
-                ]
-            ]
+                        ],
+                    ],
+                ],
+            ],
         ];
     }
 
     /**
      * Convert tool calls to a message format.
      *
-     * @param array $toolCalls Array of tool calls
+     * @param  array  $toolCalls  Array of tool calls
      * @return array Message format for tool calls
      */
     public function toolCallsToMessage(array $toolCalls): array
@@ -300,7 +301,7 @@ class GeminiDriver extends LlmDriver
                 'functionCall' => [
                     'name' => $tc->getToolName(),
                     'args' => json_decode($tc->getArguments(), true),
-                ]
+                ],
             ];
         }
 
@@ -314,10 +315,9 @@ class GeminiDriver extends LlmDriver
      * Send a message to the LLM and receive a streamed response.
      * Not implemented yet for native Gemini API.
      *
-     * @param array $messages Array of messages to send
-     * @param array $options Configuration options
-     * @param callable|null $callback Optional callback function
-     * @return Generator
+     * @param  array  $messages  Array of messages to send
+     * @param  array  $options  Configuration options
+     * @param  callable|null  $callback  Optional callback function
      *
      * @throws RuntimeException
      */

@@ -3,7 +3,6 @@
 require_once __DIR__.'/vendor/autoload.php';
 
 use LarAgent\Drivers\Gemini\GeminiDriver;
-use LarAgent\Messages\AssistantMessage;
 
 // Use your API key
 $apiKey = include 'gemini-api-key.php';
@@ -22,17 +21,17 @@ try {
     echo "--------------------\n";
 
     $messages = [
-        ['role' => 'user', 'content' => 'Hello! How are you? Respond very briefly.']
+        ['role' => 'user', 'content' => 'Hello! How are you? Respond very briefly.'],
     ];
 
     $response = $driver->sendMessage($messages);
 
-    echo "Response: " . $response->getContent() . "\n";
+    echo 'Response: '.$response->getContent()."\n";
 
     // Check metadata
     $metadata = $response->getMetadata();
     if (isset($metadata['usage'])) {
-        echo "Usage: " . json_encode($metadata['usage']) . "\n";
+        echo 'Usage: '.json_encode($metadata['usage'])."\n";
     }
     echo "\n";
 
@@ -43,11 +42,11 @@ try {
     $conversation = [
         ['role' => 'user', 'content' => 'My name is John'],
         ['role' => 'assistant', 'content' => 'Hello John! Nice to meet you.'],
-        ['role' => 'user', 'content' => 'What did I just tell you my name was?']
+        ['role' => 'user', 'content' => 'What did I just tell you my name was?'],
     ];
 
     $response = $driver->sendMessage($conversation);
-    echo "Response: " . $response->getContent() . "\n\n";
+    echo 'Response: '.$response->getContent()."\n\n";
 
     // Test 3: Check last response
     echo "Test 3: Raw response structure\n";
@@ -55,13 +54,13 @@ try {
 
     $lastResponse = $driver->getLastResponse();
     if ($lastResponse) {
-        echo "Has last response: " . (is_array($lastResponse) ? "yes" : "no") . "\n";
-        echo "Response keys: " . implode(', ', array_keys($lastResponse)) . "\n";
+        echo 'Has last response: '.(is_array($lastResponse) ? 'yes' : 'no')."\n";
+        echo 'Response keys: '.implode(', ', array_keys($lastResponse))."\n";
 
         // Show a preview of the response structure
         if (isset($lastResponse['candidates'][0])) {
             $candidate = $lastResponse['candidates'][0];
-            echo "Candidate finish reason: " . ($candidate['finishReason'] ?? 'unknown') . "\n";
+            echo 'Candidate finish reason: '.($candidate['finishReason'] ?? 'unknown')."\n";
         }
     }
     echo "\n";
@@ -69,9 +68,9 @@ try {
     echo "All tests completed successfully! ✅\n";
 
 } catch (Exception $e) {
-    echo "❌ Error: " . $e->getMessage() . "\n";
+    echo '❌ Error: '.$e->getMessage()."\n";
     if ($e->getPrevious()) {
-        echo "Previous error: " . $e->getPrevious()->getMessage() . "\n";
+        echo 'Previous error: '.$e->getPrevious()->getMessage()."\n";
     }
-    echo "Stack trace:\n" . $e->getTraceAsString() . "\n";
+    echo "Stack trace:\n".$e->getTraceAsString()."\n";
 }
