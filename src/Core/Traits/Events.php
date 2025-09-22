@@ -35,7 +35,7 @@ trait Events
         'onToolChange' => ToolChanged::class,
         'onClear' => AgentCleared::class,
         'onEngineError' => EngineError::class,
-        
+
         // Hook events (before/after)
         'beforeReinjectingInstructions' => BeforeReinjectingInstructions::class,
         'beforeSend' => BeforeSend::class,
@@ -59,8 +59,8 @@ trait Events
     /**
      * Call an event method and dispatch its corresponding Laravel event.
      *
-     * @param string $functionName The name of the method to call
-     * @param array $args The arguments to pass to both the event and the method
+     * @param  string  $functionName  The name of the method to call
+     * @param  array  $args  The arguments to pass to both the event and the method
      * @return mixed The result of the method call
      */
     protected function callEvent(string $functionName, array $args = []): mixed
@@ -68,36 +68,38 @@ trait Events
         // Dispatch Laravel event if available and method is mapped
         if ($this->canDispatchLaravelEvents() && isset($this->eventMapping[$functionName])) {
             $eventClass = $this->eventMapping[$functionName];
-            
+
             // Events that only take AgentDTO
             $dtoOnlyEvents = [
                 'onInitialize',
                 'onConversationStart',
-                'onClear'
+                'onClear',
             ];
-            
+
             if (in_array($functionName, $dtoOnlyEvents)) {
                 $event = new $eventClass($this->toDTO());
             } else {
                 // Events that take AgentDTO first, then other parameters
                 $event = new $eventClass($this->toDTO(), ...$args);
             }
-            
+
             Event::dispatch($event);
         }
 
         // Call the actual method if it exists
         if (method_exists($this, $functionName)) {
-            
+
             // Exception for afterToolExecution to pass by reference
             if ($functionName == 'afterToolExecution') {
                 $tool = $args[0] ?? null;
                 $result = &$args[1] ?? null;
+
                 return $this->$functionName($tool, $result);
             }
             // Exception for beforeStructuredOutput to pass by reference
             if ($functionName == 'beforeStructuredOutput') {
                 $result = &$args[0] ?? null;
+
                 return $this->$functionName($result);
             }
 
