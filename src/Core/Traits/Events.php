@@ -88,6 +88,20 @@ trait Events
 
         // Call the actual method if it exists
         if (method_exists($this, $functionName)) {
+            
+            // Exception for afterToolExecution to pass by reference
+            if ($functionName == 'afterToolExecution') {
+                $tool = $args[0] ?? null;
+                $result = &$args[1] ?? null;
+                return $this->$functionName($tool, $result);
+            }
+            // Exception for beforeStructuredOutput to pass by reference
+            if ($functionName == 'beforeStructuredOutput') {
+                $result = &$args[0] ?? null;
+                return $this->$functionName($result);
+            }
+
+            // General case
             return $this->$functionName(...$args);
         }
 
