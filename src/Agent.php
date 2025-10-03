@@ -3,6 +3,7 @@
 namespace LarAgent;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Str;
 use LarAgent\Attributes\Tool as ToolAttribute;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
@@ -164,8 +165,10 @@ class Agent
     /** @var array|null */
     protected $audio = null;
 
-    public function __construct($key)
+    public function __construct($key = null)
     {
+        $key = $key ?? Str::random(10);
+
         $this->setupProviderData();
         $this->setName();
         $this->setChatSessionId($key);
@@ -219,6 +222,31 @@ class Agent
         }
 
         return $this;
+    }
+
+    /**
+     * Create a new agent instance.
+     *
+     * @param  string|null  $key  The key to identify this agent instance
+     * @return static The created agent instance
+     */
+    public static function make(?string $key = null): static
+    {
+        $key = $key ?? Str::random(10);
+        $instance = new static($key);
+
+        return $instance;
+    }
+
+    /**
+     * Quick one-off response without chat history
+     *
+     * @param  string  $message  The message to process
+     * @return string|array The agent's response
+     */
+    public static function ask(string $message): string|array
+    {
+        return static::make()->respond($message);
     }
 
     /**

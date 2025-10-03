@@ -139,6 +139,33 @@ it('can handle events', function () {
     expect((string) $message)->toContain('Edited via event');
 });
 
+it('can ask a one-off question without a key', function () {
+    $response = TestAgent::ask('What is the capital of France?');
+
+    expect($response)->toBe('Processed test input. Edited via event');
+});
+
+it('can build an instance without a key', function () {
+    $agent = TestAgent::make();
+
+    expect($agent)->toBeInstanceOf(Agent::class);
+});
+
+it('can build an instance with a key', function () {
+    $agent = TestAgent::make('test_key');
+
+    expect($agent)->toBeInstanceOf(Agent::class);
+    expect($agent->getChatSessionId())->toContain('test_key');
+});
+
+it('can chain method after make', function () {
+    $agent = TestAgent::make('test_key')->withModel('gpt-4');
+
+    expect($agent)->toBeInstanceOf(Agent::class);
+    expect($agent->getChatSessionId())->toContain('test_key');
+    expect($agent->model())->toBe('gpt-4');
+});
+
 it('can handle image urls in response', function () {
     $agent = new TestAgent('test_session');
     $agent->withImages([
