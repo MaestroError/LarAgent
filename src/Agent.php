@@ -197,9 +197,9 @@ class Agent
     /**
      * Create an agent instance with a specific key
      *
-     * @param  string  $key  The key to identify this agent instance
+     * @param  string|null  $key  The key to identify this agent instance
      */
-    public static function for(string $key = null): static
+    public static function for(?string $key = null): static
     {
         $key = $key ?? self::generateRandomKey();
         $instance = new static($key);
