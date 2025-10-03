@@ -165,10 +165,8 @@ class Agent
     /** @var array|null */
     protected $audio = null;
 
-    public function __construct($key = null)
+    public function __construct($key)
     {
-        $key = $key ?? Str::random(10);
-
         $this->setupProviderData();
         $this->setName();
         $this->setChatSessionId($key);
@@ -201,8 +199,9 @@ class Agent
      *
      * @param  string  $key  The key to identify this agent instance
      */
-    public static function for(string $key): static
+    public static function for(string $key = null): static
     {
+        $key = $key ?? self::generateRandomKey();
         $instance = new static($key);
 
         return $instance;
@@ -232,7 +231,7 @@ class Agent
      */
     public static function make(?string $key = null): static
     {
-        $key = $key ?? Str::random(10);
+        $key = $key ?? self::generateRandomKey();
         $instance = new static($key);
 
         return $instance;
@@ -247,6 +246,15 @@ class Agent
     public static function ask(string $message): string|array
     {
         return static::make()->respond($message);
+    }
+
+    /**
+     * Generate a random key for the agent instance
+     *
+     * @return string The generated random key
+     */
+    protected static function generateRandomKey(): string { 
+      return Str::random(10); 
     }
 
     /**
