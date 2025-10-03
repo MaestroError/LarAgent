@@ -17,7 +17,7 @@ function config(string $key): mixed
             'default_context_window' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
-            'model' => 'gemini-1.5-flash',
+            'model' => 'gemini-1.5-flash-latest',
         ],
     ];
 
@@ -28,7 +28,7 @@ class GeminiTestAgent extends LarAgent\Agent
 {
     protected $provider = 'gemini';
 
-    protected $model = 'gemini-1.5-flash';
+    protected $model = 'gemini-robotics-er-1.5-preview';
 
     protected $history = 'in_memory';
 

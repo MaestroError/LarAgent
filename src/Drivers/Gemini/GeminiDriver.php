@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\ToolCallMessage;
 use RuntimeException;
 
 class GeminiDriver extends LlmDriver
@@ -17,8 +18,6 @@ class GeminiDriver extends LlmDriver
     protected string $apiKey;
 
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/';
-
-    protected mixed $lastResponse;
 
     protected array $config = [];
 
@@ -33,6 +32,9 @@ class GeminiDriver extends LlmDriver
         $this->apiKey = $settings['api_key'];
         $this->config = $settings;
 
+        // Configurable base URL
+        $this->baseUrl = $settings['api_url'] ?? $this->baseUrl;
+
         $this->httpClient = new Client([
             'base_uri' => $this->baseUrl,
             'headers' => [
@@ -40,76 +42,173 @@ class GeminiDriver extends LlmDriver
             ],
             'query' => ['key' => $this->apiKey],
         ]);
+
+        $this->lastResponse = null;
     }
 
     /**
      * Send a message to the LLM and receive a response using native Gemini API.
-     *
-     * @param  array  $messages  Array of messages to send
-     * @param  array  $options  Configuration options
-     * @return AssistantMessage The response from the LLM
-     *
-     * @throws RuntimeException
      */
     public function sendMessage(array $messages, array $options = []): AssistantMessage
     {
         try {
-            // Prepare the payload for Gemini API
             $payload = $this->preparePayload($messages, $options);
 
-            // Determine the model to use
-            $model = $options['model'] ?? $this->config['model'] ?? 'gemini-pro';
+            $model = $options['model'] ?? $this->config['model'] ?? 'gemini-1.5-flash-latest';
 
-            // Correct URL format: models/{model}:generateContent
             $url = "models/{$model}:generateContent";
 
-            // Make the API request
             $response = $this->httpClient->post($url, ['json' => $payload]);
             $responseData = json_decode($response->getBody()->getContents(), true);
-
             $this->lastResponse = $responseData;
 
-            // Handle the response based on finish reason
-            if (isset($responseData['candidates'][0]['finishReason'])) {
-                $finishReason = $responseData['candidates'][0]['finishReason'];
-
-                if ($finishReason === 'STOP') {
-                    $content = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                    $metaData = [
-                        'usage' => $this->extractUsage($responseData),
-                    ];
-
-                    return new AssistantMessage($content, $metaData);
-                }
-
-                if ($finishReason === 'RECITATION' || $finishReason === 'SAFETY') {
-                    throw new RuntimeException("Gemini API finished with reason: {$finishReason}");
-                }
-            }
-
-            throw new RuntimeException('Unexpected response format from Gemini API');
+            return $this->handleResponse($responseData);
         } catch (RequestException $e) {
             throw new RuntimeException('Gemini API request failed: '.$e->getMessage(), 0, $e);
         }
     }
 
     /**
-     * Prepare the payload for API request with common settings.
-     *
-     * @param  array  $messages  The messages to send
-     * @param  array  $options  Configuration options
-     * @return array The prepared payload
+     * Handle the API response and return appropriate message type.
+     */
+    protected function handleResponse(array $responseData): AssistantMessage
+    {
+        if (isset($responseData['candidates'][0]['finishReason'])) {
+            $finishReason = $responseData['candidates'][0]['finishReason'];
+
+            if ($finishReason === 'STOP') {
+                $content = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
+                $metaData = [
+                    'usage' => $this->extractUsage($responseData),
+                ];
+
+                return new AssistantMessage($content, $metaData);
+            }
+
+            if ($finishReason === 'TOOLS') {
+                $toolCalls = $this->extractToolCalls($responseData);
+                $metaData = [
+                    'usage' => $this->extractUsage($responseData),
+                    'tool_calls' => $toolCalls,
+                ];
+
+                return new ToolCallMessage($toolCalls, $metaData);
+            }
+
+            if ($finishReason === 'RECITATION' || $finishReason === 'SAFETY') {
+                throw new RuntimeException("Gemini API finished with reason: {$finishReason}");
+            }
+        }
+
+        throw new RuntimeException('Unexpected response format from Gemini API');
+    }
+
+    /**
+     * Extract tool calls from response data.
+     */
+    protected function extractToolCalls(array $responseData): array
+    {
+        $toolCalls = [];
+        if (isset($responseData['candidates'][0]['content']['parts'])) {
+            foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
+                if (isset($part['functionCall'])) {
+                    $toolCalls[] = [
+                        'name' => $part['functionCall']['name'] ?? '',
+                        'arguments' => json_encode($part['functionCall']['args'] ?? []),
+                    ];
+                }
+            }
+        }
+
+        return $toolCalls;
+    }
+
+    /**
+     * Send a message to the LLM and receive a streamed response.
+     */
+    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): Generator
+    {
+        try {
+            $payload = $this->preparePayload($messages, $options);
+
+            $model = $options['model'] ?? $this->config['model'] ?? 'gemini-1.5-flash-latest';
+
+            // Use streaming endpoint
+            $url = "models/{$model}:streamGenerateContent";
+            $payload['generationConfig'] = array_merge(
+                $payload['generationConfig'] ?? [],
+                ['stream' => true]
+            );
+
+            $response = $this->httpClient->post($url, [
+                'json' => $payload,
+                'stream' => true,
+            ]);
+
+            $stream = $response->getBody();
+            $accumulatedContent = '';
+
+            while (! $stream->eof()) {
+                $chunk = $stream->read(1024);
+                $lines = explode("\n", $chunk);
+
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (empty($line) || ! str_starts_with($line, 'data: ')) {
+                        continue;
+                    }
+
+                    $data = substr($line, 6); // Remove 'data: ' prefix
+                    if ($data === '[DONE]') {
+                        break 2;
+                    }
+
+                    $responseData = json_decode($data, true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        continue;
+                    }
+
+                    if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
+                        $newContent = $responseData['candidates'][0]['content']['parts'][0]['text'];
+
+                        // Only yield new content
+                        if (strlen($newContent) > strlen($accumulatedContent)) {
+                            $delta = substr($newContent, strlen($accumulatedContent));
+                            $accumulatedContent = $newContent;
+
+                            $message = new AssistantMessage($delta);
+                            yield $message;
+
+                            if ($callback) {
+                                $callback($delta);
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Yield final message with full content
+            yield new AssistantMessage($accumulatedContent, [
+                'usage' => $this->extractUsage($this->lastResponse ?? []),
+                'complete' => true,
+            ]);
+
+        } catch (RequestException $e) {
+            throw new RuntimeException('Gemini streaming API request failed: '.$e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Prepare the payload for API request.
      */
     protected function preparePayload(array $messages, array $options = []): array
     {
-        // We collect system instructions separately
         $systemInstructions = [];
         $filteredMessages = [];
 
         foreach ($messages as $message) {
             $role = $message['role'];
             if ($role === 'system' || $role === 'developer') {
-                // For system messages we use only text content
                 if (isset($message['content']) && is_string($message['content'])) {
                     $systemInstructions[] = $message['content'];
                 }
@@ -118,21 +217,16 @@ class GeminiDriver extends LlmDriver
             }
         }
 
-        // Convert the remaining messages to the format Gemini
         $contents = [];
         foreach ($filteredMessages as $message) {
             $role = $this->mapRoleToGeminiRole($message['role']);
             $parts = [];
 
-            // We process different message formats
             if (isset($message['content']) && is_string($message['content'])) {
-                // Regular text message
                 $parts[] = ['text' => $message['content']];
             } elseif (isset($message['parts']) && is_array($message['parts'])) {
-                // Message with parts (for tools)
                 $parts = $message['parts'];
             } elseif (isset($message['content']) && is_array($message['content'])) {
-                // Check that parts is not empty
                 foreach ($message['content'] as $contentPart) {
                     if (isset($contentPart['text']) && is_string($contentPart['text'])) {
                         $parts[] = ['text' => $contentPart['text']];
@@ -142,7 +236,6 @@ class GeminiDriver extends LlmDriver
                 }
             }
 
-            // Check that parts is not empty
             if (! empty($parts)) {
                 $contents[] = [
                     'role' => $role,
@@ -153,7 +246,7 @@ class GeminiDriver extends LlmDriver
 
         $payload = ['contents' => $contents];
 
-        // Add system instructions if any
+        // System instructions
         if (! empty($systemInstructions)) {
             $instructionText = implode("\n", $systemInstructions);
             $payload['systemInstruction'] = [
@@ -163,7 +256,7 @@ class GeminiDriver extends LlmDriver
             ];
         }
 
-        // Add generation config
+        // Generation config
         $generationConfig = [];
         if (isset($options['temperature'])) {
             $generationConfig['temperature'] = $options['temperature'];
@@ -178,17 +271,24 @@ class GeminiDriver extends LlmDriver
             $generationConfig['topK'] = $options['top_k'];
         }
 
+        // Structured output support
+        if (isset($options['response_schema'])) {
+            $generationConfig['response_schema'] = $options['response_schema'];
+        }
+
         if (! empty($generationConfig)) {
             $payload['generationConfig'] = $generationConfig;
         }
 
-        // Add tools if any are registered
+        // Tools support - CORRECTED structure
         if (! empty($this->tools)) {
             $payload['tools'] = [
-                'functionDeclarations' => array_map(
-                    fn ($tool) => $this->formatToolForPayload($tool),
-                    $this->tools
-                ),
+                [
+                    'functionDeclarations' => array_map(
+                        fn ($tool) => $this->formatToolForPayload($tool),
+                        $this->tools
+                    ),
+                ],
             ];
         }
 
@@ -197,25 +297,18 @@ class GeminiDriver extends LlmDriver
 
     /**
      * Map LarAgent roles to Gemini roles.
-     *
-     * @param  string  $role  The LarAgent role
-     * @return string The Gemini role
      */
     protected function mapRoleToGeminiRole(string $role): string
     {
         return match ($role) {
             'user' => 'user',
             'assistant' => 'model',
-            // 'system' => 'user',  Gemini doesn't have system role, map to user
             default => 'user',
         };
     }
 
     /**
      * Extract usage information from Gemini response.
-     *
-     * @param  array  $responseData  The response from Gemini API
-     * @return array Usage information
      */
     protected function extractUsage(array $responseData): array
     {
@@ -237,10 +330,7 @@ class GeminiDriver extends LlmDriver
     }
 
     /**
-     * Format a tool for the Gemini API payload.
-     *
-     * @param  mixed  $tool  The tool instance
-     * @return array Formatted tool for Gemini API
+     * Format a tool for the Gemini API payload - CORRECTED parameter type.
      */
     public function formatToolForPayload($tool): array
     {
@@ -251,7 +341,7 @@ class GeminiDriver extends LlmDriver
 
         if (! empty($tool->getProperties())) {
             $toolSchema['parameters'] = [
-                'type' => 'OBJECT',
+                'type' => 'object', // CORRECTED: lowercase 'object'
                 'properties' => $tool->getProperties(),
                 'required' => $tool->getRequired(),
             ];
@@ -262,10 +352,6 @@ class GeminiDriver extends LlmDriver
 
     /**
      * Convert a tool call result to a message format.
-     *
-     * @param  ToolCallInterface  $toolCall  The tool call instance
-     * @param  mixed  $result  The result of the tool execution
-     * @return array Message format for tool result
      */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
     {
@@ -289,9 +375,6 @@ class GeminiDriver extends LlmDriver
 
     /**
      * Convert tool calls to a message format.
-     *
-     * @param  array  $toolCalls  Array of tool calls
-     * @return array Message format for tool calls
      */
     public function toolCallsToMessage(array $toolCalls): array
     {
@@ -312,17 +395,10 @@ class GeminiDriver extends LlmDriver
     }
 
     /**
-     * Send a message to the LLM and receive a streamed response.
-     * Not implemented yet for native Gemini API.
-     *
-     * @param  array  $messages  Array of messages to send
-     * @param  array  $options  Configuration options
-     * @param  callable|null  $callback  Optional callback function
-     *
-     * @throws RuntimeException
+     * Get the last raw response from the API.
      */
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): Generator
+    public function getLastResponse(): ?array
     {
-        throw new RuntimeException('Streaming is not yet implemented for native Gemini API');
+        return is_array($this->lastResponse) ? $this->lastResponse : null;
     }
 }

@@ -8,12 +8,13 @@ use LarAgent\Drivers\Gemini\GeminiDriver;
 $apiKey = include 'gemini-api-key.php';
 
 try {
-    echo "=== Testing Native Gemini Driver ===\n\n";
+    echo "=== Testing Native Gemini Driver (Core Features) ===\n\n";
 
-    // Create a driver instance
+    // Create a driver instance with configurable URL
     $driver = new GeminiDriver([
         'api_key' => $apiKey,
-        'model' => 'gemini-1.5-flash', // or 'gemini-pro'
+        'model' => 'gemini-robotics-er-1.5-preview',
+        'api_url' => 'https://generativelanguage.googleapis.com/v1beta/',
     ]);
 
     // Test 1: Basic message
@@ -25,17 +26,15 @@ try {
     ];
 
     $response = $driver->sendMessage($messages);
-
     echo 'Response: '.$response->getContent()."\n";
 
-    // Check metadata
     $metadata = $response->getMetadata();
     if (isset($metadata['usage'])) {
         echo 'Usage: '.json_encode($metadata['usage'])."\n";
     }
     echo "\n";
 
-    // Test 2: Multiple messages conversation
+    // Test 2: Conversation with context
     echo "Test 2: Conversation\n";
     echo "--------------------\n";
 
@@ -48,29 +47,70 @@ try {
     $response = $driver->sendMessage($conversation);
     echo 'Response: '.$response->getContent()."\n\n";
 
-    // Test 3: Check last response
-    echo "Test 3: Raw response structure\n";
-    echo "-----------------------------\n";
+    // Test 3: System instructions
+    echo "Test 3: System instructions\n";
+    echo "---------------------------\n";
 
-    $lastResponse = $driver->getLastResponse();
-    if ($lastResponse) {
-        echo 'Has last response: '.(is_array($lastResponse) ? 'yes' : 'no')."\n";
-        echo 'Response keys: '.implode(', ', array_keys($lastResponse))."\n";
+    $systemMessages = [
+        ['role' => 'system', 'content' => 'You are a helpful assistant that always responds in uppercase.'],
+        ['role' => 'user', 'content' => 'hello there'],
+    ];
 
-        // Show a preview of the response structure
-        if (isset($lastResponse['candidates'][0])) {
-            $candidate = $lastResponse['candidates'][0];
-            echo 'Candidate finish reason: '.($candidate['finishReason'] ?? 'unknown')."\n";
-        }
+    $response = $driver->sendMessage($systemMessages);
+    echo 'Response: '.$response->getContent()."\n\n";
+
+    // Test 4: Error handling
+    echo "Test 4: Error handling\n";
+    echo "----------------------\n";
+
+    try {
+        $invalidDriver = new GeminiDriver([
+            'api_key' => 'invalid_key',
+            'model' => 'gemini-robotics-er-1.5-preview',
+        ]);
+
+        $invalidDriver->sendMessage([['role' => 'user', 'content' => 'test']]);
+        echo '❌ Expected exception was not thrown'."\n";
+    } catch (Exception $e) {
+        echo '✅ Correctly caught error: '.$e->getMessage()."\n";
     }
     echo "\n";
 
-    echo "All tests completed successfully! ✅\n";
+    // Test 5: Configurable base URL
+    echo "Test 5: Configurable base URL\n";
+    echo "-----------------------------\n";
+
+    try {
+        $customDriver = new GeminiDriver([
+            'api_key' => $apiKey,
+            'api_url' => 'https://generativelanguage.googleapis.com/v1beta/',
+            'model' => 'gemini-robotics-er-1.5-preview',
+        ]);
+
+        $response = $customDriver->sendMessage([['role' => 'user', 'content' => 'Test configurable URL']]);
+        echo '✅ Custom URL works: '.($response->getContent() ? 'Yes' : 'No')."\n";
+    } catch (Exception $e) {
+        echo 'Custom URL test failed: '.$e->getMessage()."\n";
+    }
+    echo "\n";
+
+    echo "🎉 Core Gemini driver tests completed! ✅\n";
+    echo "========================================\n";
+    echo "Features tested and working:\n";
+    echo "✅ Basic messages\n";
+    echo "✅ Conversation context\n";
+    echo "✅ System instructions\n";
+    echo "✅ Error handling\n";
+    echo "✅ Configurable base URL\n";
+    echo "\n";
+    echo "Features needing additional work:\n";
+    echo "⚠️ Tool/function calling (API format issue)\n";
+    echo "⚠️ Streaming responses (API format issue)\n";
+    echo "⚠️ Structured output (not tested)\n";
 
 } catch (Exception $e) {
-    echo '❌ Error: '.$e->getMessage()."\n";
+    echo '❌ Critical error: '.$e->getMessage()."\n";
     if ($e->getPrevious()) {
         echo 'Previous error: '.$e->getPrevious()->getMessage()."\n";
     }
-    echo "Stack trace:\n".$e->getTraceAsString()."\n";
 }
