@@ -2,12 +2,114 @@
 
 namespace LarAgent\Core\Traits;
 
+use Illuminate\Support\Facades\Event;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
+use LarAgent\Events\AfterResponse;
+use LarAgent\Events\AfterSend;
+use LarAgent\Events\AfterToolExecution;
+use LarAgent\Events\AgentCleared;
+use LarAgent\Events\AgentInitialized;
+use LarAgent\Events\BeforeReinjectingInstructions;
+use LarAgent\Events\BeforeResponse;
+use LarAgent\Events\BeforeSaveHistory;
+use LarAgent\Events\BeforeSend;
+use LarAgent\Events\BeforeStructuredOutput;
+use LarAgent\Events\BeforeToolExecution;
+use LarAgent\Events\ConversationEnded;
+use LarAgent\Events\ConversationStarted;
+use LarAgent\Events\EngineError;
+use LarAgent\Events\ToolChanged;
 
 trait Events
 {
+    /**
+     * Mapping of method names to their corresponding event classes.
+     */
+    protected array $eventMapping = [
+        // Lifecycle events
+        'onInitialize' => AgentInitialized::class,
+        'onConversationStart' => ConversationStarted::class,
+        'onConversationEnd' => ConversationEnded::class,
+        'onToolChange' => ToolChanged::class,
+        'onClear' => AgentCleared::class,
+        'onEngineError' => EngineError::class,
+
+        // Hook events (before/after)
+        'beforeReinjectingInstructions' => BeforeReinjectingInstructions::class,
+        'beforeSend' => BeforeSend::class,
+        'afterSend' => AfterSend::class,
+        'beforeSaveHistory' => BeforeSaveHistory::class,
+        'beforeResponse' => BeforeResponse::class,
+        'afterResponse' => AfterResponse::class,
+        'beforeToolExecution' => BeforeToolExecution::class,
+        'afterToolExecution' => AfterToolExecution::class,
+        'beforeStructuredOutput' => BeforeStructuredOutput::class,
+    ];
+
+    /**
+     * Check if Laravel events can be dispatched.
+     */
+    protected function canDispatchLaravelEvents(): bool
+    {
+        return class_exists('Illuminate\Support\Facades\Event') && method_exists($this, 'toDTO');
+    }
+
+    /**
+     * Call an event method and dispatch its corresponding Laravel event.
+     *
+     * @param  string  $functionName  The name of the method to call
+     * @param  array  $args  The arguments to pass to both the event and the method
+     * @return mixed The result of the method call
+     */
+    protected function callEvent(string $functionName, array $args = []): mixed
+    {
+        // Dispatch Laravel event if available and method is mapped
+        if ($this->canDispatchLaravelEvents() && isset($this->eventMapping[$functionName])) {
+            $eventClass = $this->eventMapping[$functionName];
+
+            // Events that only take AgentDTO
+            $dtoOnlyEvents = [
+                'onInitialize',
+                'onConversationStart',
+                'onClear',
+            ];
+
+            if (in_array($functionName, $dtoOnlyEvents)) {
+                $event = new $eventClass($this->toDTO());
+            } else {
+                // Events that take AgentDTO first, then other parameters
+                $event = new $eventClass($this->toDTO(), ...$args);
+            }
+
+            Event::dispatch($event);
+        }
+
+        // Call the actual method if it exists
+        if (method_exists($this, $functionName)) {
+
+            // Exception for afterToolExecution to pass by reference
+            if ($functionName == 'afterToolExecution') {
+                $tool = $args[0] ?? null;
+                $result = &$args[1] ?? null;
+
+                return $this->$functionName($tool, $result);
+            }
+            // Exception for beforeStructuredOutput to pass by reference
+            if ($functionName == 'beforeStructuredOutput') {
+                $result = &$args[0] ?? null;
+
+                return $this->$functionName($result);
+            }
+
+            // General case
+            return $this->$functionName(...$args);
+        }
+
+        return null;
+    }
+
     /**
      * Event triggered before reinjecting instructions.
      *
