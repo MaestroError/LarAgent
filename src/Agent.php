@@ -3,6 +3,7 @@
 namespace LarAgent;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Str;
 use LarAgent\Attributes\Tool as ToolAttribute;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
@@ -196,10 +197,11 @@ class Agent
     /**
      * Create an agent instance with a specific key
      *
-     * @param  string  $key  The key to identify this agent instance
+     * @param  string|null  $key  The key to identify this agent instance
      */
-    public static function for(string $key): static
+    public static function for(?string $key = null): static
     {
+        $key = $key ?? self::generateRandomKey();
         $instance = new static($key);
 
         return $instance;
@@ -219,6 +221,40 @@ class Agent
         }
 
         return $this;
+    }
+
+    /**
+     * Create a new agent instance.
+     *
+     * @param  string|null  $key  The key to identify this agent instance
+     * @return static The created agent instance
+     */
+    public static function make(?string $key = null): static
+    {
+        $key = $key ?? self::generateRandomKey();
+        $instance = new static($key);
+
+        return $instance;
+    }
+
+    /**
+     * Quick one-off response without chat history
+     *
+     * @param  string  $message  The message to process
+     * @return string|array The agent's response
+     */
+    public static function ask(string $message): string|array
+    {
+        return static::make()->respond($message);
+    }
+
+    /**
+     * Generate a random key for the agent instance
+     *
+     * @return string The generated random key
+     */
+    protected static function generateRandomKey(): string { 
+      return Str::random(10); 
     }
 
     /**
