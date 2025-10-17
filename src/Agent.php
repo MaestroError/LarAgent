@@ -264,8 +264,9 @@ class Agent
      *
      * @return string The generated random key
      */
-    protected static function generateRandomKey(): string { 
-      return Str::random(10); 
+    protected static function generateRandomKey(): string
+    {
+        return Str::random(10);
     }
 
     /**
@@ -647,7 +648,7 @@ class Agent
      * - "server_name:tools|except:arg1,arg2" -> ['serverName' => 'server_name', 'method' => 'tools', 'filter' => 'except', 'filterArguments' => ['arg1', 'arg2']]
      * - "server_name:tools|only:arg1" -> ['serverName' => 'server_name', 'method' => 'tools', 'filter' => 'only', 'filterArguments' => ['arg1']]
      *
-     * @param string $serverConfig The MCP server configuration string
+     * @param  string  $serverConfig  The MCP server configuration string
      * @return array Parsed components with keys: serverName, method, filter, filterArguments
      */
     protected function parseMcpServerConfig(string $serverConfig): array
@@ -656,7 +657,7 @@ class Agent
             'serverName' => null,
             'method' => null,
             'filter' => null,
-            'filterArguments' => []
+            'filterArguments' => [],
         ];
 
         // Split by pipe to separate server:method from filter
@@ -678,9 +679,9 @@ class Agent
             if (str_contains($filterPart, ':')) {
                 [$filter, $arguments] = explode(':', $filterPart, 2);
                 $result['filter'] = trim($filter);
-                
+
                 // Parse comma-separated arguments
-                if (!empty(trim($arguments))) {
+                if (! empty(trim($arguments))) {
                     $result['filterArguments'] = array_map('trim', explode(',', $arguments));
                 }
             } else {
@@ -691,20 +692,22 @@ class Agent
         return $result;
     }
 
-    protected function buildToolsFromMcpServers() {
+    protected function buildToolsFromMcpServers()
+    {
         $tools = [];
         foreach ($this->getMcpServers() as $serverConfig) {
             $parsedConfig = $this->parseMcpServerConfig($serverConfig);
             $toolInstances = $this->buildToolsFromMcpConfig($parsedConfig);
             $tools = array_merge($tools, $toolInstances ?? []);
         }
+
         return $tools;
     }
 
     protected function buildToolsFromMcpConfig(array $mcpConfig): ?array
     {
         // @todo Implement MCP-related events
-        if (!isset($mcpConfig['serverName'])) {
+        if (! isset($mcpConfig['serverName'])) {
             return null;
         }
 
@@ -749,14 +752,14 @@ class Agent
         $toolsFromCollection = [];
         // @todo move as sepearate method
         // Process tool collection
-        if (!empty($toolCollection)) {
+        if (! empty($toolCollection)) {
             // Loop over each tool in the collection
             // And create Tool instances
             // dd($toolCollection);
             foreach ($toolCollection as $mcpTool) {
                 $toolName = $mcpTool['name'] ?? null;
                 $toolDesc = $mcpTool['description'] ?? null;
-                if (!$toolName || !$toolDesc) {
+                if (! $toolName || ! $toolDesc) {
                     continue;
                 }
                 $tool = new Tool(
@@ -784,15 +787,15 @@ class Agent
         // @todo move as sepearate method
         // Process resource collection
         $resourcesFromCollection = [];
-        if (!empty($resourcesCollection)) {
+        if (! empty($resourcesCollection)) {
             // Loop over each resource in the collection
             // And create Resource instances
             foreach ($resourcesCollection as $mcpResource) {
                 $resourceName = $mcpResource['name'] ?? null;
                 $resourceUri = $mcpResource['uri'] ?? null;
-                $desc = "Reads the resource";
-                $desc .= isset($mcpResource['description']) ? ": ".$mcpResource['description'] : '';
-                if (!$resourceName || !$resourceUri) {
+                $desc = 'Reads the resource';
+                $desc .= isset($mcpResource['description']) ? ': '.$mcpResource['description'] : '';
+                if (! $resourceName || ! $resourceUri) {
                     continue;
                 }
 
@@ -820,7 +823,7 @@ class Agent
 
     protected function createMcpClient(): MCPClient
     {
-        return new MCPClient(config("laragent.mcp_servers"));
+        return new MCPClient(config('laragent.mcp_servers'));
     }
 
     // Public accessors / mutators

@@ -62,7 +62,7 @@ class McpAgent extends LarAgent\Agent
     protected $history = 'in_memory';
 
     protected $mcpServers = [
-        "github",
+        'github',
     ];
 
     public function instructions()
@@ -70,7 +70,7 @@ class McpAgent extends LarAgent\Agent
         $user = ['name' => 'John', 'age' => 25];
 
         // Example of manual resource usage
-        $resourceArray = $this->mcpClient->connect('mcp_everything')->readResource("test://static/resource/1");
+        $resourceArray = $this->mcpClient->connect('mcp_everything')->readResource('test://static/resource/1');
         // Returns:
         // "contents" => array:1 [▼
         //     0 => array:4 [▼
@@ -107,8 +107,8 @@ class McpAgent extends LarAgent\Agent
     public function registerMcpServers()
     {
         return [
-            "mcp_server_memory:tools|except:delete_entities,delete_observations,delete_relations",
-            "mcp_everything:resources|only:Resource 1,Resource 2",
+            'mcp_server_memory:tools|except:delete_entities,delete_observations,delete_relations',
+            'mcp_everything:resources|only:Resource 1,Resource 2',
         ];
     }
 
@@ -116,7 +116,7 @@ class McpAgent extends LarAgent\Agent
     #[Tool('Get the current weather in a given location')]
     public function weatherTool(string $location, $unit = 'celsius')
     {
-        echo "// Wheather tool called for ".$location." // \n\n";
+        echo '// Wheather tool called for '.$location." // \n\n";
 
         return 'The weather in '.$location.' is '.'20'.' degrees '.$unit;
     }
@@ -126,4 +126,3 @@ class McpAgent extends LarAgent\Agent
 // echo McpAgent::for('test_chat')->message('Please read the resource 1 and tell me what it says')->respond();
 // echo McpAgent::for('test_chat')->message('Create an entity persona, with name John (I), he is a developer')->respond();
 echo McpAgent::for('test_chat')->message('Give me list of repositories on maestroerror account')->respond();
-            
