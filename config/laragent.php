@@ -100,4 +100,23 @@ return [
      * Fallback provider to use when any provider fails.
      */
     'fallback_provider' => null,
+
+    'mcp_servers' => [
+        'github' => [
+            'type' => \Redberry\MCPClient\Enums\Transporters::HTTP,
+            'base_url' => 'https://api.githubcopilot.com/mcp',
+            'timeout' => 30,
+            'token' => env('GITHUB_API_TOKEN', null),
+        ],
+        'mcp_server_memory' => [
+            'type' => \Redberry\MCPClient\Enums\Transporters::STDIO,
+            'command' => [
+                'npx',
+                '-y',
+                '@modelcontextprotocol/server-memory',
+            ],
+            'timeout' => 30,
+            'cwd' => base_path(),
+        ],
+    ],
 ];

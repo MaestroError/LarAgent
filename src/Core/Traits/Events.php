@@ -83,7 +83,7 @@ trait Events
                 $event = new $eventClass($this->toDTO(), ...$args);
             }
 
-            Event::dispatch($event);
+            // Event::dispatch($event);
         }
 
         // Call the actual method if it exists

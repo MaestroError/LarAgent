@@ -14,6 +14,7 @@ use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
+use Redberry\MCPClient\MCPClient;
 
 /**
  * Class Agent
@@ -52,6 +53,15 @@ class Agent
 
     /** @var array */
     protected $tools = [];
+
+    /** @var array */
+    protected $mcpServers = [];
+
+    /** @var MCPClient */
+    protected $mcpClient;
+
+    /** @var array */
+    protected $mcpConnections = [];
 
     /** @var string */
     protected $history;
@@ -171,6 +181,7 @@ class Agent
         $this->setName();
         $this->setChatSessionId($key);
         $this->setupChatHistory();
+        $this->initMcpClient();
         $this->callEvent('onInitialize');
     }
 
@@ -601,6 +612,217 @@ class Agent
         return [];
     }
 
+    /**
+     * Register MCP servers for the agent
+     *
+     * Override this method in child classes to register custom MCP servers.
+     * MCP servers should be instances of LarAgent\Mcp class.
+     *
+     * Example:
+     * ```php
+     * public function registerMcpServers() {
+     *     return [
+     *         "github_mcp",
+     *          "server_name:tools",
+     *          "server_name_2:resources",
+     *          "server_name_3:tools|except:remove_image,resize_image",
+     *          "server_name_3:tools|only:get_image",
+     *     ];
+     * }
+     * ```
+     *
+     * @return array Array of MCP server names and/or facade instances
+     */
+    public function registerMcpServers()
+    {
+        return [];
+    }
+
+    /**
+     * Parse MCP server configuration string into components
+     *
+     * Handles various formats:
+     * - "server_name" -> ['serverName' => 'server_name', 'method' => null, 'filter' => null, 'filterArguments' => []]
+     * - "server_name:tools" -> ['serverName' => 'server_name', 'method' => 'tools', 'filter' => null, 'filterArguments' => []]
+     * - "server_name:tools|except:arg1,arg2" -> ['serverName' => 'server_name', 'method' => 'tools', 'filter' => 'except', 'filterArguments' => ['arg1', 'arg2']]
+     * - "server_name:tools|only:arg1" -> ['serverName' => 'server_name', 'method' => 'tools', 'filter' => 'only', 'filterArguments' => ['arg1']]
+     *
+     * @param string $serverConfig The MCP server configuration string
+     * @return array Parsed components with keys: serverName, method, filter, filterArguments
+     */
+    protected function parseMcpServerConfig(string $serverConfig): array
+    {
+        $result = [
+            'serverName' => null,
+            'method' => null,
+            'filter' => null,
+            'filterArguments' => []
+        ];
+
+        // Split by pipe to separate server:method from filter
+        $parts = explode('|', $serverConfig, 2);
+        $serverPart = trim($parts[0]);
+        $filterPart = isset($parts[1]) ? trim($parts[1]) : null;
+
+        // Parse server:method part
+        if (str_contains($serverPart, ':')) {
+            [$serverName, $method] = explode(':', $serverPart, 2);
+            $result['serverName'] = trim($serverName);
+            $result['method'] = trim($method);
+        } else {
+            $result['serverName'] = $serverPart;
+        }
+
+        // Parse filter part if present
+        if ($filterPart) {
+            if (str_contains($filterPart, ':')) {
+                [$filter, $arguments] = explode(':', $filterPart, 2);
+                $result['filter'] = trim($filter);
+                
+                // Parse comma-separated arguments
+                if (!empty(trim($arguments))) {
+                    $result['filterArguments'] = array_map('trim', explode(',', $arguments));
+                }
+            } else {
+                $result['filter'] = $filterPart;
+            }
+        }
+
+        return $result;
+    }
+
+    protected function buildToolsFromMcpServers() {
+        $tools = [];
+        foreach ($this->getMcpServers() as $serverConfig) {
+            $parsedConfig = $this->parseMcpServerConfig($serverConfig);
+            $toolInstances = $this->buildToolsFromMcpConfig($parsedConfig);
+            $tools = array_merge($tools, $toolInstances ?? []);
+        }
+        return $tools;
+    }
+
+    protected function buildToolsFromMcpConfig(array $mcpConfig): ?array
+    {
+        // @todo Implement MCP-related events
+        if (!isset($mcpConfig['serverName'])) {
+            return null;
+        }
+
+        $serverName = $mcpConfig['serverName'];
+        $client = $this->createMcpClient()->connect($serverName);
+        $this->mcpConnections[$serverName] = $client;
+
+        $resourcesCollection = [];
+        $toolCollection = [];
+
+        // @todo move as sepearate method
+        if ($mcpConfig['method'] === 'tools') {
+            // Fetch tools from MCP server
+            if (isset($mcpConfig['filter']) && isset($mcpConfig['filterArguments'])) {
+                $filter = $mcpConfig['filter'];
+                $filterArguments = $mcpConfig['filterArguments'];
+
+                $toolCollection = $client->tools()->{$filter}($filterArguments);
+            } else {
+                $toolCollection = $client->tools();
+            }
+        } elseif ($mcpConfig['method'] === 'resources') {
+            // Fetch resources from MCP server
+            if (isset($mcpConfig['filter']) && isset($mcpConfig['filterArguments'])) {
+                $filter = $mcpConfig['filter'];
+                $filterArguments = $mcpConfig['filterArguments'];
+
+                $resourcesCollection = $client->resources()->{$filter}($filterArguments);
+            } else {
+                $resourcesCollection = $client->resources();
+            }
+        } else {
+            // Resources are fetched only if explicitly requested
+            try {
+                // Default to fetching tools if no method specified
+                $toolCollection = $client->tools();
+            } catch (\Exception $e) {
+                return null;
+            }
+        }
+
+        $toolsFromCollection = [];
+        // @todo move as sepearate method
+        // Process tool collection
+        if (!empty($toolCollection)) {
+            // Loop over each tool in the collection
+            // And create Tool instances
+            // dd($toolCollection);
+            foreach ($toolCollection as $mcpTool) {
+                $toolName = $mcpTool['name'] ?? null;
+                $toolDesc = $mcpTool['description'] ?? null;
+                if (!$toolName || !$toolDesc) {
+                    continue;
+                }
+                $tool = new Tool(
+                    $toolName,
+                    $toolDesc
+                );
+
+                // Add input schema as tool properties
+                $properties = $mcpTool['inputSchema']['properties'] ?? [];
+                $required = $mcpTool['inputSchema']['required'] ?? [];
+
+                // Dirty way to set required properties, trusting MCP server input schema
+                $tool->setProperties($properties);
+                $tool->setRequiredProps($required);
+
+                // Bind the method to the tool, handling both static and instance methods
+                $instance = $this;
+                $tool->setCallback(function (...$args) use ($instance, $toolName, $serverName) {
+                    return json_encode($instance->mcpConnections[$serverName]->callTool($toolName, $args));
+                });
+                $toolsFromCollection[] = $tool;
+            }
+        }
+
+        // @todo move as sepearate method
+        // Process resource collection
+        $resourcesFromCollection = [];
+        if (!empty($resourcesCollection)) {
+            // Loop over each resource in the collection
+            // And create Resource instances
+            foreach ($resourcesCollection as $mcpResource) {
+                $resourceName = $mcpResource['name'] ?? null;
+                $resourceUri = $mcpResource['uri'] ?? null;
+                $desc = "Reads the resource";
+                $desc .= isset($mcpResource['description']) ? ": ".$mcpResource['description'] : '';
+                if (!$resourceName || !$resourceUri) {
+                    continue;
+                }
+
+                $tool = Tool::create(
+                    Str::snake($resourceName),
+                    $desc
+                );
+
+                // Bind the method to the tool, handling both static and instance methods
+                $instance = $this;
+                $tool->setCallback(function () use ($instance, $serverName, $resourceUri) {
+                    return json_encode($instance->mcpConnections[$serverName]->readResource($resourceUri));
+                });
+                $resourcesFromCollection[] = $tool;
+            }
+        }
+
+        return array_merge($toolsFromCollection, $resourcesFromCollection);
+    }
+
+    protected function initMcpClient()
+    {
+        $this->mcpClient = $this->createMcpClient();
+    }
+
+    protected function createMcpClient(): MCPClient
+    {
+        return new MCPClient(config("laragent.mcp_servers"));
+    }
+
     // Public accessors / mutators
 
     public function getChatSessionId(): string
@@ -634,8 +856,21 @@ class Agent
 
         $attributeTools = $this->buildToolsFromAttributeMethods();
 
+        $mcpTools = $this->buildToolsFromMcpServers();
+
         // Merge both arrays
-        return array_merge($classTools, $registeredTools, $attributeTools);
+        return array_merge($classTools, $registeredTools, $attributeTools, $mcpTools);
+    }
+
+    /**
+     * Get MCP servers registered for this agent
+     */
+    public function getMcpServers(): array
+    {
+        // Merge both arrays, remove duplicates
+        $allMcpServers = array_unique(array_merge($this->mcpServers, $this->registerMcpServers()));
+
+        return $allMcpServers;
     }
 
     public function chatHistory(): ChatHistoryInterface

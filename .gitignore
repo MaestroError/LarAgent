@@ -35,3 +35,4 @@ testbench.yaml
 /chat-history/*
 /json_History/*
 /gemini-api-key.php
+/github-api-key.php

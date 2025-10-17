@@ -49,6 +49,13 @@ abstract class Tool implements ToolInterface
         return $this;
     }
 
+    public function setProperties(array $props): self
+    {
+        $this->properties = $props;
+        return $this;
+    }
+
+
     public function setRequired(string $name): self
     {
         if (! array_key_exists($name, $this->properties)) {
@@ -59,6 +66,13 @@ abstract class Tool implements ToolInterface
 
         return $this;
     }
+
+    public function setRequiredProps(array $required): self
+    {
+        $this->required = $required;
+        return $this;
+    }
+
 
     public function getProperties(): array
     {
