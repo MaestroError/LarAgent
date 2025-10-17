@@ -554,3 +554,176 @@ it('can accept UserMessage instance in message method', function () {
     // Also verify that string casting works correctly
     expect((string) $storedMessage)->toBe('Test message content');
 });
+
+// Test parseMcpServerConfig method
+it('can parse mcp server config with server name only', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, 'server_name');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => null,
+        'filter' => null,
+        'filterArguments' => [],
+    ]);
+});
+
+it('can parse mcp server config with server name and method', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, 'server_name:tools');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => 'tools',
+        'filter' => null,
+        'filterArguments' => [],
+    ]);
+});
+
+it('can parse mcp server config with filter and single argument', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, 'server_name:tools|only:get_image');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => 'tools',
+        'filter' => 'only',
+        'filterArguments' => ['get_image'],
+    ]);
+});
+
+it('can parse mcp server config with filter and multiple arguments', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, 'server_name:tools|except:remove_image,resize_image');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => 'tools',
+        'filter' => 'except',
+        'filterArguments' => ['remove_image', 'resize_image'],
+    ]);
+});
+
+it('can parse mcp server config with resources method', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, 'server_name:resources');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => 'resources',
+        'filter' => null,
+        'filterArguments' => [],
+    ]);
+});
+
+it('can parse mcp server config with resources and filter', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, 'server_name:resources|only:config_file');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => 'resources',
+        'filter' => 'only',
+        'filterArguments' => ['config_file'],
+    ]);
+});
+
+it('handles whitespace in mcp server config parsing', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, ' server_name : tools | except : arg1 , arg2 ');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => 'tools',
+        'filter' => 'except',
+        'filterArguments' => ['arg1', 'arg2'],
+    ]);
+});
+
+it('can parse mcp server config with filter but no arguments', function () {
+    $agent = TestAgent::for('test_mcp_config');
+    $reflection = new ReflectionClass($agent);
+    $parseMethod = $reflection->getMethod('parseMcpServerConfig');
+    $parseMethod->setAccessible(true);
+
+    $result = $parseMethod->invoke($agent, 'server_name:tools|only:');
+
+    expect($result)->toMatchArray([
+        'serverName' => 'server_name',
+        'method' => 'tools',
+        'filter' => 'only',
+        'filterArguments' => [],
+    ]);
+});
+
+// Test createMcpClient method
+it('can create mcp client', function () {
+    $agent = TestAgent::for('test_mcp_client');
+    $reflection = new ReflectionClass($agent);
+    $createMethod = $reflection->getMethod('createMcpClient');
+    $createMethod->setAccessible(true);
+
+    $client = $createMethod->invoke($agent);
+
+    expect($client)->toBeInstanceOf(\Redberry\MCPClient\MCPClient::class);
+});
+
+// Test buildToolsFromMcpConfig method
+it('returns null when mcp config has no server name', function () {
+    $agent = TestAgent::for('test_build_tools');
+    $reflection = new ReflectionClass($agent);
+    $buildMethod = $reflection->getMethod('buildToolsFromMcpConfig');
+    $buildMethod->setAccessible(true);
+
+    $result = $buildMethod->invoke($agent, [
+        'method' => 'tools',
+        'filter' => null,
+        'filterArguments' => [],
+    ]);
+
+    expect($result)->toBeNull();
+});
+
+it('returns null when mcp config server name is null', function () {
+    $agent = TestAgent::for('test_build_tools');
+    $reflection = new ReflectionClass($agent);
+    $buildMethod = $reflection->getMethod('buildToolsFromMcpConfig');
+    $buildMethod->setAccessible(true);
+
+    $result = $buildMethod->invoke($agent, [
+        'serverName' => null,
+        'method' => 'tools',
+        'filter' => null,
+        'filterArguments' => [],
+    ]);
+
+    expect($result)->toBeNull();
+});
