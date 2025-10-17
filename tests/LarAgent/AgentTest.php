@@ -695,3 +695,35 @@ it('can create mcp client', function () {
 
     expect($client)->toBeInstanceOf(\Redberry\MCPClient\MCPClient::class);
 });
+
+// Test buildToolsFromMcpConfig method
+it('returns null when mcp config has no server name', function () {
+    $agent = TestAgent::for('test_build_tools');
+    $reflection = new ReflectionClass($agent);
+    $buildMethod = $reflection->getMethod('buildToolsFromMcpConfig');
+    $buildMethod->setAccessible(true);
+
+    $result = $buildMethod->invoke($agent, [
+        'method' => 'tools',
+        'filter' => null,
+        'filterArguments' => [],
+    ]);
+
+    expect($result)->toBeNull();
+});
+
+it('returns null when mcp config server name is null', function () {
+    $agent = TestAgent::for('test_build_tools');
+    $reflection = new ReflectionClass($agent);
+    $buildMethod = $reflection->getMethod('buildToolsFromMcpConfig');
+    $buildMethod->setAccessible(true);
+
+    $result = $buildMethod->invoke($agent, [
+        'serverName' => null,
+        'method' => 'tools',
+        'filter' => null,
+        'filterArguments' => [],
+    ]);
+
+    expect($result)->toBeNull();
+});
