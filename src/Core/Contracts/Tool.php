@@ -20,9 +20,19 @@ interface Tool
     public function addProperty(string $name, string $type, string $description = '', array $enum = []): self;
 
     /**
+     * Set properties array.
+     */
+    public function setProperties(array $props): self;
+
+    /**
      * Mark a Property as required.
      */
     public function setRequired(string $name): self;
+
+    /**
+     * Set array of required properties.
+     */
+    public function setRequiredProps(array $required): self;
 
     /**
      * Get the Properties schema.
