@@ -75,7 +75,7 @@ $agent->setTools([$tool])
     ->withMessage($userMessage);
 
 // Add a hook to modify the tool result before it's sent back to the LLM
-$agent->afterToolExecution(function ($agent, $tool, &$result) {
+$agent->afterToolExecution(function ($agent, $tool, $toolCall, &$result) {
     $checkedAt = $tool->getMetaData()['checked_at'];
     if ($checkedAt) {
         $result = $result.'. Data checked on '.$checkedAt;
