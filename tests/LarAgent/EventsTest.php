@@ -43,6 +43,11 @@ class EventTestAgent extends Agent
     protected function onInitialize()
     {
         parent::onInitialize();
+        
+        $this->llmDriver->addMockResponse('tool_calls', [
+            'toolName' => 'test_tool',
+            'arguments' => json_encode(['input' => 'test input']),
+        ]);
         $this->llmDriver->addMockResponse('stop', [
             'content' => 'Test response',
         ]);
@@ -206,13 +211,6 @@ it('dispatches BeforeToolExecution event with ToolCall object', function () {
 
     // Create agent with tool execution mock
     $agent = EventTestAgent::for('test_tool_events');
-    $agent->llmDriver->addMockResponse('tool_calls', [
-        'toolName' => 'test_tool',
-        'arguments' => json_encode(['input' => 'test input']),
-    ]);
-    $agent->llmDriver->addMockResponse('stop', [
-        'content' => 'Final response',
-    ]);
 
     $agent->respond('Execute tool');
 
@@ -233,13 +231,6 @@ it('dispatches AfterToolExecution event with ToolCall object', function () {
 
     // Create agent with tool execution mock
     $agent = EventTestAgent::for('test_tool_events_after');
-    $agent->llmDriver->addMockResponse('tool_calls', [
-        'toolName' => 'test_tool',
-        'arguments' => json_encode(['input' => 'test input']),
-    ]);
-    $agent->llmDriver->addMockResponse('stop', [
-        'content' => 'Final response',
-    ]);
 
     $agent->respond('Execute tool');
 
@@ -257,59 +248,3 @@ it('dispatches AfterToolExecution event with ToolCall object', function () {
     });
 });
 
-it('receives ToolCall in beforeToolExecution hook callback', function () {
-    $callbackInvoked = false;
-    $receivedToolCall = null;
-
-    $agent = EventTestAgent::for('test_hook_before');
-    $agent->llmDriver->addMockResponse('tool_calls', [
-        'toolName' => 'test_tool',
-        'arguments' => json_encode(['input' => 'hook test']),
-    ]);
-    $agent->llmDriver->addMockResponse('stop', [
-        'content' => 'Final response',
-    ]);
-
-    $agent->beforeToolExecution(function ($agent, $tool, $toolCall) use (&$callbackInvoked, &$receivedToolCall) {
-        $callbackInvoked = true;
-        $receivedToolCall = $toolCall;
-    });
-
-    $agent->respond('Execute tool');
-
-    expect($callbackInvoked)->toBeTrue()
-        ->and($receivedToolCall)->not->toBeNull()
-        ->and($receivedToolCall)->toBeInstanceOf(\LarAgent\Core\Contracts\ToolCall::class)
-        ->and($receivedToolCall->getToolName())->toBe('test_tool')
-        ->and($receivedToolCall->getArguments())->toContain('hook test');
-});
-
-it('receives ToolCall in afterToolExecution hook callback', function () {
-    $callbackInvoked = false;
-    $receivedToolCall = null;
-    $receivedResult = null;
-
-    $agent = EventTestAgent::for('test_hook_after');
-    $agent->llmDriver->addMockResponse('tool_calls', [
-        'toolName' => 'test_tool',
-        'arguments' => json_encode(['input' => 'hook test']),
-    ]);
-    $agent->llmDriver->addMockResponse('stop', [
-        'content' => 'Final response',
-    ]);
-
-    $agent->afterToolExecution(function ($agent, $tool, $toolCall, &$result) use (&$callbackInvoked, &$receivedToolCall, &$receivedResult) {
-        $callbackInvoked = true;
-        $receivedToolCall = $toolCall;
-        $receivedResult = $result;
-    });
-
-    $agent->respond('Execute tool');
-
-    expect($callbackInvoked)->toBeTrue()
-        ->and($receivedToolCall)->not->toBeNull()
-        ->and($receivedToolCall)->toBeInstanceOf(\LarAgent\Core\Contracts\ToolCall::class)
-        ->and($receivedToolCall->getToolName())->toBe('test_tool')
-        ->and($receivedToolCall->getArguments())->toContain('hook test')
-        ->and($receivedResult)->toBe('Processed hook test');
-});

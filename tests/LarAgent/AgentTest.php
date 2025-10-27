@@ -60,7 +60,7 @@ class TestAgent extends Agent
         }
     }
 
-    protected function afterToolExecution($tool, &$result)
+    protected function afterToolExecution($tool, $toolCall, &$result)
     {
         $this->saveToolResult = $result;
     }

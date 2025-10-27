@@ -793,7 +793,7 @@ class Agent
             foreach ($resourcesCollection as $mcpResource) {
                 $resourceName = $mcpResource['name'] ?? null;
                 $resourceUri = $mcpResource['uri'] ?? null;
-                $desc = 'Reads the resource';
+                $desc = 'Read the resource';
                 $desc .= isset($mcpResource['description']) ? ': '.$mcpResource['description'] : '';
                 if (! $resourceName || ! $resourceUri) {
                     continue;
@@ -1414,15 +1414,15 @@ class Agent
             return $returnValue === false ? false : true;
         });
 
-        $this->agent->beforeToolExecution(function ($agent, $tool) use ($instance) {
-            $returnValue = $instance->callEvent('beforeToolExecution', [$tool]);
+        $this->agent->beforeToolExecution(function ($agent, $tool, $toolCall) use ($instance) {
+            $returnValue = $instance->callEvent('beforeToolExecution', [$tool, $toolCall]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
 
-        $this->agent->afterToolExecution(function ($agent, $tool, &$result) use ($instance) {
-            $returnValue = $instance->callEvent('afterToolExecution', [$tool, &$result]);
+        $this->agent->afterToolExecution(function ($agent, $tool, $toolCall, &$result) use ($instance) {
+            $returnValue = $instance->callEvent('afterToolExecution', [$tool, $toolCall, &$result]);
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
