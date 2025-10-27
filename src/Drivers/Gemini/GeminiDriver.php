@@ -341,7 +341,7 @@ class GeminiDriver extends LlmDriver
 
         if (! empty($tool->getProperties())) {
             $toolSchema['parameters'] = [
-                'type' => 'object', // CORRECTED: lowercase 'object'
+                'type' => 'object', // CORRECTED: Gemini API requires 'object' in lowercase; previous value was 'OBJECT' (uppercase), which is accepted by some other APIs (e.g., OpenAI) but not Gemini.
                 'properties' => $tool->getProperties(),
                 'required' => $tool->getRequired(),
             ];
