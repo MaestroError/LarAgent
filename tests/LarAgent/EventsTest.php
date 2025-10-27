@@ -43,7 +43,7 @@ class EventTestAgent extends Agent
     protected function onInitialize()
     {
         parent::onInitialize();
-        
+
         $this->llmDriver->addMockResponse('tool_calls', [
             'toolName' => 'test_tool',
             'arguments' => json_encode(['input' => 'test input']),
@@ -247,4 +247,3 @@ it('dispatches AfterToolExecution event with ToolCall object', function () {
         return true;
     });
 });
-
