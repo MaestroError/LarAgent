@@ -106,7 +106,7 @@ try {
     echo "Features needing additional work:\n";
     echo "⚠️ Tool/function calling (API format issue)\n";
     echo "⚠️ Streaming responses (API format issue)\n";
-    echo "⚠️ Structured output (not tested)\n";
+    echo "⚠️ Structured output (feature implemented, but not covered by this test script)\n";
 
 } catch (Exception $e) {
     echo '❌ Critical error: '.$e->getMessage()."\n";
