@@ -43,6 +43,11 @@ class EventTestAgent extends Agent
     protected function onInitialize()
     {
         parent::onInitialize();
+
+        $this->llmDriver->addMockResponse('tool_calls', [
+            'toolName' => 'test_tool',
+            'arguments' => json_encode(['input' => 'test input']),
+        ]);
         $this->llmDriver->addMockResponse('stop', [
             'content' => 'Test response',
         ]);
@@ -196,6 +201,48 @@ it('can access event data in event listeners', function () {
         expect($event->agentDto->tools)->toBeArray();
         expect($event->agentDto->configuration)->toBeArray();
         expect($event->history)->toBeInstanceOf(\LarAgent\Core\Contracts\ChatHistory::class);
+
+        return true;
+    });
+});
+
+it('dispatches BeforeToolExecution event with ToolCall object', function () {
+    Event::fake();
+
+    // Create agent with tool execution mock
+    $agent = EventTestAgent::for('test_tool_events');
+
+    $agent->respond('Execute tool');
+
+    Event::assertDispatched(\LarAgent\Events\BeforeToolExecution::class, function ($event) {
+        // Verify ToolCall is present
+        expect($event->toolCall)->not->toBeNull()
+            ->and($event->toolCall)->toBeInstanceOf(\LarAgent\Core\Contracts\ToolCall::class)
+            ->and($event->toolCall->getId())->toBeString()
+            ->and($event->toolCall->getToolName())->toBe('test_tool')
+            ->and($event->toolCall->getArguments())->toContain('test input');
+
+        return true;
+    });
+});
+
+it('dispatches AfterToolExecution event with ToolCall object', function () {
+    Event::fake();
+
+    // Create agent with tool execution mock
+    $agent = EventTestAgent::for('test_tool_events_after');
+
+    $agent->respond('Execute tool');
+
+    Event::assertDispatched(\LarAgent\Events\AfterToolExecution::class, function ($event) {
+        // Verify ToolCall is present
+        expect($event->toolCall)->not->toBeNull()
+            ->and($event->toolCall)->toBeInstanceOf(\LarAgent\Core\Contracts\ToolCall::class)
+            ->and($event->toolCall->getId())->toBeString()
+            ->and($event->toolCall->getToolName())->toBe('test_tool')
+            ->and($event->toolCall->getArguments())->toContain('test input')
+            // Verify result is also present
+            ->and($event->result)->toBe('Processed test input');
 
         return true;
     });

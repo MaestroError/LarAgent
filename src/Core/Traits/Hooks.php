@@ -5,6 +5,7 @@ namespace LarAgent\Core\Traits;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
+use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 
 trait Hooks
 {
@@ -165,11 +166,18 @@ trait Hooks
         return $this;
     }
 
-    protected function processBeforeToolExecution(ToolInterface $tool): ?bool
+    /**
+     * Process before tool execution callbacks
+     *
+     * @param  ToolInterface  $tool  The tool being executed
+     * @param  ToolCallInterface  $toolCall  The tool call object containing ID, name, and arguments
+     * @return bool|null Returns false if execution should be skipped, true otherwise
+     */
+    protected function processBeforeToolExecution(ToolInterface $tool, ToolCallInterface $toolCall): ?bool
     {
         foreach ($this->beforeToolExecutionCallbacks as $callback) {
-            // ($agent, $tool)
-            if ($callback($this, $tool) === false) {
+            // ($agent, $tool, $toolCall)
+            if ($callback($this, $tool, $toolCall) === false) {
                 return false; // Return false if a callback returns false
             }
         }
@@ -185,11 +193,19 @@ trait Hooks
         return $this;
     }
 
-    protected function processAfterToolExecution(ToolInterface $tool, mixed &$result): ?bool
+    /**
+     * Process after tool execution callbacks
+     *
+     * @param  ToolInterface  $tool  The tool that was executed
+     * @param  ToolCallInterface  $toolCall  The tool call object containing ID, name, and arguments
+     * @param  mixed  $result  The result from tool execution (mutable by reference)
+     * @return bool|null Returns false if result should be skipped, true otherwise
+     */
+    protected function processAfterToolExecution(ToolInterface $tool, ToolCallInterface $toolCall, mixed &$result): ?bool
     {
         foreach ($this->afterToolExecutionCallbacks as $callback) {
-            // ($agent, $tool, &$result) to make $result mutable
-            if ($callback($this, $tool, $result) === false) {
+            // ($agent, $tool, $toolCall, &$result) to make $result mutable
+            if ($callback($this, $tool, $toolCall, $result) === false) {
                 return false; // Return false if a callback returns false
             }
         }

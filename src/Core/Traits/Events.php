@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Event;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
+use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Events\AfterResponse;
 use LarAgent\Events\AfterSend;
 use LarAgent\Events\AfterToolExecution;
@@ -92,9 +93,10 @@ trait Events
             // Exception for afterToolExecution to pass by reference
             if ($functionName == 'afterToolExecution') {
                 $tool = $args[0] ?? null;
-                $result = &$args[1] ?? null;
+                $toolCall = $args[1] ?? null;
+                $result = &$args[2] ?? null;
 
-                return $this->$functionName($tool, $result);
+                return $this->$functionName($tool, $toolCall, $result);
             }
             // Exception for beforeStructuredOutput to pass by reference
             if ($functionName == 'beforeStructuredOutput') {
@@ -173,9 +175,11 @@ trait Events
     /**
      * Event triggered before executing a tool.
      *
+     * @param  ToolInterface  $tool  The tool being executed
+     * @param  ToolCallInterface  $toolCall  The tool call object
      * @return bool|null
      */
-    protected function beforeToolExecution(ToolInterface $tool)
+    protected function beforeToolExecution(ToolInterface $tool, ToolCallInterface $toolCall)
     {
         return true;
     }
@@ -183,10 +187,12 @@ trait Events
     /**
      * Event triggered after executing a tool.
      *
-     * @param  mixed  $result
+     * @param  ToolInterface  $tool  The tool that was executed
+     * @param  ToolCallInterface  $toolCall  The tool call object
+     * @param  mixed  $result  The result from tool execution
      * @return bool|null
      */
-    protected function afterToolExecution(ToolInterface $tool, &$result)
+    protected function afterToolExecution(ToolInterface $tool, ToolCallInterface $toolCall, &$result)
     {
         return true;
     }

@@ -760,7 +760,7 @@ class LarAgent
         $tool = $this->driver->getTool($toolCall->getToolName());
         $args = json_decode($toolCall->getArguments(), true);
         // Hook: Before tool execution, skip tool if false returned
-        if ($this->processBeforeToolExecution($tool) === false) {
+        if ($this->processBeforeToolExecution($tool, $toolCall) === false) {
             return null;
         }
 
@@ -772,7 +772,7 @@ class LarAgent
         $result = $tool->execute($args);
 
         // Hook: After tool execution, skip adding result to chat history if false returned
-        if ($this->processAfterToolExecution($tool, $result) === false) {
+        if ($this->processAfterToolExecution($tool, $toolCall, $result) === false) {
             return null;
         }
 
