@@ -274,3 +274,43 @@ it('can enable streaming mode and process streamed responses', function () {
     expect($historyMessages)->toHaveCount(2); // User message + assistant response
     expect(end($historyMessages)->getContent())->toBe('This is a streaming response');
 });
+
+it('can set and get arbitrary configs', function () {
+    $driver = new FakeLlmDriver;
+    $chatHistory = new InMemoryChatHistory('test-chat-history');
+    $agent = LarAgent::setup($driver, $chatHistory);
+    $agent->setConfig('test_key', 'test_value');
+    expect($agent->getConfig('test_key'))->toBe('test_value');
+});
+
+it('can chain arbitrary configs', function () {
+    $driver = new FakeLlmDriver;
+    $chatHistory = new InMemoryChatHistory('test-chat-history');
+    $agent = LarAgent::setup($driver, $chatHistory);
+    $agent->withConfigs(['test_key' => 'test_value']);
+    $agent->withConfigs(['test_key2' => 'test_value2']);
+    expect($agent->getConfig('test_key'))->toBe('test_value');
+    expect($agent->getConfig('test_key2'))->toBe('test_value2');
+});
+
+it('arbitrary configs are overwritten during chaining', function () {
+    $driver = new FakeLlmDriver;
+    $chatHistory = new InMemoryChatHistory('test-chat-history');
+    $agent = LarAgent::setup($driver, $chatHistory);
+    $agent->withConfigs(['test_key' => 'test_value']);
+    $agent->withConfigs(['test_key' => 'test_value2']);
+    expect($agent->getConfig('test_key'))->toBe('test_value2');
+});
+
+it('arbitrary configs are only ones included in configs', function () {
+    $driver = new FakeLlmDriver;
+    $chatHistory = new InMemoryChatHistory('test-chat-history');
+    $agent = LarAgent::setup($driver, $chatHistory, [
+        'test_key' => 'test_value',
+        'temperature' => 0.5,
+    ]);
+
+    expect($agent->getConfigs())->toHaveKey('test_key');
+    expect($agent->getConfig('test_key'))->toBe('test_value');
+    expect($agent->getConfigs())->not->toHaveKey('temperature');
+});

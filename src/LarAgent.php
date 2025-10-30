@@ -6,12 +6,14 @@ use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Hooks;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
 
 class LarAgent
 {
+    use Configs;
     use Hooks;
 
     protected string $model = 'gpt-4o-mini';
@@ -402,26 +404,41 @@ class LarAgent
     public static function setup(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory, array $configs = []): self
     {
         $agent = new self($driver, $chatHistory);
-        $agent->setConfigs($configs);
+        $agent->initializeConfigs($configs);
 
         return $agent;
     }
 
-    public function setConfigs(array $configs): void
+    public function initializeConfigs(array $configs): void
     {
-        $this->contextWindowSize = $configs['contextWindowSize'] ?? $this->contextWindowSize;
-        $this->maxCompletionTokens = $configs['maxCompletionTokens'] ?? $this->maxCompletionTokens;
-        $this->temperature = $configs['temperature'] ?? $this->temperature;
-        $this->reinjectInstructionsPer = $configs['reinjectInstructionsPer'] ?? $this->reinjectInstructionsPer;
-        $this->model = $configs['model'] ?? $this->model;
-        $this->n = $configs['n'] ?? $this->n;
-        $this->topP = $configs['topP'] ?? $this->topP;
-        $this->frequencyPenalty = $configs['frequencyPenalty'] ?? $this->frequencyPenalty;
-        $this->presencePenalty = $configs['presencePenalty'] ?? $this->presencePenalty;
-        $this->parallelToolCalls = array_key_exists('parallelToolCalls', $configs) ? $configs['parallelToolCalls'] : $this->parallelToolCalls;
-        $this->toolChoice = $configs['toolChoice'] ?? $this->toolChoice;
-        $this->modalities = $configs['modalities'] ?? $this->modalities;
-        $this->audio = $configs['audio'] ?? $this->audio;
+        $excludedKeys = [
+            'api_key',
+            'api_url',
+        ];
+        $standardKeys = [
+            'contextWindowSize',
+            'maxCompletionTokens',
+            'temperature',
+            'reinjectInstructionsPer',
+            'model',
+            'n',
+            'topP',
+            'frequencyPenalty',
+            'presencePenalty',
+            'parallelToolCalls',
+            'toolChoice',
+            'modalities',
+            'audio',
+        ];
+
+        foreach ($standardKeys as $key) {
+            if (array_key_exists($key, $configs)) {
+                $this->{$key} = data_get($configs, $key, $this->{$key});
+            }
+        }
+
+        $otherConfigs = array_diff_key($configs, array_flip([...$standardKeys, ...$excludedKeys]));
+        $this->setConfigs($otherConfigs);
     }
 
     public function setTools(array $tools): self
@@ -731,7 +748,7 @@ class LarAgent
             $configs['audio'] = $this->audio;
         }
 
-        return $configs;
+        return [...$configs, ...$this->getConfigs()];
     }
 
     protected function injectInstructions(): void

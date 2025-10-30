@@ -10,6 +10,7 @@ use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\DTO\AgentDTO;
+use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
@@ -23,6 +24,7 @@ use Redberry\MCPClient\MCPClient;
  */
 class Agent
 {
+    use Configs;
     use Events;
 
     // Agent properties
@@ -1204,6 +1206,7 @@ class Agent
                 'model' => $this->model(),
                 'driver' => $this->driver,
                 ...$driverConfigs,
+                ...$this->getConfigs(),
             ]
         );
     }
@@ -1365,7 +1368,7 @@ class Agent
             $config['audio'] = $this->audio;
         }
 
-        return $config;
+        return [...$config, ...$this->configs];
     }
 
     protected function registerEvents(): void
