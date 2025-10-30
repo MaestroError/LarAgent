@@ -433,7 +433,7 @@ class LarAgent
 
         foreach ($standardKeys as $key) {
             if (array_key_exists($key, $configs)) {
-                $this->{$key} = data_get($configs, $key, $this->{$key});
+                $this->{$key} = $configs[$key];
             }
         }
 
