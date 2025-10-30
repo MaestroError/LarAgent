@@ -727,3 +727,24 @@ it('returns null when mcp config server name is null', function () {
 
     expect($result)->toBeNull();
 });
+
+it('can set and get arbitrary configs', function () {
+    $agent = TestAgent::for('test_configs');
+    $agent->setConfig('test_key', 'test_value');
+    expect($agent->getConfig('test_key'))->toBe('test_value');
+});
+
+it('can chain arbitrary configs', function () {
+    $agent = TestAgent::for('test_configs');
+    $agent->withConfigs(['test_key' => 'test_value']);
+    $agent->withConfigs(['test_key2' => 'test_value2']);
+    expect($agent->getConfig('test_key'))->toBe('test_value');
+    expect($agent->getConfig('test_key2'))->toBe('test_value2');
+});
+
+it('arbitrary configs are overwritten during chaining', function () {
+    $agent = TestAgent::for('test_configs');
+    $agent->withConfigs(['test_key' => 'test_value']);
+    $agent->withConfigs(['test_key' => 'test_value2']);
+    expect($agent->getConfig('test_key'))->toBe('test_value2');
+});
