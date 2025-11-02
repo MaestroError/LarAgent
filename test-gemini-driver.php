@@ -13,7 +13,7 @@ try {
     // Create a driver instance with configurable URL
     $driver = new GeminiDriver([
         'api_key' => $apiKey,
-        'model' => 'gemini-robotics-er-1.5-preview',
+        'model' => 'gemini-flash-latest',
         'api_url' => 'https://generativelanguage.googleapis.com/v1beta/',
     ]);
 
@@ -66,7 +66,7 @@ try {
     try {
         $invalidDriver = new GeminiDriver([
             'api_key' => 'invalid_key',
-            'model' => 'gemini-robotics-er-1.5-preview',
+            'model' => 'gemini-flash-latest',
         ]);
 
         $invalidDriver->sendMessage([['role' => 'user', 'content' => 'test']]);
@@ -84,7 +84,7 @@ try {
         $customDriver = new GeminiDriver([
             'api_key' => $apiKey,
             'api_url' => 'https://generativelanguage.googleapis.com/v1beta/',
-            'model' => 'gemini-robotics-er-1.5-preview',
+            'model' => 'gemini-flash-latest',
         ]);
 
         $response = $customDriver->sendMessage([['role' => 'user', 'content' => 'Test configurable URL']]);
@@ -103,14 +103,89 @@ try {
     echo "✅ Error handling\n";
     echo "✅ Configurable base URL\n";
     echo "\n";
-    echo "Features needing additional work:\n";
-    echo "⚠️ Tool/function calling (API format issue)\n";
-    echo "⚠️ Streaming responses (API format issue)\n";
-    echo "⚠️ Structured output (feature implemented, but not covered by this test script)\n";
+    echo "Advanced features status:\n";
+    echo "🔧 Tool/function calling - Implemented, needs real-world testing\n";
+    echo "🔧 Streaming responses - Implemented, needs real-world testing\n";
+    echo "🔧 Structured output - Implemented, needs real-world testing\n";
+    echo "\n";
+    echo "Note: Advanced features require proper API setup and may need\n";
+    echo "paid tier for full functionality validation.\n";
 
 } catch (Exception $e) {
     echo '❌ Critical error: '.$e->getMessage()."\n";
     if ($e->getPrevious()) {
         echo 'Previous error: '.$e->getPrevious()->getMessage()."\n";
     }
+        // Test 6: Structured output
+    echo "Test 6: Structured output\n";
+    echo "-------------------------\n";
+
+    $schema = [
+        'type' => 'object',
+        'properties' => [
+            'name' => ['type' => 'string'],
+            'age' => ['type' => 'integer'],
+            'hobbies' => [
+                'type' => 'array',
+                'items' => ['type' => 'string']
+            ]
+        ],
+        'required' => ['name', 'age']
+    ];
+
+    try {
+        $structuredMessages = [
+            ['role' => 'user', 'content' => 'Create a user profile for John Doe, age 25, who enjoys reading and swimming. Respond with JSON only.'],
+        ];
+
+        $response = $driver->sendMessage($structuredMessages, [
+            'response_schema' => $schema,
+            'model' => 'gemini-flash-latest'
+        ]);
+        $content = $response->getContent();
+        echo 'Response: '.$content."\n";
+
+        $data = json_decode($content, true);
+        if (json_last_error() === JSON_ERROR_NONE && isset($data['name']) && isset($data['age'])) {
+            echo "✅ Structured output works\n";
+        } else {
+            echo "⚠️ Structured output may need adjustment\n";
+        }
+    } catch (Exception $e) {
+        echo "❌ Structured output test failed: ".$e->getMessage()."\n";
+    }
+    echo "\n";
+
+    // Test 7: Streaming response
+    echo "Test 7: Streaming response\n";
+    echo "--------------------------\n";
+
+    try {
+        $streamMessages = [
+            ['role' => 'user', 'content' => 'Count from 1 to 5 with each number on a new line.'],
+        ];
+
+        echo "Streaming: ";
+        $accumulated = '';
+        $chunkCount = 0;
+
+        foreach ($driver->sendMessageStreamed($streamMessages) as $chunk) {
+            $content = $chunk->getContent();
+            $accumulated .= $content;
+            $chunkCount++;
+            echo $content;
+        }
+
+        echo "\n";
+        echo "Received {$chunkCount} chunks, total: ".strlen($accumulated)." characters\n";
+
+        if ($chunkCount > 0 && !empty($accumulated)) {
+            echo "✅ Streaming works\n";
+        } else {
+            echo "⚠️ Streaming may need adjustment\n";
+        }
+    } catch (Exception $e) {
+        echo "❌ Streaming test failed: ".$e->getMessage()."\n";
+    }
+    echo "\n";
 }

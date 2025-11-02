@@ -50,6 +50,7 @@ return [
             'default_context_window' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
+            'model' => 'gemini-2.0-flash-latest',
         ],
 
         'groq' => [
