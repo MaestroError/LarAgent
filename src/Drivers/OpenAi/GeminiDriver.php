@@ -9,7 +9,7 @@ class GeminiDriver extends OpenAiCompatible
     public function __construct(array $provider = [])
     {
         parent::__construct($provider);
-        if ($provider['api_key']) {
+        if (isset($provider['api_key']) && $provider['api_key']) {
             $this->client = $this->buildClient($provider['api_key'], $provider['api_url'] ?? $this->default_url);
         } else {
             throw new \Exception('GeminiDriver driver requires api_key in provider settings.');

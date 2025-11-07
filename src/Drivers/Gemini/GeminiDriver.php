@@ -231,7 +231,7 @@ class GeminiDriver extends LlmDriver
             }
 
             // If we have tool calls, return a ToolCallMessage
-            if (! empty($toolCallsSummary) && $finishReason !== 'STOP') {
+            if (! empty($toolCallsSummary) && ($finishReason !== 'STOP' || $finishReason === null)) {
                 $toolCallObjects = array_values($toolCallsSummary);
                 $message = $this->toolCallsToMessage($toolCallObjects);
 
