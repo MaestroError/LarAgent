@@ -33,7 +33,7 @@ try {
         'required' => ['name', 'age']
     ];
 
-    // Более строгая инструкция для чистого JSON
+    // More strict instruction for pure JSON
     $messages = [
         ['role' => 'user', 'content' => 'Create a user profile for John Doe, age 25, who enjoys reading and swimming. Respond with PURE JSON only, no markdown, no code blocks, no additional text.'],
     ];
@@ -43,16 +43,16 @@ try {
 
     echo "Raw response: " . $content . "\n";
 
-    // Попробуем извлечь JSON из markdown если нужно
+    // Try to extract JSON from markdown if needed
     $jsonContent = $content;
     if (strpos($content, '```json') !== false) {
-        // Извлекаем JSON из markdown блока
+        // Extract JSON from markdown block
         preg_match('/```json\s*(.*?)\s*```/s', $content, $matches);
         if (isset($matches[1])) {
             $jsonContent = trim($matches[1]);
         }
     } elseif (strpos($content, '```') !== false) {
-        // Извлекаем из любого code блока
+        // Extract from any code block
         preg_match('/```\s*(.*?)\s*```/s', $content, $matches);
         if (isset($matches[1])) {
             $jsonContent = trim($matches[1]);
@@ -70,7 +70,7 @@ try {
         echo "JSON error: " . json_last_error_msg() . "\n";
         echo "Trying to parse raw response as JSON...\n";
 
-        // Попробуем распарсить сырой ответ
+        // Try to parse raw response
         $data = json_decode($content, true);
         if (json_last_error() === JSON_ERROR_NONE) {
             echo "✅ Raw response is valid JSON!\n";
