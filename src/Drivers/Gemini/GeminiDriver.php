@@ -39,8 +39,8 @@ class GeminiDriver extends LlmDriver
             'base_uri' => $this->baseUrl,
             'headers' => [
                 'Content-Type' => 'application/json',
+                'x-goog-api-key' => $this->apiKey,
             ],
-            'query' => ['key' => $this->apiKey],
         ]);
 
         $this->lastResponse = null;
@@ -76,6 +76,19 @@ class GeminiDriver extends LlmDriver
         if (isset($responseData['candidates'][0]['finishReason'])) {
             $finishReason = $responseData['candidates'][0]['finishReason'];
 
+            // Check if there are function calls in the response, regardless of finish reason
+            $toolCalls = $this->extractToolCalls($responseData);
+            
+            if (!empty($toolCalls)) {
+                $message = $this->toolCallsToMessage($toolCalls);
+                $metaData = [
+                    'usage' => $this->extractUsage($responseData),
+                    'tool_calls' => $toolCalls,
+                ];
+
+                return new ToolCallMessage($toolCalls, $message, $metaData);
+            }
+
             if ($finishReason === 'STOP') {
                 $content = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
                 $metaData = [
@@ -83,16 +96,6 @@ class GeminiDriver extends LlmDriver
                 ];
 
                 return new AssistantMessage($content, $metaData);
-            }
-
-            if ($finishReason === 'TOOLS') {
-                $toolCalls = $this->extractToolCalls($responseData);
-                $metaData = [
-                    'usage' => $this->extractUsage($responseData),
-                    'tool_calls' => $toolCalls,
-                ];
-
-                return new ToolCallMessage($toolCalls, $metaData);
             }
 
             if ($finishReason === 'RECITATION' || $finishReason === 'SAFETY') {
@@ -112,10 +115,12 @@ class GeminiDriver extends LlmDriver
         if (isset($responseData['candidates'][0]['content']['parts'])) {
             foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
                 if (isset($part['functionCall'])) {
-                    $toolCalls[] = [
-                        'name' => $part['functionCall']['name'] ?? '',
-                        'arguments' => json_encode($part['functionCall']['args'] ?? []),
-                    ];
+                    // Create ToolCall objects instead of arrays
+                    $toolCalls[] = new \LarAgent\ToolCall(
+                        'tool_call_' . uniqid(), // Generate a unique ID
+                        $part['functionCall']['name'] ?? '',
+                        json_encode($part['functionCall']['args'] ?? [])
+                    );
                 }
             }
         }
@@ -135,12 +140,9 @@ class GeminiDriver extends LlmDriver
 
             // Use streaming endpoint
             $url = "models/{$model}:streamGenerateContent";
-            $payload['generationConfig'] = array_merge(
-                $payload['generationConfig'] ?? [],
-                ['stream' => true]
-            );
 
             $response = $this->httpClient->post($url, [
+                'query' => ['alt' => 'sse'],
                 'json' => $payload,
                 'stream' => true,
             ]);
@@ -222,10 +224,11 @@ class GeminiDriver extends LlmDriver
             $role = $this->mapRoleToGeminiRole($message['role']);
             $parts = [];
 
-            if (isset($message['content']) && is_string($message['content'])) {
-                $parts[] = ['text' => $message['content']];
-            } elseif (isset($message['parts']) && is_array($message['parts'])) {
+            // Check for parts first (for tool calls and tool results)
+            if (isset($message['parts']) && is_array($message['parts'])) {
                 $parts = $message['parts'];
+            } elseif (isset($message['content']) && is_string($message['content']) && $message['content'] !== '') {
+                $parts[] = ['text' => $message['content']];
             } elseif (isset($message['content']) && is_array($message['content'])) {
                 foreach ($message['content'] as $contentPart) {
                     if (isset($contentPart['text']) && is_string($contentPart['text'])) {
@@ -273,7 +276,8 @@ class GeminiDriver extends LlmDriver
 
         // Structured output support
         if (isset($options['response_schema'])) {
-            $generationConfig['response_schema'] = $options['response_schema'];
+            $generationConfig['responseJsonSchema'] = $options['response_schema'];
+            $generationConfig['responseMimeType'] = "application/json";
         }
 
         if (! empty($generationConfig)) {
@@ -286,7 +290,7 @@ class GeminiDriver extends LlmDriver
                 [
                     'functionDeclarations' => array_map(
                         fn ($tool) => $this->formatToolForPayload($tool),
-                        $this->tools
+                        array_values($this->tools)
                     ),
                 ],
             ];
@@ -389,7 +393,7 @@ class GeminiDriver extends LlmDriver
         }
 
         return [
-            'role' => 'model',
+            'role' => 'assistant',  // Use 'assistant' instead of 'model' for compatibility
             'parts' => $toolCallsArray,
         ];
     }

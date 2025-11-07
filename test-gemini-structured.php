@@ -13,7 +13,7 @@ echo "==============================================\n\n";
 try {
     $driver = new GeminiDriver([
         'api_key' => $apiKey,
-        'model' => 'gemini-flash-latest',
+        'model' => 'gemini-2.5-flash',
     ]);
 
     // Test structured output with schema
@@ -28,9 +28,9 @@ try {
             'hobbies' => [
                 'type' => 'array',
                 'items' => ['type' => 'string']
-            ]
+            ],
         ],
-        'required' => ['name', 'age']
+        'required' => ['name', 'age', 'hobbies'],
     ];
 
     // More strict instruction for pure JSON

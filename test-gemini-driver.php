@@ -13,7 +13,7 @@ try {
     // Create a driver instance with configurable URL
     $driver = new GeminiDriver([
         'api_key' => $apiKey,
-        'model' => 'gemini-flash-latest',
+        'model' => 'gemini-2.5-flash',
         'api_url' => 'https://generativelanguage.googleapis.com/v1beta/',
     ]);
 
@@ -116,6 +116,8 @@ try {
     if ($e->getPrevious()) {
         echo 'Previous error: '.$e->getPrevious()->getMessage()."\n";
     }
+
+}
         // Test 6: Structured output
     echo "Test 6: Structured output\n";
     echo "-------------------------\n";
@@ -140,7 +142,7 @@ try {
 
         $response = $driver->sendMessage($structuredMessages, [
             'response_schema' => $schema,
-            'model' => 'gemini-flash-latest'
+            'model' => 'gemini-2.5-flash'
         ]);
         $content = $response->getContent();
         echo 'Response: '.$content."\n";
@@ -152,6 +154,7 @@ try {
             echo "⚠️ Structured output may need adjustment\n";
         }
     } catch (Exception $e) {
+        file_put_contents('error-structured.log', "Error during structured output: ".$e->getMessage()."\n");
         echo "❌ Structured output test failed: ".$e->getMessage()."\n";
     }
     echo "\n";
@@ -185,7 +188,8 @@ try {
             echo "⚠️ Streaming may need adjustment\n";
         }
     } catch (Exception $e) {
+        file_put_contents('error-stream.log', "Error during streaming: ".$e->getMessage()."\n");
         echo "❌ Streaming test failed: ".$e->getMessage()."\n";
     }
     echo "\n";
-}
+

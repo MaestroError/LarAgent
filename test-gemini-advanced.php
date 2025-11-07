@@ -30,8 +30,30 @@ function config(string $key): mixed
 class GeminiToolAgent extends LarAgent\Agent
 {
     protected $provider = 'gemini';
-    protected $model = 'gemini-flash-latest';
+    protected $model = 'gemini-2.5-flash';
     protected $history = 'in_memory';
+
+    public function registerTools(): array
+    {
+        $weatherTool = Tool::create('get_weather', 'Get the current weather in a given location')
+            ->addProperty('location', 'string', 'The city and state, e.g. San Francisco, CA')
+            ->addProperty('unit', 'string', 'The unit of temperature', ['celsius', 'fahrenheit'])
+            ->setRequired('location')
+            ->setCallback(function ($location, $unit = 'celsius') {
+                // Mock weather data
+                $weatherData = [
+                    'boston' => ['temp' => 22, 'condition' => 'sunny'],
+                    'miami' => ['temp' => 28, 'condition' => 'partly cloudy'],
+                    'new york' => ['temp' => 20, 'condition' => 'rainy'],
+                ];
+
+                $city = strtolower(explode(',', $location)[0]);
+                $data = $weatherData[$city] ?? ['temp' => 25, 'condition' => 'clear'];
+
+                return "The weather in {$location} is {$data['temp']}°{$unit} and {$data['condition']}.";
+            });
+        return [$weatherTool];
+    }
 
     public function instructions()
     {
@@ -58,28 +80,8 @@ echo "===================================\n\n";
 echo "Test 1: Agent with Single Tool\n";
 echo "-------------------------------\n";
 
-// Create a weather tool
-$weatherTool = Tool::create('get_weather', 'Get the current weather in a given location')
-    ->addProperty('location', 'string', 'The city and state, e.g. San Francisco, CA')
-    ->addProperty('unit', 'string', 'The unit of temperature', ['celsius', 'fahrenheit'])
-    ->setRequired('location')
-    ->setCallback(function ($location, $unit = 'celsius') {
-        // Mock weather data
-        $weatherData = [
-            'boston' => ['temp' => 22, 'condition' => 'sunny'],
-            'miami' => ['temp' => 28, 'condition' => 'partly cloudy'],
-            'new york' => ['temp' => 20, 'condition' => 'rainy'],
-        ];
-
-        $city = strtolower(explode(',', $location)[0]);
-        $data = $weatherData[$city] ?? ['temp' => 25, 'condition' => 'clear'];
-
-        return "The weather in {$location} is {$data['temp']}°{$unit} and {$data['condition']}.";
-    });
-
 try {
-    $toolAgent = GeminiToolAgent::for('tool_test')
-        ->withTool($weatherTool);
+    $toolAgent = GeminiToolAgent::for('tool_test');
 
     $response = $toolAgent->respond('What is the weather in Boston, MA?');
 
