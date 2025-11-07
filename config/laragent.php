@@ -107,6 +107,11 @@ return [
             'base_url' => 'https://api.githubcopilot.com/mcp',
             'timeout' => 30,
             'token' => env('GITHUB_API_TOKEN', null),
+            'headers' => [
+                // Add custom headers here - these will override default headers
+            ],
+            // 'string' or 'int' - controls JSON-RPC id type (default: 'int')
+            'id_type' => 'int',
         ],
         'mcp_server_memory' => [
             'type' => \Redberry\MCPClient\Enums\Transporters::STDIO,
@@ -117,6 +122,10 @@ return [
             ],
             'timeout' => 30,
             'cwd' => base_path(),
+            // milliseconds - delay after process start (default: 100)
+            'startup_delay' => 100,
+            // milliseconds - polling interval for response (default: 20)
+            'poll_interval' => 20,
         ],
     ],
 ];

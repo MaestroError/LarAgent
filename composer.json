@@ -25,7 +25,7 @@
         "lucianotonet/groq-php": "^1.3",
         "mozex/anthropic-php": "^1.1",
         "openai-php/client": "^0.17.1",
-        "redberry/mcp-client-laravel": "^1.0",
+        "redberry/mcp-client-laravel": "^1.1",
         "spatie/laravel-package-tools": "^1.16"
     },
     "require-dev": {
