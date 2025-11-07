@@ -121,6 +121,8 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                     $callback($stream);
                 }
                 yield $stream;
+            } elseif (!isset($delta['content'])) {
+                $stream->resetLastChunk();
             }
         }
 
@@ -144,21 +146,21 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                 $callback($toolMsg);
             }
             yield $toolMsg;
+
+            return;
         }
 
-        // Normal assistant message
-        if ($finishReason === 'stop') {
-            if ($lastUsage) {
-                $stream->setUsage($lastUsage);
-            }
-            $stream->setComplete(true);
-
-            if ($callback) {
-                $callback($stream);
-            }
-
-            yield $stream;
+        // Always yield final message
+        if ($lastUsage) {
+            $stream->setUsage($lastUsage);
         }
+        $stream->setComplete(true);
+
+        if ($callback) {
+            $callback($stream);
+        }
+
+        yield $stream;
     }
 
     protected function hasToolCalls(mixed $delta): bool

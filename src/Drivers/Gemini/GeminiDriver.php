@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use RuntimeException;
 
@@ -148,7 +149,11 @@ class GeminiDriver extends LlmDriver
             ]);
 
             $stream = $response->getBody();
-            $accumulatedContent = '';
+            $streamedMessage = new StreamedAssistantMessage();
+            $toolCalls = [];
+            $toolCallsSummary = [];
+            $finishReason = null;
+            $lastResponseData = null;
 
             while (! $stream->eof()) {
                 $chunk = $stream->read(1024);
@@ -170,30 +175,89 @@ class GeminiDriver extends LlmDriver
                         continue;
                     }
 
-                    if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
-                        $newContent = $responseData['candidates'][0]['content']['parts'][0]['text'];
+                    // Store last response data for usage information
+                    $lastResponseData = $responseData;
 
-                        // Only yield new content
-                        if (strlen($newContent) > strlen($accumulatedContent)) {
-                            $delta = substr($newContent, strlen($accumulatedContent));
-                            $accumulatedContent = $newContent;
+                    // Get finish reason if available
+                    if (isset($responseData['candidates'][0]['finishReason'])) {
+                        $finishReason = $responseData['candidates'][0]['finishReason'];
+                    }
 
-                            $message = new AssistantMessage($delta);
-                            yield $message;
+                    // Check for tool calls (function calls in Gemini)
+                    if (isset($responseData['candidates'][0]['content']['parts'])) {
+                        foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
+                            // Handle function calls
+                            if (isset($part['functionCall'])) {
+                                $functionCall = $part['functionCall'];
+                                $toolCallId = 'tool_call_' . uniqid();
+                                
+                                // Store complete tool call
+                                $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(
+                                    $toolCallId,
+                                    $functionCall['name'] ?? '',
+                                    json_encode($functionCall['args'] ?? [])
+                                );
+                            }
+                            // Handle text content
+                            elseif (isset($part['text'])) {
+                                $delta = $part['text'];
+                                $streamedMessage->appendContent($delta);
 
-                            if ($callback) {
-                                $callback($delta);
+                                // Execute callback if provided
+                                if ($callback) {
+                                    $callback($streamedMessage);
+                                }
+
+                                // Yield the streamed message
+                                yield $streamedMessage;
                             }
                         }
+                    } else {
+                        // No parts in this chunk, reset last chunk
+                        $streamedMessage->resetLastChunk();
                     }
                 }
             }
 
-            // Yield final message with full content
-            yield new AssistantMessage($accumulatedContent, [
-                'usage' => $this->extractUsage($this->lastResponse ?? []),
-                'complete' => true,
-            ]);
+            // Store the last response for getLastResponse()
+            if ($lastResponseData) {
+                $this->lastResponse = $lastResponseData;
+            }
+
+            // Set usage information if available
+            if ($lastResponseData) {
+                $usage = $this->extractUsage($lastResponseData);
+                $streamedMessage->setUsage($usage);
+            }
+
+            // If we have tool calls, return a ToolCallMessage
+            if (!empty($toolCallsSummary) && $finishReason !== 'STOP') {
+                $toolCallObjects = array_values($toolCallsSummary);
+                $message = $this->toolCallsToMessage($toolCallObjects);
+
+                $toolCallMessage = new ToolCallMessage(
+                    $toolCallObjects,
+                    $message,
+                    $streamedMessage->getUsage() ? ['usage' => $streamedMessage->getUsage()] : []
+                );
+
+                // Execute callback if provided
+                if ($callback) {
+                    $callback($toolCallMessage);
+                }
+
+                yield $toolCallMessage;
+            } else {
+                // Mark the message as complete and yield final version
+                $streamedMessage->setComplete(true);
+
+                // Execute callback if provided
+                if ($callback) {
+                    $callback($streamedMessage);
+                }
+
+                yield $streamedMessage;
+            }
 
         } catch (RequestException $e) {
             throw new RuntimeException('Gemini streaming API request failed: '.$e->getMessage(), 0, $e);
