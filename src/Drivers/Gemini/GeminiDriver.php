@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use RuntimeException;
 
@@ -39,8 +40,8 @@ class GeminiDriver extends LlmDriver
             'base_uri' => $this->baseUrl,
             'headers' => [
                 'Content-Type' => 'application/json',
+                'x-goog-api-key' => $this->apiKey,
             ],
-            'query' => ['key' => $this->apiKey],
         ]);
 
         $this->lastResponse = null;
@@ -76,6 +77,19 @@ class GeminiDriver extends LlmDriver
         if (isset($responseData['candidates'][0]['finishReason'])) {
             $finishReason = $responseData['candidates'][0]['finishReason'];
 
+            // Check if there are function calls in the response, regardless of finish reason
+            $toolCalls = $this->extractToolCalls($responseData);
+
+            if (! empty($toolCalls)) {
+                $message = $this->toolCallsToMessage($toolCalls);
+                $metaData = [
+                    'usage' => $this->extractUsage($responseData),
+                    'tool_calls' => $toolCalls,
+                ];
+
+                return new ToolCallMessage($toolCalls, $message, $metaData);
+            }
+
             if ($finishReason === 'STOP') {
                 $content = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
                 $metaData = [
@@ -83,16 +97,6 @@ class GeminiDriver extends LlmDriver
                 ];
 
                 return new AssistantMessage($content, $metaData);
-            }
-
-            if ($finishReason === 'TOOLS') {
-                $toolCalls = $this->extractToolCalls($responseData);
-                $metaData = [
-                    'usage' => $this->extractUsage($responseData),
-                    'tool_calls' => $toolCalls,
-                ];
-
-                return new ToolCallMessage($toolCalls, $metaData);
             }
 
             if ($finishReason === 'RECITATION' || $finishReason === 'SAFETY') {
@@ -112,10 +116,12 @@ class GeminiDriver extends LlmDriver
         if (isset($responseData['candidates'][0]['content']['parts'])) {
             foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
                 if (isset($part['functionCall'])) {
-                    $toolCalls[] = [
-                        'name' => $part['functionCall']['name'] ?? '',
-                        'arguments' => json_encode($part['functionCall']['args'] ?? []),
-                    ];
+                    // Create ToolCall objects instead of arrays
+                    $toolCalls[] = new \LarAgent\ToolCall(
+                        'tool_call_'.uniqid(), // Generate a unique ID
+                        $part['functionCall']['name'] ?? '',
+                        json_encode($part['functionCall']['args'] ?? [])
+                    );
                 }
             }
         }
@@ -135,18 +141,19 @@ class GeminiDriver extends LlmDriver
 
             // Use streaming endpoint
             $url = "models/{$model}:streamGenerateContent";
-            $payload['generationConfig'] = array_merge(
-                $payload['generationConfig'] ?? [],
-                ['stream' => true]
-            );
 
             $response = $this->httpClient->post($url, [
+                'query' => ['alt' => 'sse'],
                 'json' => $payload,
                 'stream' => true,
             ]);
 
             $stream = $response->getBody();
-            $accumulatedContent = '';
+            $streamedMessage = new StreamedAssistantMessage;
+            $toolCalls = [];
+            $toolCallsSummary = [];
+            $finishReason = null;
+            $lastResponseData = null;
 
             while (! $stream->eof()) {
                 $chunk = $stream->read(1024);
@@ -168,30 +175,89 @@ class GeminiDriver extends LlmDriver
                         continue;
                     }
 
-                    if (isset($responseData['candidates'][0]['content']['parts'][0]['text'])) {
-                        $newContent = $responseData['candidates'][0]['content']['parts'][0]['text'];
+                    // Store last response data for usage information
+                    $lastResponseData = $responseData;
 
-                        // Only yield new content
-                        if (strlen($newContent) > strlen($accumulatedContent)) {
-                            $delta = substr($newContent, strlen($accumulatedContent));
-                            $accumulatedContent = $newContent;
+                    // Get finish reason if available
+                    if (isset($responseData['candidates'][0]['finishReason'])) {
+                        $finishReason = $responseData['candidates'][0]['finishReason'];
+                    }
 
-                            $message = new AssistantMessage($delta);
-                            yield $message;
+                    // Check for tool calls (function calls in Gemini)
+                    if (isset($responseData['candidates'][0]['content']['parts'])) {
+                        foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
+                            // Handle function calls
+                            if (isset($part['functionCall'])) {
+                                $functionCall = $part['functionCall'];
+                                $toolCallId = 'tool_call_'.uniqid();
 
-                            if ($callback) {
-                                $callback($delta);
+                                // Store complete tool call
+                                $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(
+                                    $toolCallId,
+                                    $functionCall['name'] ?? '',
+                                    json_encode($functionCall['args'] ?? [])
+                                );
+                            }
+                            // Handle text content
+                            elseif (isset($part['text'])) {
+                                $delta = $part['text'];
+                                $streamedMessage->appendContent($delta);
+
+                                // Execute callback if provided
+                                if ($callback) {
+                                    $callback($streamedMessage);
+                                }
+
+                                // Yield the streamed message
+                                yield $streamedMessage;
                             }
                         }
+                    } else {
+                        // No parts in this chunk, reset last chunk
+                        $streamedMessage->resetLastChunk();
                     }
                 }
             }
 
-            // Yield final message with full content
-            yield new AssistantMessage($accumulatedContent, [
-                'usage' => $this->extractUsage($this->lastResponse ?? []),
-                'complete' => true,
-            ]);
+            // Store the last response for getLastResponse()
+            if ($lastResponseData) {
+                $this->lastResponse = $lastResponseData;
+            }
+
+            // Set usage information if available
+            if ($lastResponseData) {
+                $usage = $this->extractUsage($lastResponseData);
+                $streamedMessage->setUsage($usage);
+            }
+
+            // If we have tool calls, return a ToolCallMessage
+            if (! empty($toolCallsSummary) && ($finishReason !== 'STOP' || $finishReason === null)) {
+                $toolCallObjects = array_values($toolCallsSummary);
+                $message = $this->toolCallsToMessage($toolCallObjects);
+
+                $toolCallMessage = new ToolCallMessage(
+                    $toolCallObjects,
+                    $message,
+                    $streamedMessage->getUsage() ? ['usage' => $streamedMessage->getUsage()] : []
+                );
+
+                // Execute callback if provided
+                if ($callback) {
+                    $callback($toolCallMessage);
+                }
+
+                yield $toolCallMessage;
+            } else {
+                // Mark the message as complete and yield final version
+                $streamedMessage->setComplete(true);
+
+                // Execute callback if provided
+                if ($callback) {
+                    $callback($streamedMessage);
+                }
+
+                yield $streamedMessage;
+            }
 
         } catch (RequestException $e) {
             throw new RuntimeException('Gemini streaming API request failed: '.$e->getMessage(), 0, $e);
@@ -222,10 +288,11 @@ class GeminiDriver extends LlmDriver
             $role = $this->mapRoleToGeminiRole($message['role']);
             $parts = [];
 
-            if (isset($message['content']) && is_string($message['content'])) {
-                $parts[] = ['text' => $message['content']];
-            } elseif (isset($message['parts']) && is_array($message['parts'])) {
+            // Check for parts first (for tool calls and tool results)
+            if (isset($message['parts']) && is_array($message['parts'])) {
                 $parts = $message['parts'];
+            } elseif (isset($message['content']) && is_string($message['content']) && $message['content'] !== '') {
+                $parts[] = ['text' => $message['content']];
             } elseif (isset($message['content']) && is_array($message['content'])) {
                 foreach ($message['content'] as $contentPart) {
                     if (isset($contentPart['text']) && is_string($contentPart['text'])) {
@@ -272,8 +339,13 @@ class GeminiDriver extends LlmDriver
         }
 
         // Structured output support
-        if (isset($options['response_schema'])) {
-            $generationConfig['response_schema'] = $options['response_schema'];
+        if ($this->structuredOutputEnabled()) {
+            $generationConfig['responseJsonSchema'] = $this->getResponseSchema();
+            $generationConfig['responseMimeType'] = 'application/json';
+        } elseif (isset($options['response_schema'])) {
+            // Fallback to options if response schema is passed via options
+            $generationConfig['responseJsonSchema'] = $options['response_schema'];
+            $generationConfig['responseMimeType'] = 'application/json';
         }
 
         if (! empty($generationConfig)) {
@@ -286,7 +358,7 @@ class GeminiDriver extends LlmDriver
                 [
                     'functionDeclarations' => array_map(
                         fn ($tool) => $this->formatToolForPayload($tool),
-                        $this->tools
+                        array_values($this->tools)
                     ),
                 ],
             ];
@@ -389,7 +461,7 @@ class GeminiDriver extends LlmDriver
         }
 
         return [
-            'role' => 'model',
+            'role' => 'assistant',  // Use 'assistant' instead of 'model' for compatibility
             'parts' => $toolCallsArray,
         ];
     }

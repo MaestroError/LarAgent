@@ -165,6 +165,9 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                         // Append partial_json
                         $pendingToolInputs[$id] = ($pendingToolInputs[$id] ?? '').($delta->partial_json ?? '');
                     }
+                } else {
+                    // No recognized delta type, reset last chunk
+                    $streamedMessage->resetLastChunk();
                 }
 
                 continue;

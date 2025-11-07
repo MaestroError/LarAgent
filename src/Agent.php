@@ -825,7 +825,9 @@ class Agent
 
     protected function createMcpClient(): MCPClient
     {
-        return new MCPClient(config('laragent.mcp_servers'));
+        $servers = config('laragent.mcp_servers') ?? [];
+
+        return new MCPClient($servers);
     }
 
     // Public accessors / mutators

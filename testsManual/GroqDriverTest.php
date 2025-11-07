@@ -174,7 +174,7 @@ class ToolTestAgent extends GroqTestAgent
         ];
     }
 
-    protected function afterToolExecution($tool, &$result)
+    protected function afterToolExecution($tool, $toolCall, &$result)
     {
         $this->saveToolResult = $result;
     }
@@ -212,7 +212,7 @@ class ParallelToolTestAgent extends GroqTestAgent
         ];
     }
 
-    protected function afterToolExecution($tool, &$result)
+    protected function afterToolExecution($tool, $toolCall, &$result)
     {
         $this->toolCalls[] = [
             'tool' => $tool->getName(),
