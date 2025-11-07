@@ -275,7 +275,11 @@ class GeminiDriver extends LlmDriver
         }
 
         // Structured output support
-        if (isset($options['response_schema'])) {
+        if ($this->structuredOutputEnabled()) {
+            $generationConfig['responseJsonSchema'] = $this->getResponseSchema();
+            $generationConfig['responseMimeType'] = "application/json";
+        } elseif (isset($options['response_schema'])) {
+            // Fallback to options if response schema is passed via options
             $generationConfig['responseJsonSchema'] = $options['response_schema'];
             $generationConfig['responseMimeType'] = "application/json";
         }
