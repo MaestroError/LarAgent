@@ -121,7 +121,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                     $callback($stream);
                 }
                 yield $stream;
-            } elseif (!isset($delta['content'])) {
+            } elseif (! isset($delta['content'])) {
                 $stream->resetLastChunk();
             }
         }

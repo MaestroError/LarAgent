@@ -2,7 +2,7 @@
 
 /**
  * Comprehensive Gemini Agent Test
- * 
+ *
  * Tests all features of Gemini agents including:
  * - Normal generation
  * - Tools/Function calling
@@ -14,8 +14,8 @@
 
 require_once __DIR__.'/../vendor/autoload.php';
 
-use LarAgent\Tool;
 use LarAgent\Agent;
+use LarAgent\Tool;
 
 // Configuration function
 function config(string $key): mixed
@@ -50,7 +50,9 @@ function config(string $key): mixed
 class BasicGeminiAgent extends Agent
 {
     protected $provider = 'gemini';
+
     protected $model = 'gemini-2.5-flash';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -65,7 +67,9 @@ class BasicGeminiAgent extends Agent
 class GeminiToolAgent extends Agent
 {
     protected $provider = 'gemini';
+
     protected $model = 'gemini-2.5-flash';
+
     protected $history = 'in_memory';
 
     public function registerTools(): array
@@ -94,7 +98,7 @@ class GeminiToolAgent extends Agent
             ->addProperty('b', 'number', 'Second number')
             ->setRequired('operation', 'a', 'b')
             ->setCallback(function ($operation, $a, $b) {
-                return match($operation) {
+                return match ($operation) {
                     'add' => $a + $b,
                     'subtract' => $a - $b,
                     'multiply' => $a * $b,
@@ -118,7 +122,9 @@ class GeminiToolAgent extends Agent
 class GeminiStreamAgent extends Agent
 {
     protected $provider = 'gemini';
+
     protected $model = 'gemini-2.5-flash';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -133,7 +139,9 @@ class GeminiStreamAgent extends Agent
 class GeminiStructuredAgent extends Agent
 {
     protected $provider = 'gemini';
+
     protected $model = 'gemini-2.5-flash';
+
     protected $history = 'in_memory';
 
     protected $responseSchema = [
@@ -142,9 +150,9 @@ class GeminiStructuredAgent extends Agent
             'title' => ['type' => 'string'],
             'author' => ['type' => 'string'],
             'year' => ['type' => 'integer'],
-            'genre' => ['type' => 'string']
+            'genre' => ['type' => 'string'],
         ],
-        'required' => ['title', 'author', 'year']
+        'required' => ['title', 'author', 'year'],
     ];
 
     public function instructions()
@@ -174,10 +182,10 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 try {
     $agent = BasicGeminiAgent::for('test_normal');
     $response = $agent->respond('Say "Hello, World!" and nothing else.');
-    
-    echo "Response: " . $response . "\n";
-    
-    if (!empty($response)) {
+
+    echo 'Response: '.$response."\n";
+
+    if (! empty($response)) {
         echo "✅ TEST 1 PASSED: Normal generation works\n";
         $testsPassed++;
     } else {
@@ -185,7 +193,7 @@ try {
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 1 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 1 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -201,10 +209,10 @@ try {
     $agent = BasicGeminiAgent::for('test_context');
     $response1 = $agent->respond('My name is Alice.');
     $response2 = $agent->respond('What is my name?');
-    
-    echo "First response: " . $response1 . "\n";
-    echo "Second response: " . $response2 . "\n";
-    
+
+    echo 'First response: '.$response1."\n";
+    echo 'Second response: '.$response2."\n";
+
     if (stripos($response2, 'Alice') !== false) {
         echo "✅ TEST 2 PASSED: Context retention works\n";
         $testsPassed++;
@@ -213,7 +221,7 @@ try {
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 2 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 2 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -228,9 +236,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 try {
     $agent = GeminiToolAgent::for('test_tools');
     $response = $agent->respond('What is the weather in Miami?');
-    
-    echo "Response: " . $response . "\n";
-    
+
+    echo 'Response: '.$response."\n";
+
     // Check if response contains weather information
     if (stripos($response, '28') !== false || stripos($response, 'weather') !== false || stripos($response, 'miami') !== false) {
         echo "✅ TEST 3 PASSED: Tool calling works\n";
@@ -240,7 +248,7 @@ try {
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 3 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 3 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -255,24 +263,24 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 try {
     $agent = GeminiToolAgent::for('test_multi_tools');
     $response = $agent->respond('What is the weather in Boston and what is 15 multiplied by 3?');
-    
-    echo "Response: " . $response . "\n";
-    
+
+    echo 'Response: '.$response."\n";
+
     // Check if response contains both weather and calculation
     $hasWeather = stripos($response, '22') !== false || stripos($response, 'boston') !== false;
     $hasCalc = stripos($response, '45') !== false;
-    
+
     if ($hasWeather && $hasCalc) {
         echo "✅ TEST 4 PASSED: Multiple tool calls work\n";
         $testsPassed++;
     } else {
         echo "⚠️ TEST 4 WARNING: One or more tools may not have been called\n";
-        echo "   Has weather: " . ($hasWeather ? 'yes' : 'no') . "\n";
-        echo "   Has calc: " . ($hasCalc ? 'yes' : 'no') . "\n";
+        echo '   Has weather: '.($hasWeather ? 'yes' : 'no')."\n";
+        echo '   Has calc: '.($hasCalc ? 'yes' : 'no')."\n";
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 4 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 4 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -286,8 +294,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $agent = GeminiStreamAgent::for('test_streaming');
-    
-    echo "Streaming response: ";
+
+    echo 'Streaming response: ';
     $fullResponse = '';
     $chunkCount = 0;
 
@@ -306,9 +314,9 @@ try {
 
     echo "\n\n";
     echo "Received {$chunkCount} chunks\n";
-    echo "Total content length: " . strlen($fullResponse) . " characters\n";
+    echo 'Total content length: '.strlen($fullResponse)." characters\n";
 
-    if ($chunkCount > 0 && !empty($fullResponse)) {
+    if ($chunkCount > 0 && ! empty($fullResponse)) {
         echo "✅ TEST 5 PASSED: Streaming works\n";
         $testsPassed++;
     } else {
@@ -316,7 +324,7 @@ try {
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 5 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 5 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -330,20 +338,19 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $agent = GeminiStructuredAgent::for('test_structured');
-    
-    
+
     $response = $agent->respond(
         'Create a book entry for "1984" by George Orwell, published in 1949, genre: dystopian fiction.'
     );
-    
+
     // When structured output is enabled, the agent returns an array directly
     if (is_array($response)) {
-        echo "Raw response (structured array):\n" . json_encode($response, JSON_PRETTY_PRINT) . "\n\n";
+        echo "Raw response (structured array):\n".json_encode($response, JSON_PRETTY_PRINT)."\n\n";
         $data = $response;
     } else {
         // Fallback for string response (shouldn't happen with structured output)
-        echo "Raw response:\n" . $response . "\n\n";
-        
+        echo "Raw response:\n".$response."\n\n";
+
         // Try to parse JSON
         $jsonContent = $response;
         if (strpos($response, '```json') !== false) {
@@ -357,32 +364,32 @@ try {
                 $jsonContent = trim($matches[1]);
             }
         }
-        
+
         $data = json_decode($jsonContent, true);
     }
-    
+
     if (isset($data['title']) && isset($data['author']) && isset($data['year'])) {
         echo "Parsed data:\n";
-        echo "  Title: " . $data['title'] . "\n";
-        echo "  Author: " . $data['author'] . "\n";
-        echo "  Year: " . $data['year'] . "\n";
-        echo "  Genre: " . ($data['genre'] ?? 'N/A') . "\n";
+        echo '  Title: '.$data['title']."\n";
+        echo '  Author: '.$data['author']."\n";
+        echo '  Year: '.$data['year']."\n";
+        echo '  Genre: '.($data['genre'] ?? 'N/A')."\n";
         echo "✅ TEST 6 PASSED: Structured output works\n";
         $testsPassed++;
     } else {
         echo "❌ TEST 6 FAILED: Invalid structure\n";
-        echo "Response data: " . json_encode($data) . "\n";
+        echo 'Response data: '.json_encode($data)."\n";
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 6 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 6 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
 
 // ============================================================================
 // TEST 7: Streaming with Tools
-// 
+//
 // The API documentation and community reports indicate that streaming with tools and streaming with structured output simultaneously is not reliably supported yet.
 // Developers typically need to choose between streaming plain text generation or structured output with tools and fallback to non-streaming calls for highly structured agent workflows.
 // ============================================================================
@@ -392,8 +399,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $agent = GeminiToolAgent::for('test_streaming_tools');
-    
-    echo "Streaming response with tool: ";
+
+    echo 'Streaming response with tool: ';
     $fullResponse = '';
     $chunkCount = 0;
 
@@ -412,22 +419,22 @@ try {
 
     echo "\n\n";
     echo "Received {$chunkCount} chunks\n";
-    echo "Full response length: " . strlen($fullResponse) . " characters\n";
+    echo 'Full response length: '.strlen($fullResponse)." characters\n";
 
     // Check if tool was used
     $hasWeatherData = stripos($fullResponse, '20') !== false || stripos($fullResponse, 'new york') !== false;
-    
-    if ($chunkCount > 0 && !empty($fullResponse) && $hasWeatherData) {
+
+    if ($chunkCount > 0 && ! empty($fullResponse) && $hasWeatherData) {
         echo "✅ TEST 7 PASSED: Streaming with tools works\n";
         $testsPassed++;
     } else {
         echo "⚠️ TEST 7 WARNING: Streaming with tools may need adjustment\n";
-        echo "   Has chunks: " . ($chunkCount > 0 ? 'yes' : 'no') . "\n";
-        echo "   Has weather data: " . ($hasWeatherData ? 'yes' : 'no') . "\n";
+        echo '   Has chunks: '.($chunkCount > 0 ? 'yes' : 'no')."\n";
+        echo '   Has weather data: '.($hasWeatherData ? 'yes' : 'no')."\n";
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 7 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 7 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -441,19 +448,19 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $agent = GeminiStructuredAgent::for('test_streaming_structured');
-    
+
     $schema = [
         'type' => 'object',
         'properties' => [
             'product_name' => ['type' => 'string'],
             'price' => ['type' => 'number'],
             'category' => ['type' => 'string'],
-            'in_stock' => ['type' => 'boolean']
+            'in_stock' => ['type' => 'boolean'],
         ],
-        'required' => ['product_name', 'price', 'category', 'in_stock']
+        'required' => ['product_name', 'price', 'category', 'in_stock'],
     ];
-    
-    echo "Streaming structured response: ";
+
+    echo 'Streaming structured response: ';
     $fullResponse = '';
     $chunkCount = 0;
 
@@ -473,7 +480,7 @@ try {
 
     echo "\n\n";
     echo "Received {$chunkCount} chunks\n";
-    
+
     // Try to parse JSON
     $jsonContent = $fullResponse;
     if (strpos($fullResponse, '```json') !== false) {
@@ -487,25 +494,25 @@ try {
             $jsonContent = trim($matches[1]);
         }
     }
-    
+
     $data = json_decode($jsonContent, true);
-    
+
     if (json_last_error() === JSON_ERROR_NONE && isset($data['product_name']) && isset($data['price'])) {
         echo "Parsed structured data:\n";
-        echo "  Product: " . $data['product_name'] . "\n";
-        echo "  Price: $" . $data['price'] . "\n";
-        echo "  Category: " . $data['category'] . "\n";
-        echo "  In Stock: " . ($data['in_stock'] ? 'Yes' : 'No') . "\n";
+        echo '  Product: '.$data['product_name']."\n";
+        echo '  Price: $'.$data['price']."\n";
+        echo '  Category: '.$data['category']."\n";
+        echo '  In Stock: '.($data['in_stock'] ? 'Yes' : 'No')."\n";
         echo "✅ TEST 8 PASSED: Streaming with structured output works\n";
         $testsPassed++;
     } else {
         echo "⚠️ TEST 8 WARNING: Structured streaming may need adjustment\n";
-        echo "JSON error: " . json_last_error_msg() . "\n";
-        echo "Content: " . substr($fullResponse, 0, 200) . "...\n";
+        echo 'JSON error: '.json_last_error_msg()."\n";
+        echo 'Content: '.substr($fullResponse, 0, 200)."...\n";
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 8 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 8 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";

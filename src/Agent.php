@@ -826,6 +826,7 @@ class Agent
     protected function createMcpClient(): MCPClient
     {
         $servers = config('laragent.mcp_servers') ?? [];
+
         return new MCPClient($servers);
     }
 

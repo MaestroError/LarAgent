@@ -2,7 +2,7 @@
 
 /**
  * Comprehensive Gemini Driver Test
- * 
+ *
  * Tests all core features of the GeminiDriver directly:
  * - Normal generation
  * - Tools/Function calling
@@ -34,7 +34,7 @@ try {
     ]);
     echo "✅ Driver initialized successfully\n\n";
 } catch (Exception $e) {
-    echo "❌ Failed to initialize driver: " . $e->getMessage() . "\n";
+    echo '❌ Failed to initialize driver: '.$e->getMessage()."\n";
     exit(1);
 }
 
@@ -52,15 +52,15 @@ try {
 
     $response = $driver->sendMessage($messages);
     $content = $response->getContent();
-    
-    echo "Response: " . $content . "\n";
-    
+
+    echo 'Response: '.$content."\n";
+
     $metadata = $response->getMetadata();
     if (isset($metadata['usage'])) {
-        echo "Usage: " . json_encode($metadata['usage']) . "\n";
+        echo 'Usage: '.json_encode($metadata['usage'])."\n";
     }
-    
-    if (!empty($content)) {
+
+    if (! empty($content)) {
         echo "✅ TEST 1 PASSED: Normal generation works\n";
         $testsPassed++;
     } else {
@@ -68,7 +68,7 @@ try {
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 1 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 1 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -89,9 +89,9 @@ try {
 
     $response = $driver->sendMessage($messages);
     $content = strtolower($response->getContent());
-    
-    echo "Response: " . $response->getContent() . "\n";
-    
+
+    echo 'Response: '.$response->getContent()."\n";
+
     if (strpos($content, 'blue') !== false) {
         echo "✅ TEST 2 PASSED: Context retention works\n";
         $testsPassed++;
@@ -100,7 +100,7 @@ try {
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 2 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 2 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -120,9 +120,9 @@ try {
 
     $response = $driver->sendMessage($messages);
     $content = strtolower($response->getContent());
-    
-    echo "Response: " . $response->getContent() . "\n";
-    
+
+    echo 'Response: '.$response->getContent()."\n";
+
     // Check for pirate-like words
     $pirateWords = ['ahoy', 'matey', 'arr', 'aye', 'ye', 'sea'];
     $foundPirateWord = false;
@@ -132,7 +132,7 @@ try {
             break;
         }
     }
-    
+
     if ($foundPirateWord) {
         echo "✅ TEST 3 PASSED: System instructions work\n";
         $testsPassed++;
@@ -141,7 +141,7 @@ try {
         $testsPassed++; // Still pass as system instructions were sent
     }
 } catch (Exception $e) {
-    echo "❌ TEST 3 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 3 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -171,34 +171,34 @@ try {
     ];
 
     $response = $driver->sendMessage($messages);
-    
+
     // Check if it's a tool call message
     if ($response instanceof \LarAgent\Messages\ToolCallMessage) {
         echo "Tool calls detected:\n";
         $toolCalls = $response->getToolCalls();
-        
+
         foreach ($toolCalls as $toolCall) {
-            echo "  - Tool: " . $toolCall->getToolName() . "\n";
-            echo "    Args: " . $toolCall->getArguments() . "\n";
-            
+            echo '  - Tool: '.$toolCall->getToolName()."\n";
+            echo '    Args: '.$toolCall->getArguments()."\n";
+
             // Execute tool
             $tool = $driver->getTool($toolCall->getToolName());
             if ($tool) {
                 $args = json_decode($toolCall->getArguments(), true);
                 $result = $tool->execute($args);
-                echo "    Result: " . $result . "\n";
+                echo '    Result: '.$result."\n";
             }
         }
-        
+
         echo "✅ TEST 4 PASSED: Tool calling works\n";
         $testsPassed++;
     } else {
         echo "⚠️ TEST 4 WARNING: No tool calls detected\n";
-        echo "Response: " . $response->getContent() . "\n";
+        echo 'Response: '.$response->getContent()."\n";
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 4 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 4 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -227,10 +227,10 @@ try {
             'email' => ['type' => 'string'],
             'hobbies' => [
                 'type' => 'array',
-                'items' => ['type' => 'string']
-            ]
+                'items' => ['type' => 'string'],
+            ],
         ],
-        'required' => ['name', 'age', 'email']
+        'required' => ['name', 'age', 'email'],
     ];
 
     $messages = [
@@ -239,12 +239,12 @@ try {
 
     $response = $driverStr->sendMessage($messages, [
         'response_schema' => $schema,
-        'model' => 'gemini-2.5-flash'
+        'model' => 'gemini-2.5-flash',
     ]);
-    
+
     $content = $response->getContent();
-    echo "Raw response:\n" . $content . "\n\n";
-    
+    echo "Raw response:\n".$content."\n\n";
+
     // Try to parse JSON (handle potential markdown wrapping)
     $jsonContent = $content;
     if (strpos($content, '```json') !== false) {
@@ -258,24 +258,24 @@ try {
             $jsonContent = trim($matches[1]);
         }
     }
-    
+
     $data = json_decode($jsonContent, true);
-    
+
     if (json_last_error() === JSON_ERROR_NONE && isset($data['name']) && isset($data['age']) && isset($data['email'])) {
         echo "Parsed data:\n";
-        echo "  Name: " . $data['name'] . "\n";
-        echo "  Age: " . $data['age'] . "\n";
-        echo "  Email: " . $data['email'] . "\n";
-        echo "  Hobbies: " . (isset($data['hobbies']) ? implode(', ', $data['hobbies']) : 'None') . "\n";
+        echo '  Name: '.$data['name']."\n";
+        echo '  Age: '.$data['age']."\n";
+        echo '  Email: '.$data['email']."\n";
+        echo '  Hobbies: '.(isset($data['hobbies']) ? implode(', ', $data['hobbies']) : 'None')."\n";
         echo "✅ TEST 5 PASSED: Structured output works\n";
         $testsPassed++;
     } else {
         echo "❌ TEST 5 FAILED: Invalid JSON structure\n";
-        echo "JSON error: " . json_last_error_msg() . "\n";
+        echo 'JSON error: '.json_last_error_msg()."\n";
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 5 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 5 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -292,7 +292,7 @@ try {
         ['role' => 'user', 'content' => 'Count from 1 to 5, one number per line.'],
     ];
 
-    echo "Streaming response: ";
+    echo 'Streaming response: ';
     $accumulated = '';
     $chunkCount = 0;
 
@@ -305,9 +305,9 @@ try {
 
     echo "\n\n";
     echo "Received {$chunkCount} chunks\n";
-    echo "Total length: " . strlen($accumulated) . " characters\n";
+    echo 'Total length: '.strlen($accumulated)." characters\n";
 
-    if ($chunkCount > 0 && !empty($accumulated)) {
+    if ($chunkCount > 0 && ! empty($accumulated)) {
         echo "✅ TEST 6 PASSED: Streaming works\n";
         $testsPassed++;
     } else {
@@ -315,7 +315,7 @@ try {
         $testsFailed++;
     }
 } catch (Exception $e) {
-    echo "❌ TEST 6 FAILED: " . $e->getMessage() . "\n";
+    echo '❌ TEST 6 FAILED: '.$e->getMessage()."\n";
     $testsFailed++;
 }
 echo "\n";
@@ -335,11 +335,11 @@ try {
 
     $messages = [['role' => 'user', 'content' => 'test']];
     $invalidDriver->sendMessage($messages);
-    
+
     echo "❌ TEST 7 FAILED: Expected exception was not thrown\n";
     $testsFailed++;
 } catch (Exception $e) {
-    echo "Caught error: " . $e->getMessage() . "\n";
+    echo 'Caught error: '.$e->getMessage()."\n";
     echo "✅ TEST 7 PASSED: Error handling works\n";
     $testsPassed++;
 }

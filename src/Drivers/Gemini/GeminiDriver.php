@@ -79,8 +79,8 @@ class GeminiDriver extends LlmDriver
 
             // Check if there are function calls in the response, regardless of finish reason
             $toolCalls = $this->extractToolCalls($responseData);
-            
-            if (!empty($toolCalls)) {
+
+            if (! empty($toolCalls)) {
                 $message = $this->toolCallsToMessage($toolCalls);
                 $metaData = [
                     'usage' => $this->extractUsage($responseData),
@@ -118,7 +118,7 @@ class GeminiDriver extends LlmDriver
                 if (isset($part['functionCall'])) {
                     // Create ToolCall objects instead of arrays
                     $toolCalls[] = new \LarAgent\ToolCall(
-                        'tool_call_' . uniqid(), // Generate a unique ID
+                        'tool_call_'.uniqid(), // Generate a unique ID
                         $part['functionCall']['name'] ?? '',
                         json_encode($part['functionCall']['args'] ?? [])
                     );
@@ -149,7 +149,7 @@ class GeminiDriver extends LlmDriver
             ]);
 
             $stream = $response->getBody();
-            $streamedMessage = new StreamedAssistantMessage();
+            $streamedMessage = new StreamedAssistantMessage;
             $toolCalls = [];
             $toolCallsSummary = [];
             $finishReason = null;
@@ -189,8 +189,8 @@ class GeminiDriver extends LlmDriver
                             // Handle function calls
                             if (isset($part['functionCall'])) {
                                 $functionCall = $part['functionCall'];
-                                $toolCallId = 'tool_call_' . uniqid();
-                                
+                                $toolCallId = 'tool_call_'.uniqid();
+
                                 // Store complete tool call
                                 $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(
                                     $toolCallId,
@@ -231,7 +231,7 @@ class GeminiDriver extends LlmDriver
             }
 
             // If we have tool calls, return a ToolCallMessage
-            if (!empty($toolCallsSummary) && $finishReason !== 'STOP') {
+            if (! empty($toolCallsSummary) && $finishReason !== 'STOP') {
                 $toolCallObjects = array_values($toolCallsSummary);
                 $message = $this->toolCallsToMessage($toolCallObjects);
 
@@ -341,11 +341,11 @@ class GeminiDriver extends LlmDriver
         // Structured output support
         if ($this->structuredOutputEnabled()) {
             $generationConfig['responseJsonSchema'] = $this->getResponseSchema();
-            $generationConfig['responseMimeType'] = "application/json";
+            $generationConfig['responseMimeType'] = 'application/json';
         } elseif (isset($options['response_schema'])) {
             // Fallback to options if response schema is passed via options
             $generationConfig['responseJsonSchema'] = $options['response_schema'];
-            $generationConfig['responseMimeType'] = "application/json";
+            $generationConfig['responseMimeType'] = 'application/json';
         }
 
         if (! empty($generationConfig)) {
