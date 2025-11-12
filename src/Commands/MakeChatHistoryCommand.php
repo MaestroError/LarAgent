@@ -6,10 +6,13 @@ namespace LarAgent\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\File;
+use LarAgent\Commands\Traits\ClickableOutput;
 
 final class MakeChatHistoryCommand extends Command
 {
-    protected $signature = 'make:chat-history {name : The name of the chat history class}';
+    use ClickableOutput;
+
+    protected $signature = 'make:agent:chat-history {name : The name of the chat history class}';
 
     protected $description = 'Create a new LarAgent chat history class';
 
@@ -31,12 +34,12 @@ final class MakeChatHistoryCommand extends Command
 
         $stub = File::get(__DIR__.'/stubs/chat-history.stub');
 
-        $stub = File::replaceInFile('{{ class }}', $name, $stub);
-
         File::put($path, $stub);
 
+        File::replaceInFile('{{ class }}', $name, $path);
+
         $this->info('Chat history created successfully: '.$name);
-        $this->line('Location: '.$path);
+        $this->line('Location: '.$this->makeTextClickable($path));
 
         return 0;
     }
