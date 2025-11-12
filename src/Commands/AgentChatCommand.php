@@ -40,7 +40,14 @@ class AgentChatCommand extends Command
             }
 
             try {
+                // Track the number of messages before the response
+                $messageCountBefore = $agent->chatHistory()->count();
+                
                 $response = $agent->respond($message);
+                
+                // Check for new tool calls in chat history
+                $this->displayToolCalls($agent, $messageCountBefore);
+                
                 $this->line("\n<comment>{$agentName}:</comment>");
                 $this->formatResponse($response);
                 $this->line("\n");
@@ -64,6 +71,29 @@ class AgentChatCommand extends Command
         }
 
         return null;
+    }
+
+    /**
+     * Display tool calls from the chat history
+     *
+     * @param  mixed  $agent
+     * @param  int  $messageCountBefore  Number of messages before the response
+     */
+    protected function displayToolCalls($agent, int $messageCountBefore): void
+    {
+        $messages = $agent->chatHistory()->getMessages();
+        
+        // Check only new messages for tool calls
+        $newMessages = array_slice($messages, $messageCountBefore);
+        
+        foreach ($newMessages as $message) {
+            if ($message instanceof \LarAgent\Messages\ToolCallMessage) {
+                $toolCalls = $message->getToolCalls();
+                foreach ($toolCalls as $toolCall) {
+                    $this->line("Tool call: {$toolCall->getToolName()}");
+                }
+            }
+        }
     }
 
     /**
