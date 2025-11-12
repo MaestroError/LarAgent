@@ -22,17 +22,16 @@ final class MakeChatHistoryCommand extends Command
     {
         $name = $this->argument('name');
 
-        File::ensureDirectoryExists(app_path($this->directory));
-
         $path = app_path($this->directory.'/'.$name.'.php');
 
         if (File::exists($path)) {
             $this->error('Chat history already exists: '.$name);
-
             return 1;
         }
 
         $stub = File::get(__DIR__.'/stubs/chat-history.stub');
+
+        File::ensureDirectoryExists(app_path($this->directory));
 
         File::put($path, $stub);
 

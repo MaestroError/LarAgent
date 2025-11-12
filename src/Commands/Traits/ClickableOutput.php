@@ -4,8 +4,9 @@ namespace LarAgent\Commands\Traits;
 
 trait ClickableOutput
 {
-    protected function makeTextClickable(string $path): string
+    protected function makeTextClickable(string $path, string $label = null): string
     {
-        return '<href='.$path.'>'.$path.'</>';
+        $label = $label ? $label : $path;
+        return '<href='.$path.'>'.$label.'</>';
     }
 }

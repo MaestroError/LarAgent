@@ -28,8 +28,6 @@ afterEach(function () {
 });
 
 test('it can create an agent', function () {
-    $command = new MakeAgentCommand;
-
     $this->artisan('make:agent', ['name' => 'TestAgent'])
         ->assertSuccessful()
         ->expectsOutput('Agent created successfully: TestAgent')
