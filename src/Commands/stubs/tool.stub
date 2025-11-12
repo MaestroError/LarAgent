@@ -1,0 +1,25 @@
+<?php
+
+namespace App\AgentTools;
+
+use LarAgent\Core\Abstractions\Tool;
+
+class {{ class }} extends Tool
+{
+    protected string $name = 'tool_name';
+
+    protected string $description = 'Tool description';
+
+    protected array $properties = [
+    ];
+
+    protected array $required = [
+    ];
+
+    protected array $metaData = [
+    ];
+
+    public function execute(array $input): mixed
+    {
+    }
+}

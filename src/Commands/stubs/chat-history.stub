@@ -1,0 +1,37 @@
+<?php
+
+namespace LarAgent\History;
+
+use LarAgent\Core\Abstractions\ChatHistory;
+use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
+
+class {{ class }} extends ChatHistory implements ChatHistoryInterface
+{
+    public function readFromMemory(): void
+    {
+        $this->setMessages([]);
+    }
+
+    public function writeToMemory(): void
+    {
+    }
+
+    public function saveKeyToMemory(): void
+    {
+    }
+
+    public function loadKeysFromMemory(): array
+    {
+        return [];
+    }
+
+    public function removeChatFromMemory(string $key): void
+    {
+        $this->removeChatKey($key);
+    }
+
+    protected function removeChatKey(string $key): void
+    {
+    }
+}
+
