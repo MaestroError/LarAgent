@@ -156,4 +156,3 @@ PHP;
         unlink(app_path('AiAgents/TestToolAgent.php'));
     }
 });
-
