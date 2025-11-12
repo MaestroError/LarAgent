@@ -40,6 +40,7 @@ final class MakeChatHistoryCommand extends Command
 
         $this->info('Chat history created successfully: '.$name);
         $this->line('Location: '.$this->makeTextClickable($path));
+        $this->line('Check LarAgent docs for chat history: ' . $this->makeTextClickable('https://docs.laragent.ai/core-concepts/chat-history#creating-custom-chat-histories', 'Chat History Docs'));
 
         return 0;
     }
