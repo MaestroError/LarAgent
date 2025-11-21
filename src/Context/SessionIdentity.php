@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\Core\DTO;
+namespace LarAgent\Context;
 
 class SessionIdentity
 {

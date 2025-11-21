@@ -1,11 +1,11 @@
 <?php
 
-namespace LarAgent\Storage\Types;
+namespace LarAgent\Context\Drivers;
 
-use LarAgent\Core\Abstractions\Storage;
-use LarAgent\Core\DTO\SessionIdentity;
+use LarAgent\Context\Abstract\StorageDriver;
+use LarAgent\Context\SessionIdentity;
 
-class InMemoryStorage extends Storage
+class InMemoryStorage extends StorageDriver
 {
     protected static array $storage = [];
 

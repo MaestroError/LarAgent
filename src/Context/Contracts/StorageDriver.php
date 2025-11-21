@@ -1,10 +1,10 @@
 <?php
 
-namespace LarAgent\Core\Contracts;
+namespace LarAgent\Context\Contracts;
 
-use LarAgent\Core\DTO\SessionIdentity;
+use LarAgent\Context\SessionIdentity;
 
-interface Storage
+interface StorageDriver
 {
     /**
      * Read data from memory

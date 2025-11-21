@@ -1,11 +1,11 @@
 <?php
 
-namespace LarAgent\Core\Abstractions;
+namespace LarAgent\Context\Abstract;
 
-use LarAgent\Core\Contracts\Storage as StorageInterface;
-use LarAgent\Core\DTO\SessionIdentity;
+use LarAgent\Context\Contracts\StorageDriver as StorageInterface;
+use LarAgent\Context\SessionIdentity;
 
-abstract class Storage implements StorageInterface
+abstract class StorageDriver implements StorageInterface
 {
     /**
      * Read data from memory
