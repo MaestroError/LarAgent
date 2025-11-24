@@ -5,6 +5,7 @@ namespace LarAgent\Core\Abstractions;
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Attributes\Desc;
 use ArrayAccess;
+use JsonSerializable;
 use ReflectionClass;
 use ReflectionProperty;
 use ReflectionNamedType;
@@ -14,8 +15,10 @@ use BackedEnum;
 
 use ReflectionType;
 
-abstract class DataModel implements DataModelContract, ArrayAccess
+abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializable
 {
+    protected static array $reflectionCache = [];
+
     /**
      * Convert the model to an array.
      *
@@ -24,27 +27,28 @@ abstract class DataModel implements DataModelContract, ArrayAccess
     public function toArray(): array
     {
         $result = [];
-        $reflection = new ReflectionClass($this);
-        $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
+        $config = static::getCachedConfig();
 
-        foreach ($properties as $property) {
-            if (!$property->isInitialized($this)) {
+        foreach ($config['properties'] as $name => $propConfig) {
+            /** @var ReflectionProperty $reflection */
+            $reflection = $propConfig['reflection'];
+            
+            if (!$reflection->isInitialized($this)) {
                 continue;
             }
             
-            $value = $property->getValue($this);
-            $key = $property->getName();
+            $value = $this->{$name};
 
             if ($value instanceof DataModelContract) {
-                $result[$key] = $value->toArray();
+                $result[$name] = $value->toArray();
             } elseif (is_array($value)) {
-                $result[$key] = array_map(function ($item) {
+                $result[$name] = array_map(function ($item) {
                     return $item instanceof DataModelContract ? $item->toArray() : $item;
                 }, $value);
             } elseif ($value instanceof UnitEnum) {
-                $result[$key] = $value instanceof BackedEnum ? $value->value : $value->name;
+                $result[$name] = $value instanceof BackedEnum ? $value->value : $value->name;
             } else {
-                $result[$key] = $value;
+                $result[$name] = $value;
             }
         }
 
@@ -58,25 +62,25 @@ abstract class DataModel implements DataModelContract, ArrayAccess
      */
     public function toSchema(): array
     {
+        return static::generateSchema();
+    }
+
+    /**
+     * Generate the OpenAPI schema for the model statically.
+     *
+     * @return array
+     */
+    public static function generateSchema(): array
+    {
+        $config = static::getCachedConfig();
         $schema = [
             'type' => 'object',
             'properties' => [],
-            'required' => [],
+            'required' => $config['required'],
         ];
 
-        $reflection = new ReflectionClass($this);
-        $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
-
-        foreach ($properties as $property) {
-            $name = $property->getName();
-            $type = $property->getType();
-            
-            // Determine if required
-            if ($type && !$type->allowsNull() && !$property->hasDefaultValue()) {
-                $schema['required'][] = $name;
-            }
-
-            $propertySchema = $this->getPropertySchema($property);
+        foreach ($config['properties'] as $name => $propConfig) {
+            $propertySchema = static::getPropertySchemaFromConfig($propConfig);
             if ($propertySchema) {
                 $schema['properties'][$name] = $propertySchema;
             }
@@ -97,20 +101,15 @@ abstract class DataModel implements DataModelContract, ArrayAccess
      */
     public function fill(array $attributes): static
     {
-        $reflection = new ReflectionClass($this);
+        $config = static::getCachedConfig();
         
         foreach ($attributes as $key => $value) {
-            if (!$reflection->hasProperty($key)) {
+            if (!isset($config['properties'][$key])) {
                 continue;
             }
 
-            $property = $reflection->getProperty($key);
-            
-            if (!$property->isPublic()) {
-                continue;
-            }
-
-            $value = static::castValue($value, $property->getType());
+            $propConfig = $config['properties'][$key];
+            $value = static::castValue($value, $propConfig['type']);
             
             $this->{$key} = $value;
         }
@@ -126,28 +125,26 @@ abstract class DataModel implements DataModelContract, ArrayAccess
      */
     public static function fromArray(array $attributes): static
     {
-        $reflection = new ReflectionClass(static::class);
-        $constructor = $reflection->getConstructor();
+        $config = static::getCachedConfig();
 
-        if ($constructor && $constructor->getNumberOfParameters() > 0) {
+        if ($config['constructor']) {
             $args = [];
-            foreach ($constructor->getParameters() as $param) {
-                $name = $param->getName();
+            foreach ($config['constructor'] as $param) {
+                $name = $param['name'];
                 if (array_key_exists($name, $attributes)) {
-                    $value = static::castValue($attributes[$name], $param->getType());
+                    $value = static::castValue($attributes[$name], $param['type']);
                     $args[] = $value;
                 } else {
-                    if ($param->isDefaultValueAvailable()) {
-                        $args[] = $param->getDefaultValue();
-                    } elseif ($param->allowsNull()) {
+                    if ($param['hasDefault']) {
+                        $args[] = $param['default'];
+                    } elseif ($param['allowsNull']) {
                         $args[] = null;
                     } else {
-                        // Missing required parameter
                         throw new \InvalidArgumentException("Missing required constructor parameter: {$name}");
                     }
                 }
             }
-            $instance = $reflection->newInstanceArgs($args);
+            $instance = new static(...$args);
             $instance->fill($attributes);
             return $instance;
         }
@@ -181,22 +178,72 @@ abstract class DataModel implements DataModelContract, ArrayAccess
         return $value;
     }
 
-    protected function getPropertySchema(ReflectionProperty $property): array
+    protected static function getCachedConfig(): array
     {
-        $schema = $this->getTypeSchema($property);
+        $class = static::class;
+        if (isset(static::$reflectionCache[$class])) {
+            return static::$reflectionCache[$class];
+        }
 
-        $attributes = $property->getAttributes(Desc::class);
-        if (!empty($attributes)) {
-            $schema['description'] = $attributes[0]->newInstance()->description;
+        $reflection = new ReflectionClass($class);
+        $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
+        
+        $config = [
+            'properties' => [],
+            'required' => [],
+            'constructor' => null,
+        ];
+
+        foreach ($properties as $property) {
+            $name = $property->getName();
+            $type = $property->getType();
+            
+            // Determine if required
+            if ($type && !$type->allowsNull() && !$property->hasDefaultValue()) {
+                $config['required'][] = $name;
+            }
+
+            $attributes = $property->getAttributes(Desc::class);
+            $description = !empty($attributes) ? $attributes[0]->newInstance()->description : null;
+
+            $config['properties'][$name] = [
+                'reflection' => $property,
+                'type' => $type,
+                'description' => $description,
+            ];
+        }
+
+        $constructor = $reflection->getConstructor();
+        if ($constructor && $constructor->getNumberOfParameters() > 0) {
+            $config['constructor'] = [];
+            foreach ($constructor->getParameters() as $param) {
+                $config['constructor'][] = [
+                    'name' => $param->getName(),
+                    'type' => $param->getType(),
+                    'allowsNull' => $param->allowsNull(),
+                    'hasDefault' => $param->isDefaultValueAvailable(),
+                    'default' => $param->isDefaultValueAvailable() ? $param->getDefaultValue() : null,
+                ];
+            }
+        }
+
+        static::$reflectionCache[$class] = $config;
+        return $config;
+    }
+
+    protected static function getPropertySchemaFromConfig(array $propConfig): array
+    {
+        $schema = static::getTypeSchemaFromType($propConfig['type']);
+
+        if ($propConfig['description']) {
+            $schema['description'] = $propConfig['description'];
         }
 
         return $schema;
     }
 
-    protected function getTypeSchema(ReflectionProperty $property): array
+    protected static function getTypeSchemaFromType(?ReflectionType $type): array
     {
-        $type = $property->getType();
-        
         if (!$type) {
             return ['type' => 'string'];
         }
@@ -215,6 +262,9 @@ abstract class DataModel implements DataModelContract, ArrayAccess
             }
 
             if (is_subclass_of($typeName, DataModelContract::class)) {
+                if (method_exists($typeName, 'generateSchema')) {
+                    return $typeName::generateSchema();
+                }
                 try {
                     $instance = (new ReflectionClass($typeName))->newInstanceWithoutConstructor();
                     return $instance->toSchema();
@@ -268,5 +318,15 @@ abstract class DataModel implements DataModelContract, ArrayAccess
     public function offsetUnset(mixed $offset): void
     {
         unset($this->$offset);
+    }
+
+    /**
+     * Serialize the object to a value that can be natively JSON encoded.
+     *
+     * @return mixed
+     */
+    public function jsonSerialize(): mixed
+    {
+        return $this->toArray();
     }
 }

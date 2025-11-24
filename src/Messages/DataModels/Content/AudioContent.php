@@ -1,0 +1,26 @@
+<?php
+
+namespace LarAgent\Messages\DataModels\Content;
+
+use LarAgent\Core\Abstractions\DataModel;
+use LarAgent\Core\Enums\MessageContentType;
+use LarAgent\Attributes\Desc;
+
+use LarAgent\Messages\DataModels\Content\Parts\InputAudio;
+
+class AudioContent extends DataModel
+{
+    #[Desc('The type of the content')]
+    public string $type = MessageContentType::INPUT_AUDIO->value;
+
+    #[Desc('The input audio information')]
+    public InputAudio $input_audio;
+
+    public function toArray(): array
+    {
+        return [
+            'type' => $this->type,
+            'input_audio' => $this->input_audio->toArray(),
+        ];
+    }
+}

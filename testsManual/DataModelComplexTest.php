@@ -143,3 +143,14 @@ if (!empty($schema['required'])) {
 } else {
     echo "[FAIL] Schema missing required fields.\n";
 }
+
+// 5. ArrayAccess Check
+echo "5. ArrayAccess Check:\n";
+$user['name'] = 'Alice in Wonderland';
+echo "   Updated Name via ArrayAccess: " . $user['name'] . "\n";
+
+if (isset($user['role'])) {
+    echo "   [PASS] isset works via ArrayAccess\n";
+} else {
+    echo "   [FAIL] isset failed via ArrayAccess\n";
+}

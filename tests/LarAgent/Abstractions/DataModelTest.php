@@ -225,3 +225,19 @@ test('DataModel: fromArray works with mixed constructor arguments', function () 
     expect($model->promotedProp)->toBe('foo');
     expect($model->derivedProperty)->toBe('BAR');
 });
+
+test('DataModel: implements JsonSerializable', function () {
+    $data = [
+        'name' => 'John JSON',
+        'age' => 40,
+    ];
+
+    $model = new TestMainModel();
+    $model->fill($data);
+
+    $json = json_encode($model);
+    $decoded = json_decode($json, true);
+
+    expect($decoded['name'])->toBe('John JSON');
+    expect($decoded['age'])->toBe(40);
+});

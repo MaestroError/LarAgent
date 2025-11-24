@@ -66,8 +66,12 @@ it('uses the first text element if content is an array', function () {
     $message = Message::create(
         Role::USER->value,
         [
-            ['text' => 'What is the weather in Boston?'],
             [
+                "type" => "text",
+                'text' => 'What is the weather in Boston?'
+            ],
+            [
+                'type' => 'image_url',
                 'image_url' => [
                     'url' => 'https://example.com/image.jpg',
                 ],

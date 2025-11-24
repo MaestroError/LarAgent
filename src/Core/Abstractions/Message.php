@@ -6,32 +6,40 @@ use ArrayAccess;
 use JsonSerializable;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Enums\Role;
+use LarAgent\Core\Abstractions\DataModel;
+use LarAgent\Attributes\Desc;
+use LarAgent\Messages\DataModels\MessageContent;
 
-abstract class Message implements ArrayAccess, JsonSerializable, MessageInterface
+abstract class Message extends DataModel implements MessageInterface
 {
-    public string $role;  // Represents the sender or role (e.g., "user", "agent")
+    #[Desc('The role of the message sender')]
+    public string|Role $role;  // Represents the sender or role (e.g., "user", "agent")
 
-    public string|array $content;  // The actual message content
+    #[Desc('The content of the message')]
+    public null|string|MessageContent $content = null;  // The actual message content
 
     protected array $metadata;  // Additional data about the message
 
     private array $dynamicProperties = [];
 
-    public function __construct(string $role, string|array $content, array $metadata = [])
+    public function __construct(string|Role $role, string|array|MessageContent $content, array $metadata = [])
     {
         $this->role = $role;
-        $this->content = $content;
+        $this->content = is_array($content) ? new MessageContent($content) : $content;
         $this->metadata = $metadata;
     }
 
     // Implementation of MessageInterface methods
     public function getRole(): string
     {
-        return $this->role;
+        return $this->role instanceof Role ? $this->role->value : $this->role;
     }
 
     public function getContent(): string|array
     {
+        if ($this->content instanceof MessageContent) {
+            return $this->content->toArray();
+        }
         return $this->content;
     }
 
@@ -40,7 +48,7 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
         return $this->{$key} ?? null;
     }
 
-    public function setContent(string|array $message): void
+    public function setContent(string|array|MessageContent $message): void
     {
         $this->content = $message;
     }
@@ -62,13 +70,10 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
 
     public function toArray(): array
     {
-        $properties = [
-            'role' => $this->getRole(),
-            'content' => $this->getContent(),
-        ];
+        $properties = parent::toArray();
 
         // Merge with dynamic properties
-        if (isset($this->dynamicProperties)) {
+        if (!empty($this->dynamicProperties)) {
             $properties = array_merge($properties, $this->dynamicProperties);
         }
 
@@ -94,15 +99,16 @@ abstract class Message implements ArrayAccess, JsonSerializable, MessageInterfac
     {
         self::validateRole($data['role'] ?? '');
 
+
+        parent::fill($data);
+
+        if (isset($data['metadata'])) {
+            $this->metadata = $data['metadata'];
+        }
+
         foreach ($data as $key => $value) {
-            if (property_exists($this, $key)) {
-                // Temp fix for null content
-                if ($key == 'content' && $value == null) {
-                    $value = '';
-                }
-                $this->{$key} = $value;
-            } else {
-                $this->{$key} = $value;
+            if (!property_exists($this, $key)) {
+                $this->__set($key, $value);
             }
         }
 

@@ -5,18 +5,19 @@ namespace LarAgent\Messages;
 use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Enums\Role;
+use LarAgent\Messages\DataModels\Content\ImageContent;
 
 class UserMessage extends Message implements MessageInterface
 {
     public function __construct(string $content, array $metadata = [])
     {
-        $this->content = [
+        $content = [
             [
                 'type' => 'text',
                 'text' => $content,
             ],
         ];
-        parent::__construct(Role::USER->value, $this->content, $metadata);
+        parent::__construct(Role::USER->value, $content, $metadata);
     }
 
     public function withImage(string $imageUrl): self
@@ -28,7 +29,7 @@ class UserMessage extends Message implements MessageInterface
             ],
         ];
 
-        $this->content[] = $imageArray;
+        $this->content[] = ImageContent::fromArray($imageArray);
 
         return $this;
     }
