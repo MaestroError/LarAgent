@@ -3,7 +3,7 @@
 namespace LarAgent\Context\Abstract;
 
 use LarAgent\Context\Contracts\StorageDriver as StorageInterface;
-use LarAgent\Context\SessionIdentity;
+use LarAgent\Context\Contracts\SessionIdentity;
 
 abstract class StorageDriver implements StorageInterface
 {
@@ -23,4 +23,18 @@ abstract class StorageDriver implements StorageInterface
      * @return void
      */
     abstract public function writeToMemory(SessionIdentity $identity, array $data): void;
+
+    /**
+     * Create a new driver instance.
+     *
+     * @param array|null $config
+     * @return static
+     */
+    public static function make(?array $config = null): static
+    {
+        if ($config === null) {
+            return new static();
+        }
+        return new static(...$config);
+    }
 }

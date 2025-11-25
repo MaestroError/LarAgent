@@ -2,7 +2,7 @@
 
 namespace LarAgent\Context\Contracts;
 
-use LarAgent\Context\SessionIdentity;
+use LarAgent\Context\Contracts\SessionIdentity;
 
 interface StorageDriver
 {
@@ -22,4 +22,12 @@ interface StorageDriver
      * @return void
      */
     public function writeToMemory(SessionIdentity $identity, array $data): void;
+
+    /**
+     * Create a new driver instance.
+     *
+     * @param array|null $config
+     * @return static
+     */
+    public static function make(?array $config = null): static;
 }

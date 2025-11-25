@@ -18,4 +18,9 @@ class MessageContent extends DataModelArray
             MessageContentType::INPUT_AUDIO->value => AudioContent::class,
         ];
     }
+
+    public function discriminator(): string
+    {
+        return 'type';
+    }
 }

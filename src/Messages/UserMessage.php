@@ -6,6 +6,7 @@ use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Enums\Role;
 use LarAgent\Messages\DataModels\Content\ImageContent;
+use LarAgent\Messages\DataModels\Content\AudioContent;
 
 class UserMessage extends Message implements MessageInterface
 {
@@ -51,7 +52,7 @@ class UserMessage extends Message implements MessageInterface
             ],
         ];
 
-        $this->content[] = $audioArray;
+        $this->content[] = AudioContent::fromArray($audioArray);
 
         return $this;
     }

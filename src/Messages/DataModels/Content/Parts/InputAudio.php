@@ -20,4 +20,16 @@ class InputAudio extends DataModel
             'format' => $this->format,
         ];
     }
+
+    public static function fromArray(array $attributes): static
+    {
+        $instance = new static();
+        if (isset($attributes['data'])) {
+            $instance->data = $attributes['data'];
+        }
+        if (isset($attributes['format'])) {
+            $instance->format = $attributes['format'];
+        }
+        return $instance;
+    }
 }

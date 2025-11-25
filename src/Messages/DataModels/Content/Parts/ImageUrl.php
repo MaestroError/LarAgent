@@ -23,4 +23,16 @@ class ImageUrl extends DataModel
 
         return $data;
     }
+
+    public static function fromArray(array $attributes): static
+    {
+        $instance = new static();
+        if (isset($attributes['url'])) {
+            $instance->url = $attributes['url'];
+        }
+        if (isset($attributes['detail'])) {
+            $instance->detail = $attributes['detail'];
+        }
+        return $instance;
+    }
 }

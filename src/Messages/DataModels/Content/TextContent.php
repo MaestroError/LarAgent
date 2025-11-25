@@ -21,4 +21,16 @@ class TextContent extends DataModel
             'text' => $this->text,
         ];
     }
+
+    public static function fromArray(array $attributes): static
+    {
+        $instance = new static();
+        if (isset($attributes['type'])) {
+            $instance->type = $attributes['type'];
+        }
+        if (isset($attributes['text'])) {
+            $instance->text = $attributes['text'];
+        }
+        return $instance;
+    }
 }

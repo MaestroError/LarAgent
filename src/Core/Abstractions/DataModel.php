@@ -109,6 +109,14 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
             }
 
             $propConfig = $config['properties'][$key];
+            
+            // Skip if property is readonly and already initialized
+            /** @var ReflectionProperty $reflection */
+            $reflection = $propConfig['reflection'];
+            if (method_exists($reflection, 'isReadOnly') && $reflection->isReadOnly() && $reflection->isInitialized($this)) {
+                continue;
+            }
+
             $value = static::castValue($value, $propConfig['type']);
             
             $this->{$key} = $value;

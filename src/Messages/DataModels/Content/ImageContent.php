@@ -23,4 +23,18 @@ class ImageContent extends DataModel
             'image_url' => $this->image_url->toArray(),
         ];
     }
+
+    public static function fromArray(array $attributes): static
+    {
+        $instance = new static();
+        if (isset($attributes['type'])) {
+            $instance->type = $attributes['type'];
+        }
+        if (isset($attributes['image_url'])) {
+            $instance->image_url = is_array($attributes['image_url']) 
+                ? ImageUrl::fromArray($attributes['image_url']) 
+                : $attributes['image_url'];
+        }
+        return $instance;
+    }
 }

@@ -23,4 +23,18 @@ class AudioContent extends DataModel
             'input_audio' => $this->input_audio->toArray(),
         ];
     }
+
+    public static function fromArray(array $attributes): static
+    {
+        $instance = new static();
+        if (isset($attributes['type'])) {
+            $instance->type = $attributes['type'];
+        }
+        if (isset($attributes['input_audio'])) {
+            $instance->input_audio = is_array($attributes['input_audio']) 
+                ? InputAudio::fromArray($attributes['input_audio']) 
+                : $attributes['input_audio'];
+        }
+        return $instance;
+    }
 }
