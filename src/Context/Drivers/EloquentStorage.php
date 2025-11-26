@@ -32,14 +32,14 @@ class EloquentStorage extends StorageDriver
      * Read data from the database using Eloquent.
      *
      * @param SessionIdentity $identity
-     * @return array
+     * @return array|null Returns null if no record found, payload array otherwise
      */
-    public function readFromMemory(SessionIdentity $identity): array
+    public function readFromMemory(SessionIdentity $identity): ?array
     {
         $record = $this->model::where('key', $identity->getKey())->first();
 
         if (!$record) {
-            return [];
+            return null;
         }
 
         // Assuming the model casts 'payload' to array or we decode it here
@@ -51,20 +51,43 @@ class EloquentStorage extends StorageDriver
      *
      * @param SessionIdentity $identity
      * @param array $data
-     * @return void
+     * @return bool True if written successfully, false if writing failed
      */
-    public function writeToMemory(SessionIdentity $identity, array $data): void
+    public function writeToMemory(SessionIdentity $identity, array $data): bool
     {
-        $this->model::updateOrCreate(
-            ['key' => $identity->getKey()],
-            [
-                'payload' => $data,
-                // Optional: Store individual fields for easier querying/debugging
-                'agent_name' => $identity->getAgentName(),
-                'chat_name' => $identity->getChatName(),
-                'user_id' => $identity->getUserId(),
-                'group' => $identity->getGroup(),
-            ]
-        );
+        try {
+            $this->model::updateOrCreate(
+                ['key' => $identity->getKey()],
+                [
+                    'payload' => $data,
+                    // Optional: Store individual fields for easier querying/debugging
+                    'agent_name' => $identity->getAgentName(),
+                    'chat_name' => $identity->getChatName(),
+                    'user_id' => $identity->getUserId(),
+                    'group' => $identity->getGroup(),
+                ]
+            );
+
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    /**
+     * Remove data from the database.
+     *
+     * @param SessionIdentity $identity
+     * @return bool True if removed successfully, false if removal failed
+     */
+    public function removeFromMemory(SessionIdentity $identity): bool
+    {
+        try {
+            $this->model::where('key', $identity->getKey())->delete();
+
+            return true;
+        } catch (\Throwable $e) {
+            return false;
+        }
     }
 }

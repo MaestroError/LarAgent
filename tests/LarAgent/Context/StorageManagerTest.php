@@ -21,14 +21,19 @@ class MockSessionIdentity implements SessionIdentityContract
 
 class FailingDriver extends AbstractStorageDriver
 {
-    public function readFromMemory(SessionIdentityContract $identity): array
+    public function readFromMemory(SessionIdentityContract $identity): ?array
     {
         throw new Exception("Read failed");
     }
 
-    public function writeToMemory(SessionIdentityContract $identity, array $data): void
+    public function writeToMemory(SessionIdentityContract $identity, array $data): bool
     {
-        throw new Exception("Write failed");
+        return false;
+    }
+
+    public function removeFromMemory(SessionIdentityContract $identity): bool
+    {
+        return false;
     }
 }
 
@@ -60,9 +65,10 @@ test('StorageManager reads from primary driver', function () {
     $driver1->writeToMemory($identity, ['key' => 'value1']);
     
     $driver2 = new class extends AbstractStorageDriver {
-        public $data = [];
-        public function readFromMemory(SessionIdentityContract $identity): array { return $this->data; }
-        public function writeToMemory(SessionIdentityContract $identity, array $data): void { $this->data = $data; }
+        public $data = null;
+        public function readFromMemory(SessionIdentityContract $identity): ?array { return $this->data; }
+        public function writeToMemory(SessionIdentityContract $identity, array $data): bool { $this->data = $data; return true; }
+        public function removeFromMemory(SessionIdentityContract $identity): bool { $this->data = null; return true; }
     };
     $driver2->writeToMemory($identity, ['key' => 'value2']);
     
@@ -72,15 +78,16 @@ test('StorageManager reads from primary driver', function () {
 });
 
 
-test('StorageManager falls back to secondary driver on empty', function () {
+test('StorageManager falls back to secondary driver on null', function () {
     $identity = new MockSessionIdentity();
     $driver1 = new InMemoryStorage();
-    // driver1 is empty
+    // driver1 returns null (no data for key)
     
     $driver2 = new class extends AbstractStorageDriver {
-        public $data = [];
-        public function readFromMemory(SessionIdentityContract $identity): array { return $this->data; }
-        public function writeToMemory(SessionIdentityContract $identity, array $data): void { $this->data = $data; }
+        public $data = null;
+        public function readFromMemory(SessionIdentityContract $identity): ?array { return $this->data; }
+        public function writeToMemory(SessionIdentityContract $identity, array $data): bool { $this->data = $data; return true; }
+        public function removeFromMemory(SessionIdentityContract $identity): bool { $this->data = null; return true; }
     };
     $driver2->writeToMemory($identity, ['key' => 'value2']);
     
@@ -101,7 +108,7 @@ test('StorageManager falls back to secondary driver on exception', function () {
     expect($manager->read($identity))->toBe(['key' => 'value2']);
 });
 
-test('StorageManager throws exception if all fail', function () {
+test('StorageManager throws exception if all return null', function () {
     $identity = new MockSessionIdentity();
     $driver1 = new InMemoryStorage();
     $driver2 = new InMemoryStorage();
@@ -120,4 +127,40 @@ test('StorageManager continues writing even if one fails', function () {
     $manager->save($identity, ['key' => 'value']);
     
     expect($driver2->readFromMemory($identity))->toBe(['key' => 'value']);
+});
+
+test('StorageManager removes from all drivers', function () {
+    $driver1 = new InMemoryStorage();
+    $driver2 = new InMemoryStorage();
+    $identity = new MockSessionIdentity();
+    
+    // First save some data
+    $manager = new StorageManager([$driver1, $driver2]);
+    $manager->save($identity, ['key' => 'value']);
+    
+    // Verify data exists
+    expect($driver1->readFromMemory($identity))->toBe(['key' => 'value']);
+    expect($driver2->readFromMemory($identity))->toBe(['key' => 'value']);
+    
+    // Remove
+    $manager->remove($identity);
+    
+    // Verify data is gone from both
+    expect($driver1->readFromMemory($identity))->toBeNull();
+    expect($driver2->readFromMemory($identity))->toBeNull();
+});
+
+test('StorageManager continues removing even if one fails', function () {
+    $identity = new MockSessionIdentity();
+    $driver1 = new FailingDriver();
+    $driver2 = new InMemoryStorage();
+    
+    // First save to driver2
+    $driver2->writeToMemory($identity, ['key' => 'value']);
+    
+    $manager = new StorageManager([$driver1, $driver2]);
+    $manager->remove($identity);
+    
+    // Driver2 should still have been removed even though driver1 failed
+    expect($driver2->readFromMemory($identity))->toBeNull();
 });

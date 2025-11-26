@@ -54,7 +54,7 @@ class StorageManager implements StorageManagerContract
         // Try primary first
         try {
             $result = $this->primaryDriver->readFromMemory($identity);
-            if (!empty($result)) {
+            if ($result !== null) {
                 return $result;
             }
         } catch (\Throwable $e) {
@@ -65,7 +65,7 @@ class StorageManager implements StorageManagerContract
         foreach ($this->secondaryDrivers as $driver) {
             try {
                 $result = $driver->readFromMemory($identity);
-                if (!empty($result)) {
+                if ($result !== null) {
                     return $result;
                 }
             } catch (\Throwable $e) {
@@ -73,7 +73,7 @@ class StorageManager implements StorageManagerContract
             }
         }
 
-        // If we get here, all drivers failed or returned empty
+        // If we get here, all drivers failed or returned null
         throw new Exception("Failed to read from any storage driver.");
     }
 
@@ -90,6 +90,25 @@ class StorageManager implements StorageManagerContract
         foreach ($this->secondaryDrivers as $driver) {
             try {
                 $driver->writeToMemory($identity, $data);
+            } catch (\Throwable $e) {
+                continue;
+            }
+        }
+    }
+
+    public function remove(SessionIdentity $identity): void
+    {
+        // Remove from primary
+        try {
+            $this->primaryDriver->removeFromMemory($identity);
+        } catch (\Throwable $e) {
+            // Continue removing from others even if primary fails
+        }
+
+        // Remove from secondaries
+        foreach ($this->secondaryDrivers as $driver) {
+            try {
+                $driver->removeFromMemory($identity);
             } catch (\Throwable $e) {
                 continue;
             }

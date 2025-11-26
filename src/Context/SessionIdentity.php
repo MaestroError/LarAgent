@@ -25,9 +25,9 @@ class SessionIdentity implements SessionIdentityContract
     {
         return new self(
             agentName: $data['agentName'] ?? '',
-            chatName: $data['chatName'] ?? '',
-            userId: $data['userId'] ?? '',
-            group: $data['group'] ?? ''
+            chatName: !empty($data['chatName']) ? $data['chatName'] : null,
+            userId: !empty($data['userId']) ? $data['userId'] : null,
+            group: !empty($data['group']) ? $data['group'] : null
         );
     }
 
