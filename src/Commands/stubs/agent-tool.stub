@@ -1,0 +1,29 @@
+<?php
+
+namespace App\AgentTools;
+
+use LarAgent\Tool;
+
+class {{ class }} extends Tool
+{
+    protected string $name = '{{ name }}';
+
+    protected string $description = 'Tool description here';
+
+    protected array $properties = [
+        'example_param' => [
+            'type' => 'string',
+            'description' => 'Parameter description',
+        ],
+    ];
+
+    protected array $required = ['example_param'];
+
+    protected array $metaData = [];
+
+    public function execute(array $input): mixed
+    {
+        // Implement your tool logic here
+        return 'Result';
+    }
+}

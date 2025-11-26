@@ -7,6 +7,7 @@ use LarAgent\Commands\AgentChatClearCommand;
 use LarAgent\Commands\AgentChatCommand;
 use LarAgent\Commands\AgentChatRemoveCommand;
 use LarAgent\Commands\MakeAgentCommand;
+use LarAgent\Commands\MakeAgentToolCommand;
 use LarAgent\Core\Contracts\ChatHistory;
 use LarAgent\Core\Contracts\LlmDriver;
 use Spatie\LaravelPackageTools\Package;
@@ -26,6 +27,7 @@ class LarAgentServiceProvider extends PackageServiceProvider
             ->hasConfigFile()
             ->hasCommands([
                 MakeAgentCommand::class,
+                MakeAgentToolCommand::class,
                 AgentChatCommand::class,
                 AgentChatClearCommand::class,
                 AgentChatRemoveCommand::class,
