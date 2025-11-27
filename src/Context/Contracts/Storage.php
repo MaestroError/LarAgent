@@ -2,16 +2,17 @@
 
 namespace LarAgent\Context\Contracts;
 
-use LarAgent\Core\Contracts\DataModel;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Contracts\DataModelArray as DataModelArrayContract;
 
 interface Storage
 {
     /**
      * Get all items
      *
-     * @return DataModel[]
+     * @return DataModelArrayContract
      */
-    public function get(): array;
+    public function get(): DataModelArrayContract;
 
     /**
      * Get the identity for this storage
@@ -23,17 +24,34 @@ interface Storage
     /**
      * Set (replace) all items
      *
-     * @param DataModel[] $items
+     * @param mixed $items
      * @return void
      */
-    public function set(array $items): void;
+    public function set(mixed $items): void;
+
+    /**
+     * Add an item to storage
+     *
+     * @param DataModelContract $item
+     * @return void
+     */
+    public function add(DataModelContract $item): void;
+
+    /**
+     * Remove an item from storage
+     *
+     * @param mixed $itemOrKey The item to remove (value or index) or the key to check
+     * @param mixed $value The value to check if removing by key/value pair
+     * @return void
+     */
+    public function removeItem(mixed $itemOrKey, mixed $value = null): void;
 
     /**
      * Get the last item
      *
-     * @return DataModel|null
+     * @return DataModelContract|null
      */
-    public function getLast(): ?DataModel;
+    public function getLast(): ?DataModelContract;
 
     /**
      * Clear all items (sets items as empty array)

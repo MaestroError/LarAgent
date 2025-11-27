@@ -5,6 +5,7 @@ use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Core\Abstractions\DataModel;
+use LarAgent\Core\Abstractions\DataModelArray;
 
 // Test DataModel implementation
 class TestDataModel extends DataModel
@@ -15,12 +16,21 @@ class TestDataModel extends DataModel
     ) {}
 }
 
+// Test DataModelArray implementation
+class TestDataModelArray extends DataModelArray
+{
+    public static function allowedModels(): array
+    {
+        return [TestDataModel::class];
+    }
+}
+
 // Concrete Storage implementation for testing
 class TestStorage extends Storage
 {
     protected function getDataModelClass(): string
     {
-        return TestDataModel::class;
+        return TestDataModelArray::class;
     }
 }
 
@@ -42,7 +52,8 @@ test('Storage get returns empty array initially', function () {
     $identity = createIdentity('agent', 'chat');
     $storage = new TestStorage([new InMemoryStorage()], $identity);
     
-    expect($storage->get())->toBe([]);
+    expect($storage->get())->toBeInstanceOf(DataModelArray::class);
+    expect($storage->get()->isEmpty())->toBeTrue();
 });
 
 test('Storage set replaces all items', function () {
@@ -56,7 +67,8 @@ test('Storage set replaces all items', function () {
     
     $storage->set($items);
     
-    expect($storage->get())->toBe($items);
+    expect($storage->count())->toBe(2);
+    expect($storage->get()[0]->name)->toBe('item1');
     expect($storage->isDirty())->toBeTrue();
 });
 
@@ -93,7 +105,7 @@ test('Storage clear sets items to empty array', function () {
     
     $storage->clear();
     
-    expect($storage->get())->toBe([]);
+    expect($storage->get()->isEmpty())->toBeTrue();
     expect($storage->count())->toBe(0);
     expect($storage->isDirty())->toBeTrue();
 });
@@ -170,7 +182,7 @@ test('Storage read handles empty storage gracefully', function () {
     $storage = new TestStorage([$driver], $identity);
     $storage->read();
     
-    expect($storage->get())->toBe([]);
+    expect($storage->get()->isEmpty())->toBeTrue();
 });
 
 test('Storage isDirty tracks changes correctly', function () {
@@ -207,7 +219,7 @@ test('Storage remove deletes from all drivers', function () {
     // Verify data is gone from driver
     expect($driver->readFromMemory($identity))->toBeNull();
     // Verify local items are cleared
-    expect($storage->get())->toBe([]);
+    expect($storage->get()->isEmpty())->toBeTrue();
     // Verify not dirty (already removed)
     expect($storage->isDirty())->toBeFalse();
 });
@@ -248,3 +260,49 @@ test('InMemoryStorage removeFromMemory works correctly', function () {
     expect($result)->toBeTrue();
     expect($driver->readFromMemory($identity))->toBeNull();
 });
+
+test('Storage add appends item', function () {
+    $identity = createIdentity('agent', 'chat');
+    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    
+    $storage->add(new TestDataModel('item1', 1));
+    
+    expect($storage->count())->toBe(1);
+    expect($storage->get()[0]->name)->toBe('item1');
+    expect($storage->isDirty())->toBeTrue();
+});
+
+test('Storage removeItem removes item', function () {
+    $identity = createIdentity('agent', 'chat');
+    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    
+    $item1 = new TestDataModel('item1', 1);
+    $item2 = new TestDataModel('item2', 2);
+    
+    $storage->set([$item1, $item2]);
+    expect($storage->count())->toBe(2);
+    
+    $storage->removeItem($item1);
+    
+    expect($storage->count())->toBe(1);
+    expect($storage->get()[0]->name)->toBe('item2');
+    expect($storage->isDirty())->toBeTrue();
+});
+
+test('Storage removeItem removes item by key/value', function () {
+    $identity = createIdentity('agent', 'chat');
+    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    
+    $item1 = new TestDataModel('item1', 1);
+    $item2 = new TestDataModel('item2', 2);
+    
+    $storage->set([$item1, $item2]);
+    expect($storage->count())->toBe(2);
+    
+    $storage->removeItem('name', 'item1');
+    
+    expect($storage->count())->toBe(1);
+    expect($storage->get()[0]->name)->toBe('item2');
+    expect($storage->isDirty())->toBeTrue();
+});
+

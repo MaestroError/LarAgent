@@ -5,7 +5,9 @@ namespace LarAgent\Context\Abstract;
 use LarAgent\Context\Contracts\Storage as StorageContract;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\StorageManager;
-use LarAgent\Core\Contracts\DataModel;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Contracts\DataModelArray as DataModelArrayContract;
+use LarAgent\Core\Abstractions\DataModelArray;
 
 abstract class Storage implements StorageContract
 {
@@ -20,10 +22,9 @@ abstract class Storage implements StorageContract
     protected SessionIdentityContract $identity;
 
     /**
-     * Cached items (array of DataModel)
-     * @var DataModel[]
+     * Cached items
      */
-    protected array $items = [];
+    protected DataModelArray $items;
 
     /**
      * Flag indicating if items need to be saved
@@ -47,21 +48,35 @@ abstract class Storage implements StorageContract
     ) {
         $this->identity = $identity;
         $this->storageManager = new StorageManager($driversConfig);
+        
+        // Initialize empty DataModelArray
+        $this->resetItems();
     }
 
     /**
-     * Get the DataModel class name for items
+     * Get the DataModelArray class name for items
      * 
      * @return string The fully qualified class name
      */
     abstract protected function getDataModelClass(): string;
 
     /**
+     * Reset items to an empty DataModelArray
+     *
+     * @return void
+     */
+    protected function resetItems(): void
+    {
+        $class = $this->getDataModelClass();
+        $this->items = new $class();
+    }
+
+    /**
      * Get all items
      *
-     * @return DataModel[]
+     * @return DataModelArrayContract
      */
-    public function get(): array
+    public function get(): DataModelArrayContract
     {
         $this->ensureLoaded();
         return $this->items;
@@ -80,38 +95,71 @@ abstract class Storage implements StorageContract
     /**
      * Set (replace) all items
      *
-     * @param DataModel[] $items
+     * @param mixed $items
      * @return void
      */
-    public function set(array $items): void
+    public function set(mixed $items): void
     {
-        $this->items = $items;
+        if (is_array($items)) {
+            $class = $this->getDataModelClass();
+            $this->items = new $class($items);
+        } elseif ($items instanceof DataModelArray) {
+            $this->items = $items;
+        } else {
+            throw new \InvalidArgumentException("Items must be an array or DataModelArray.");
+        }
         $this->dirty = true;
         $this->loaded = true;
     }
 
     /**
-     * Get the last item
+     * Add an item to storage
      *
-     * @return DataModel|null
+     * @param DataModelContract $item
+     * @return void
      */
-    public function getLast(): ?DataModel
+    public function add(DataModelContract $item): void
     {
         $this->ensureLoaded();
-        if (empty($this->items)) {
-            return null;
-        }
-        return end($this->items) ?: null;
+        $this->items->add($item);
+        $this->dirty = true;
     }
 
     /**
-     * Clear all items (sets items as empty array)
+     * Remove an item from storage
+     *
+     * @param mixed $itemOrKey
+     * @param mixed $value
+     * @return void
+     */
+    public function removeItem(mixed $itemOrKey, mixed $value = null): void
+    {
+        $this->ensureLoaded();
+        $this->items->remove($itemOrKey, $value);
+        $this->dirty = true;
+    }
+
+    /**
+     * Get the last item
+     *
+     * @return DataModelContract|null
+     */
+    public function getLast(): ?DataModelContract
+    {
+        $this->ensureLoaded();
+        return $this->items->last();
+    }
+
+    /**
+     * Clear all items
      *
      * @return void
      */
     public function clear(): void
     {
-        $this->items = [];
+        // We can't just set to empty array, we need to clear the DataModelArray
+        // But since we might not have loaded it yet, we should just reset it.
+        $this->resetItems();
         $this->dirty = true;
         $this->loaded = true;
     }
@@ -157,11 +205,7 @@ abstract class Storage implements StorageContract
      */
     protected function writeItems(): void
     {
-        $data = array_map(
-            fn(DataModel $item) => $item->toArray(),
-            $this->items
-        );
-        $this->storageManager->save($this->identity, $data);
+        $this->storageManager->save($this->identity, $this->items->toArray());
     }
 
     /**
@@ -203,15 +247,16 @@ abstract class Storage implements StorageContract
      */
     protected function load(): void
     {
+        $modelClass = $this->getDataModelClass();
         try {
             $data = $this->storageManager->read($this->identity);
-            $modelClass = $this->getDataModelClass();
-            $this->items = array_map(
-                fn(array $itemData) => $modelClass::fromArray($itemData),
-                $data
-            );
+            if ($data === null) {
+                $this->resetItems();
+            } else {
+                $this->items = $modelClass::fromArray($data);
+            }
         } catch (\Throwable $e) {
-            $this->items = [];
+            $this->resetItems();
         }
         $this->loaded = true;
     }
@@ -224,7 +269,7 @@ abstract class Storage implements StorageContract
     public function remove(): void
     {
         $this->storageManager->remove($this->identity);
-        $this->items = [];
+        $this->resetItems();
         $this->dirty = false;
         $this->loaded = true;
     }

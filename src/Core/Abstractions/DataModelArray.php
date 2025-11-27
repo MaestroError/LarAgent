@@ -3,6 +3,7 @@
 namespace LarAgent\Core\Abstractions;
 
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Contracts\DataModelArray as DataModelArrayContract;
 use ArrayAccess;
 use IteratorAggregate;
 use Countable;
@@ -12,8 +13,11 @@ use Traversable;
 use InvalidArgumentException;
 use ReflectionClass;
 
-abstract class DataModelArray implements DataModelContract, ArrayAccess, IteratorAggregate, Countable, JsonSerializable
+abstract class DataModelArray implements DataModelArrayContract
 {
+    /**
+     * @var DataModelContract[]
+     */
     protected array $items = [];
 
     /**
@@ -209,6 +213,144 @@ abstract class DataModelArray implements DataModelContract, ArrayAccess, Iterato
     public function count(): int
     {
         return count($this->items);
+    }
+
+    /**
+     * Add an item to the array.
+     *
+     * @param DataModelContract $item
+     * @return static
+     */
+    public function add(DataModelContract $item): static
+    {
+        $this->offsetSet(null, $item);
+        return $this;
+    }
+
+    /**
+     * Remove an item from the array.
+     *
+     * @param mixed $itemOrKey The item to remove (value or index) or the key to check
+     * @param mixed $value The value to check if removing by key/value pair
+     * @return static
+     */
+    public function remove(mixed $itemOrKey, mixed $value = null): static
+    {
+        $isList = array_is_list($this->items);
+
+        // Case 1: Remove by key/value pair
+        if ($value !== null && is_string($itemOrKey)) {
+            foreach ($this->items as $index => $item) {
+                if ($item instanceof DataModelContract && isset($item[$itemOrKey]) && $item[$itemOrKey] === $value) {
+                    unset($this->items[$index]);
+                }
+            }
+            // Always re-index if it was a list or if we removed items
+            if ($isList) {
+                $this->items = array_values($this->items);
+            }
+            return $this;
+        }
+
+        // Case 2: Remove by index (int or string key)
+        if (is_int($itemOrKey) || is_string($itemOrKey)) {
+            if (isset($this->items[$itemOrKey])) {
+                unset($this->items[$itemOrKey]);
+                // If the array was a list, re-index it
+                if ($isList) {
+                    $this->items = array_values($this->items);
+                }
+            }
+            return $this;
+        }
+
+        // Case 3: Remove by object instance
+        $index = array_search($itemOrKey, $this->items, true);
+        if ($index !== false) {
+            unset($this->items[$index]);
+            // If the array was a list, re-index it
+            if ($isList) {
+                $this->items = array_values($this->items);
+            }
+        }
+        
+        return $this;
+    }
+
+    /**
+     * Get the first item.
+     *
+     * @return DataModelContract|null
+     */
+    public function first(): ?DataModelContract
+    {
+        if (empty($this->items)) {
+            return null;
+        }
+        return reset($this->items);
+    }
+
+    /**
+     * Get the last item.
+     *
+     * @return DataModelContract|null
+     */
+    public function last(): ?DataModelContract
+    {
+        if (empty($this->items)) {
+            return null;
+        }
+        return end($this->items);
+    }
+
+    /**
+     * Check if the array is empty.
+     *
+     * @return bool
+     */
+    public function isEmpty(): bool
+    {
+        return empty($this->items);
+    }
+
+    /**
+     * Clear all items.
+     *
+     * @return static
+     */
+    public function clear(): static
+    {
+        $this->items = [];
+        return $this;
+    }
+
+    /**
+     * Filter items using a callback.
+     *
+     * @param callable $callback
+     * @return static
+     */
+    public function filter(callable $callback): static
+    {
+        $newItems = array_filter($this->items, $callback);
+        // Re-index if it was a list
+        if (array_is_list($this->items)) {
+            $newItems = array_values($newItems);
+        }
+        
+        // Create new instance with filtered items
+        return new static($newItems);
+    }
+
+    /**
+     * Map items using a callback.
+     *
+     * @param callable $callback
+     * @return array
+     */
+    public function map(callable $callback): array
+    {
+        return array_map($callback, $this->items);
     }
 
     // JsonSerializable Implementation
