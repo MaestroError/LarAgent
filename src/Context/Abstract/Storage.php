@@ -46,7 +46,8 @@ abstract class Storage implements StorageContract
         array $driversConfig,
         SessionIdentityContract $identity
     ) {
-        $this->identity = $identity;
+        // Apply storage-specific scope to the identity for isolation
+        $this->identity = $identity->withScope($this->getStoragePrefix());
         $this->storageManager = new StorageManager($driversConfig);
         
         // Initialize empty DataModelArray
@@ -59,6 +60,14 @@ abstract class Storage implements StorageContract
      * @return string The fully qualified class name
      */
     abstract protected function getDataModelClass(): string;
+
+    /**
+     * Get the storage prefix/scope for isolation.
+     * Different storage types should return unique prefixes to avoid key collisions.
+     * 
+     * @return string The storage prefix (e.g., 'chat_history', 'state', 'memory')
+     */
+    abstract protected function getStoragePrefix(): string;
 
     /**
      * Reset items to an empty DataModelArray

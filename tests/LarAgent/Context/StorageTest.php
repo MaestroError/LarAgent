@@ -32,6 +32,11 @@ class TestStorage extends Storage
     {
         return TestDataModelArray::class;
     }
+
+    protected function getStoragePrefix(): string
+    {
+        return 'test';
+    }
 }
 
 // Helper to create identity
@@ -45,7 +50,10 @@ test('Storage can be constructed with drivers config', function () {
     $storage = new TestStorage([InMemoryStorage::class], $identity);
     
     expect($storage)->toBeInstanceOf(Storage::class);
-    expect($storage->getIdentity())->toBe($identity);
+    // The storage now uses a scoped identity, so we check the original components
+    expect($storage->getIdentity()->getAgentName())->toBe($identity->getAgentName());
+    expect($storage->getIdentity()->getChatName())->toBe($identity->getChatName());
+    expect($storage->getIdentity()->getScope())->toBe('test');
 });
 
 test('Storage get returns empty array initially', function () {
@@ -137,8 +145,9 @@ test('Storage save persists items when dirty', function () {
     
     expect($storage->isDirty())->toBeFalse();
     
-    // Verify data was persisted
-    $data = $driver->readFromMemory($identity);
+    // Verify data was persisted (use scoped identity)
+    $scopedIdentity = $storage->getIdentity();
+    $data = $driver->readFromMemory($scopedIdentity);
     expect($data)->toBe([['name' => 'test', 'value' => 42]]);
 });
 
@@ -160,8 +169,9 @@ test('Storage read loads items from storage', function () {
     $driver = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
     
-    // Pre-populate driver
-    $driver->writeToMemory($identity, [
+    // Pre-populate driver with scoped identity key
+    $scopedIdentity = $identity->withScope('test');
+    $driver->writeToMemory($scopedIdentity, [
         ['name' => 'loaded1', 'value' => 10],
         ['name' => 'loaded2', 'value' => 20],
     ]);
@@ -205,19 +215,20 @@ test('Storage remove deletes from all drivers', function () {
     $driver = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
     $storage = new TestStorage([$driver], $identity);
+    $scopedIdentity = $storage->getIdentity();
     
     // Save some data first
     $storage->set([new TestDataModel('test', 42)]);
     $storage->save();
     
     // Verify data exists
-    expect($driver->readFromMemory($identity))->toBe([['name' => 'test', 'value' => 42]]);
+    expect($driver->readFromMemory($scopedIdentity))->toBe([['name' => 'test', 'value' => 42]]);
     
     // Remove
     $storage->remove();
     
     // Verify data is gone from driver
-    expect($driver->readFromMemory($identity))->toBeNull();
+    expect($driver->readFromMemory($scopedIdentity))->toBeNull();
     // Verify local items are cleared
     expect($storage->get()->isEmpty())->toBeTrue();
     // Verify not dirty (already removed)
@@ -229,21 +240,22 @@ test('Storage remove works with multiple drivers', function () {
     $driver2 = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
     $storage = new TestStorage([$driver1, $driver2], $identity);
+    $scopedIdentity = $storage->getIdentity();
     
     // Save some data first
     $storage->set([new TestDataModel('test', 42)]);
     $storage->save();
     
     // Verify data exists in both drivers
-    expect($driver1->readFromMemory($identity))->toBe([['name' => 'test', 'value' => 42]]);
-    expect($driver2->readFromMemory($identity))->toBe([['name' => 'test', 'value' => 42]]);
+    expect($driver1->readFromMemory($scopedIdentity))->toBe([['name' => 'test', 'value' => 42]]);
+    expect($driver2->readFromMemory($scopedIdentity))->toBe([['name' => 'test', 'value' => 42]]);
     
     // Remove
     $storage->remove();
     
     // Verify data is gone from both drivers
-    expect($driver1->readFromMemory($identity))->toBeNull();
-    expect($driver2->readFromMemory($identity))->toBeNull();
+    expect($driver1->readFromMemory($scopedIdentity))->toBeNull();
+    expect($driver2->readFromMemory($scopedIdentity))->toBeNull();
 });
 
 test('InMemoryStorage removeFromMemory works correctly', function () {
@@ -304,5 +316,119 @@ test('Storage removeItem removes item by key/value', function () {
     expect($storage->count())->toBe(1);
     expect($storage->get()[0]->name)->toBe('item2');
     expect($storage->isDirty())->toBeTrue();
+});
+
+// ===========================================
+// SessionIdentity Scope Tests
+// ===========================================
+
+test('SessionIdentity withScope creates new identity with scope', function () {
+    $identity = createIdentity('agent', 'chat');
+    $scopedIdentity = $identity->withScope('chat_history');
+    
+    // Original identity unchanged
+    expect($identity->getScope())->toBeNull();
+    expect($identity->getKey())->toBe('agent_chat');
+    
+    // Scoped identity has scope applied
+    expect($scopedIdentity->getScope())->toBe('chat_history');
+    expect($scopedIdentity->getKey())->toBe('chat_history_agent_chat');
+    
+    // Other properties preserved
+    expect($scopedIdentity->getAgentName())->toBe('agent');
+    expect($scopedIdentity->getChatName())->toBe('chat');
+});
+
+test('SessionIdentity withScope works with group identity', function () {
+    $identity = new SessionIdentity(
+        agentName: 'agent',
+        chatName: 'chat',
+        userId: null,
+        group: 'team_alpha'
+    );
+    
+    $scopedIdentity = $identity->withScope('memory');
+    
+    // Key should use group instead of agent name
+    expect($scopedIdentity->getKey())->toBe('memory_team_alpha_chat');
+    expect($scopedIdentity->getGroup())->toBe('team_alpha');
+});
+
+test('Different storage types have isolated keys', function () {
+    $driver = new InMemoryStorage();
+    $identity = createIdentity('agent', 'chat');
+    
+    // Create two different storage types with same identity
+    $testStorage = new TestStorage([$driver], $identity);
+    
+    // TestStorage uses 'test' prefix
+    expect($testStorage->getIdentity()->getKey())->toBe('test_agent_chat');
+    
+    // Verify original identity key is different
+    expect($identity->getKey())->toBe('agent_chat');
+});
+
+// Second storage type for isolation testing
+class AnotherStorage extends Storage
+{
+    protected function getDataModelClass(): string
+    {
+        return TestDataModelArray::class;
+    }
+
+    protected function getStoragePrefix(): string
+    {
+        return 'another';
+    }
+}
+
+test('Two storage types sharing same driver dont interfere', function () {
+    $driver = new InMemoryStorage();
+    $identity = createIdentity('agent', 'chat');
+    
+    // Create two different storage types with same identity and driver
+    $storage1 = new TestStorage([$driver], $identity);
+    $storage2 = new AnotherStorage([$driver], $identity);
+    
+    // Add different data to each
+    $storage1->set([new TestDataModel('from_test', 1)]);
+    $storage1->save();
+    
+    $storage2->set([new TestDataModel('from_another', 2)]);
+    $storage2->save();
+    
+    // Read from each - should get their own data
+    $storage1->read();
+    $storage2->read();
+    
+    expect($storage1->get()[0]->name)->toBe('from_test');
+    expect($storage2->get()[0]->name)->toBe('from_another');
+    
+    // Verify they have different keys
+    expect($storage1->getIdentity()->getKey())->toBe('test_agent_chat');
+    expect($storage2->getIdentity()->getKey())->toBe('another_agent_chat');
+});
+
+test('SessionIdentity toArray includes scope', function () {
+    $identity = createIdentity('agent', 'chat');
+    $scopedIdentity = $identity->withScope('state');
+    
+    $array = $scopedIdentity->toArray();
+    
+    expect($array['scope'])->toBe('state');
+    expect($array['key'])->toBe('state_agent_chat');
+});
+
+test('SessionIdentity fromArray handles scope', function () {
+    $data = [
+        'agentName' => 'agent',
+        'chatName' => 'chat',
+        'scope' => 'memory'
+    ];
+    
+    $identity = SessionIdentity::fromArray($data);
+    
+    expect($identity->getScope())->toBe('memory');
+    expect($identity->getKey())->toBe('memory_agent_chat');
 });
 
