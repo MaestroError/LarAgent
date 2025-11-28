@@ -2,23 +2,30 @@
 
 namespace LarAgent;
 
+use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Messages\DataModels\ToolCallFunction;
+use LarAgent\Attributes\Desc;
 
-class ToolCall implements ToolCallInterface
+class ToolCall extends DataModel implements ToolCallInterface
 {
-    protected string $id;
+    #[Desc('Unique identifier for the tool call')]
+    public string $id;
 
-    protected string $toolName;
+    #[Desc('Type of tool call, always "function"')]
+    public string $type = 'function';
 
-    protected string $arguments;
+    #[Desc('Function details')]
+    public ToolCallFunction $function;
 
-    public function __construct(string $id, string $toolName, string $arguments)
+    public function __construct(string $id = '', string $toolName = '', string $arguments = '{}')
     {
         $this->id = $id;
-        $this->toolName = $toolName;
-        $this->arguments = $arguments;
+        $this->type = 'function';
+        $this->function = new ToolCallFunction($toolName, $arguments);
     }
 
+    // ToolCallInterface methods
     public function getId(): string
     {
         return $this->id;
@@ -26,11 +33,11 @@ class ToolCall implements ToolCallInterface
 
     public function getToolName(): string
     {
-        return $this->toolName;
+        return $this->function->name;
     }
 
     public function getArguments(): string
     {
-        return $this->arguments;
+        return $this->function->arguments;
     }
 }

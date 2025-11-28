@@ -4,12 +4,12 @@ namespace LarAgent\Drivers\OpenAi;
 
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\ToolCall;
-use OpenAI;
 
 /**
  * Base class for OpenAI and OpenAI-compatible drivers
@@ -18,6 +18,31 @@ use OpenAI;
 abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 {
     protected mixed $client;
+
+    protected MessageFormatter $formatter;
+
+    public function __construct(array $settings = [])
+    {
+        parent::__construct($settings);
+        $this->formatter = $this->createFormatter();
+    }
+
+    /**
+     * Create the message formatter for this driver.
+     * Can be overridden by child classes to use a different formatter.
+     */
+    protected function createFormatter(): MessageFormatter
+    {
+        return new OpenAiMessageFormatter();
+    }
+
+    /**
+     * Get the message formatter.
+     */
+    public function getFormatter(): MessageFormatter
+    {
+        return $this->formatter;
+    }
 
     /**
      * Send a message to the LLM and receive a response.
@@ -38,39 +63,34 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         $payload = $this->preparePayload($messages, $options);
 
         // Make an API call to OpenAI ("/chat" endpoint)
-        $this->lastResponse = $response = $this->client->chat()->create($payload);
+        $this->lastResponse = $this->client->chat()->create($payload);
+        $responseArray = $this->lastResponse->toArray();
 
-        // Handle the response
-        $finishReason = $this->lastResponse->choices[0]->finishReason;
+        // Extract data using formatter
+        $finishReason = $this->formatter->extractFinishReason($responseArray);
         $metaData = [
-            'usage' => $this->lastResponse->usage->toArray(),
+            'usage' => $this->formatter->extractUsage($responseArray),
         ];
 
         // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
         if (
             $finishReason === 'tool_calls'
-            || (isset($options['tool_choice']) && is_array($options['tool_choice']) && isset($this->lastResponse->choices[0]->message->toolCalls))
+            || (isset($options['tool_choice']) && is_array($options['tool_choice']) && isset($responseArray['choices'][0]['message']['tool_calls']))
         ) {
+            // Extract tool calls using formatter
+            $toolCalls = $this->formatter->extractToolCalls($responseArray);
 
-            // Collect tool calls from the response
-            $toolCalls = array_map(function ($toolCall) {
-                return new ToolCall($toolCall->id, $toolCall->function->name, $toolCall->function->arguments);
-            }, $this->lastResponse->choices[0]->message->toolCalls);
-
-            // Build tool calls message with needed structure
-            $message = $this->toolCallsToMessage($toolCalls);
-
-            return new ToolCallMessage($toolCalls, $message, $metaData);
+            return new ToolCallMessage($toolCalls, $metaData);
         }
 
         if ($finishReason === 'stop') {
-            $content = $this->lastResponse->choices[0]->message->content;
+            $content = $this->formatter->extractContent($responseArray);
 
             if (isset($options['n']) && $options['n'] > 1) {
                 $contentsArray = [];
 
-                foreach ($this->lastResponse->choices as $choice) {
-                    $contentsArray[] = $choice->message->content;
+                foreach ($responseArray['choices'] as $choice) {
+                    $contentsArray[] = $choice['message']['content'];
                 }
 
                 // @todo: get rid of encoding/decoding the same data
@@ -114,7 +134,6 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         // Initialize variables to track the streamed response
         $streamedMessage = new StreamedAssistantMessage;
-        $content = '';
         $toolCalls = [];
         $toolCallsSummary = []; // Store complete tool calls by ID
         $finishReason = null;
@@ -149,7 +168,6 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             // Handle tool calls
             if ($this->hasToolCalls($delta)) {
-
                 $this->processToolCallDelta($delta, $toolCalls, $toolCallsSummary, $lastIndex);
             }
             // Handle regular content
@@ -173,7 +191,6 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             // Convert to ToolCall objects
             $toolCallObjects = array_map(function ($tc) {
-                // Ensure we have valid values for all parameters
                 $id = $tc['id'] ?? 'tool_call_'.uniqid();
                 $name = $tc['function']['name'] ?? '';
                 $arguments = $tc['function']['arguments'] ?? '{}';
@@ -181,13 +198,9 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
                 return new ToolCall($id, $name, $arguments);
             }, array_values($toolCallsSummary));
 
-            // Build tool calls message
-            $message = $this->toolCallsToMessage($toolCallObjects);
-
-            // Create and return a ToolCallMessage
+            // Create ToolCallMessage directly - formatter handles conversion when needed
             $toolCallMessage = new ToolCallMessage(
                 $toolCallObjects,
-                $message,
                 $streamedMessage->getUsage() ? ['usage' => $streamedMessage->getUsage()] : []
             );
 
@@ -268,9 +281,11 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         }
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
     {
-        // Build toolCall message content from toolCall
         $content = json_decode($toolCall->getArguments(), true);
         $content[$toolCall->getToolName()] = $result;
 
@@ -281,42 +296,27 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolCallsToMessage(array $toolCalls): array
     {
         $toolCallsArray = [];
         foreach ($toolCalls as $tc) {
-            $toolCallsArray[] = $this->toolCallToContent($tc);
+            $toolCallsArray[] = [
+                'id' => $tc->getId(),
+                'type' => 'function',
+                'function' => [
+                    'name' => $tc->getToolName(),
+                    'arguments' => $tc->getArguments(),
+                ],
+            ];
         }
 
         return [
             'role' => 'assistant',
             'tool_calls' => $toolCallsArray,
         ];
-    }
-
-    // Helper methods
-
-    protected function toolCallToContent(ToolCallInterface $toolCall): array
-    {
-        $this->validateJson($toolCall->getArguments());
-
-        return [
-            'id' => $toolCall->getId(),
-            'type' => 'function',
-            'function' => [
-                'name' => $toolCall->getToolName(),
-                'arguments' => $toolCall->getArguments(),
-            ],
-        ];
-    }
-
-    protected function validateJson(string $json): void
-    {
-        // Validate JSON arguments
-        json_decode($json, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \JsonException('Invalid JSON provided for tool call arguments: '.$json);
-        }
     }
 
     /**
@@ -335,8 +335,11 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         $this->setConfig($options);
 
+        // Format messages using the formatter (converts Message objects to API format)
+        $formattedMessages = $this->formatter->formatMessages($messages);
+
         $payload = array_merge($this->getConfig(), [
-            'messages' => $messages,
+            'messages' => $formattedMessages,
         ]);
 
         // Set the response format if "responseSchema" is provided
@@ -349,10 +352,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         // Add tools to payload if any are registered
         if (! empty($this->tools)) {
-            $tools = $this->getRegisteredTools();
-            foreach ($tools as $tool) {
-                $payload['tools'][] = $this->formatToolForPayload($tool);
-            }
+            $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
         }
 
         return $payload;

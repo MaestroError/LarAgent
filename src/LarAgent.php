@@ -528,7 +528,7 @@ class LarAgent
 
         // Get the streamed response
         $stream = $this->driver->sendMessageStreamed(
-            $this->chatHistory->toArray(),
+            $this->chatHistory->getMessages(),
             $this->buildConfig(),
             $callback
         );
@@ -621,7 +621,7 @@ class LarAgent
             return null;
         }
 
-        $response = $this->driver->sendMessage($this->chatHistory->toArray(), $this->buildConfig());
+        $response = $this->driver->sendMessage($this->chatHistory->getMessages(), $this->buildConfig());
         // After response (After receiving message from LLM)
         $this->processAfterResponse($response);
         $this->chatHistory->addMessage($response);
@@ -793,10 +793,9 @@ class LarAgent
             return null;
         }
 
-        // Build tool result message content
-        $messageArray = $this->driver->toolResultToMessage($toolCall, $result);
-
-        return new ToolResultMessage($messageArray);
+        // Create tool result message directly - formatter will handle driver-specific conversion
+        $content = is_string($result) ? $result : json_encode($result);
+        return new ToolResultMessage($content, $toolCall->getId(), $toolCall->getToolName());
     }
 
     /**

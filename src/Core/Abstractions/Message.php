@@ -5,28 +5,52 @@ namespace LarAgent\Core\Abstractions;
 use ArrayAccess;
 use JsonSerializable;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Core\Enums\Role;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Messages\DataModels\MessageContent;
 
 abstract class Message extends DataModel implements MessageInterface
 {
+    #[ExcludeFromSchema]
+    public string $id;
+
     #[Desc('The role of the message sender')]
-    public string|Role $role;  // Represents the sender or role (e.g., "user", "agent")
+    public string|Role $role;  // NO DEFAULT - children will add their fixed value
 
-    #[Desc('The content of the message')]
-    public null|string|MessageContent $content = null;  // The actual message content
+    // NO $content property - each child defines its own as DataModelContract
 
-    protected array $metadata;  // Additional data about the message
+    protected array $metadata = [];  // Additional data about the message
 
-    private array $dynamicProperties = [];
+    /**
+     * Extra fields not defined in class properties.
+     * Stores driver-specific or unknown fields from deserialization.
+     * Excluded from schema (not sent to LLM API).
+     */
+    #[ExcludeFromSchema]
+    protected array $extras = [];
 
-    public function __construct(string|Role $role, string|array|MessageContent $content, array $metadata = [])
+    public function __construct()
     {
-        $this->role = $role;
-        $this->content = is_array($content) ? new MessageContent($content) : $content;
-        $this->metadata = $metadata;
+        // Auto-generate ID if not set
+        if (!isset($this->id)) {
+            $this->id = $this->generateId();
+        }
+    }
+
+    protected function generateId(): string
+    {
+        return 'msg_' . bin2hex(random_bytes(12));
+    }
+
+    /**
+     * Get unique message identifier
+     */
+    public function getId(): string
+    {
+        return $this->id;
     }
 
     // Implementation of MessageInterface methods
@@ -35,22 +59,32 @@ abstract class Message extends DataModel implements MessageInterface
         return $this->role instanceof Role ? $this->role->value : $this->role;
     }
 
-    public function getContent(): string|array
+    /**
+     * Get message content - children implement with proper DataModel types
+     */
+    abstract public function getContent(): ?DataModelContract;
+
+    /**
+     * Set message content - children implement with proper DataModel types
+     */
+    abstract public function setContent(?DataModelContract $content): void;
+
+    /**
+     * Get content as string (for simple text extraction)
+     */
+    public function getContentAsString(): string
     {
-        if ($this->content instanceof MessageContent) {
-            return $this->content->toArray();
+        $content = $this->getContent();
+        if ($content === null) {
+            return '';
         }
-        return $this->content;
+        // Delegate to content's string representation
+        return (string) $content;
     }
 
     public function get(string $key): mixed
     {
         return $this->{$key} ?? null;
-    }
-
-    public function setContent(string|array|MessageContent $message): void
-    {
-        $this->content = $message;
     }
 
     public function getMetadata(): array
@@ -68,13 +102,68 @@ abstract class Message extends DataModel implements MessageInterface
         $this->metadata = array_merge($this->metadata, $data);
     }
 
+    // ========== Extras Management ==========
+
+    /**
+     * Get all extra fields
+     */
+    public function getExtras(): array
+    {
+        return $this->extras;
+    }
+
+    /**
+     * Set all extra fields
+     */
+    public function setExtras(array $extras): void
+    {
+        $this->extras = $extras;
+    }
+
+    /**
+     * Get a single extra field
+     */
+    public function getExtra(string $key, mixed $default = null): mixed
+    {
+        return $this->extras[$key] ?? $default;
+    }
+
+    /**
+     * Set a single extra field
+     */
+    public function setExtra(string $key, mixed $value): void
+    {
+        $this->extras[$key] = $value;
+    }
+
+    /**
+     * Check if an extra field exists
+     */
+    public function hasExtra(string $key): bool
+    {
+        return array_key_exists($key, $this->extras);
+    }
+
+    /**
+     * Remove an extra field
+     */
+    public function removeExtra(string $key): void
+    {
+        unset($this->extras[$key]);
+    }
+
+    // ========== Serialization ==========
+
     public function toArray(): array
     {
         $properties = parent::toArray();
 
-        // Merge with dynamic properties
-        if (!empty($this->dynamicProperties)) {
-            $properties = array_merge($properties, $this->dynamicProperties);
+        // Include id in output (for storage)
+        $properties['id'] = $this->id;
+
+        // Include extras if not empty
+        if (!empty($this->extras)) {
+            $properties['extras'] = $this->extras;
         }
 
         return $properties;
@@ -95,24 +184,57 @@ abstract class Message extends DataModel implements MessageInterface
 
     // Utility methods
 
+    /**
+     * @deprecated Use static fromArray() instead
+     */
     public function buildFromArray(array $data): self
     {
-        self::validateRole($data['role'] ?? '');
+        return self::fromArray($data);
+    }
 
+    /**
+     * Create a new instance from an array of attributes.
+     *
+     * @param array $data
+     * @return static
+     */
+    public static function fromArray(array $data): static
+    {
+        static::validateRole($data['role'] ?? '');
 
-        parent::fill($data);
+        $instance = parent::fromArray($data);
 
-        if (isset($data['metadata'])) {
-            $this->metadata = $data['metadata'];
+        // Handle id - use from data or generate new
+        if (isset($data['id'])) {
+            $instance->id = $data['id'];
+        } elseif (!isset($instance->id)) {
+            $instance->id = $instance->generateId();
         }
 
+        if (isset($data['metadata'])) {
+            $instance->metadata = $data['metadata'];
+        }
+
+        // Handle extras - merge stored extras and capture unknown fields
+        if (isset($data['extras'])) {
+            $instance->extras = array_merge($instance->extras, $data['extras']);
+        }
+
+        // Use cached config to get known property names (already collected by DataModel)
+        $config = static::getCachedConfig();
+        $knownProperties = array_keys($config['properties']);
+        // Also exclude metadata and extras from being added to extras
+        $knownProperties[] = 'metadata';
+        $knownProperties[] = 'extras';
+
+        // Any array key not matching a known property goes to extras
         foreach ($data as $key => $value) {
-            if (!property_exists($this, $key)) {
-                $this->__set($key, $value);
+            if (!in_array($key, $knownProperties)) {
+                $instance->extras[$key] = $value;
             }
         }
 
-        return $this;
+        return $instance;
     }
 
     public function buildFromJson(string $json): self
@@ -151,22 +273,7 @@ abstract class Message extends DataModel implements MessageInterface
     // Additional
     public function __toString(): string
     {
-        $content = $this->getContent();
-        if (is_string($content)) {
-            return $content;
-        } else {
-            return $content[0]['text'] ?? '';
-        }
-    }
-
-    public function __set(string $name, $value): void
-    {
-        $this->dynamicProperties[$name] = $value;
-    }
-
-    public function __get(string $name)
-    {
-        return $this->dynamicProperties[$name] ?? null;
+        return $this->getContentAsString();
     }
 
     protected static function validateRole(string $role): void

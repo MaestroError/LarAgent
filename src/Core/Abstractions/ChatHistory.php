@@ -5,7 +5,7 @@ namespace LarAgent\Core\Abstractions;
 use ArrayAccess;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Message;
+use LarAgent\Messages\DataModels\MessageArray;
 
 abstract class ChatHistory implements ArrayAccess, ChatHistoryInterface
 {
@@ -152,12 +152,12 @@ abstract class ChatHistory implements ArrayAccess, ChatHistoryInterface
     /**
      * Build messages from an array of data.
      * Useful with json storage implementations.
+     * Uses MessageArray for polymorphic deserialization.
      */
     protected function buildMessages(array $data): array
     {
-        return array_map(function ($message) {
-            return Message::fromArray($message);
-        }, $data);
+        $messageArray = new MessageArray($data);
+        return $messageArray->all();
     }
 
     /**

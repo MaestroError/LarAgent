@@ -17,7 +17,7 @@ it('returns an assistant message', function () {
 
     expect($message)
         ->toBeInstanceOf(AssistantMessage::class)
-        ->and($message->getContent())->toBe('This is a simulated assistant response');
+        ->and($message->getContentAsString())->toBe('This is a simulated assistant response');
 });
 
 it('returns a tool call message', function () {
@@ -33,6 +33,6 @@ it('returns a tool call message', function () {
 
     expect($message)
         ->toBeInstanceOf(ToolCallMessage::class)
-        ->and($message->getToolCalls())->toBeArray()
+        ->and($message->getToolCalls()->toArray())->toBeArray()
         ->and($message->getToolCalls()[0])->toBeInstanceOf(ToolCall::class);
 });

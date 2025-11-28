@@ -160,7 +160,7 @@ it('can stream responses using respondStreamed method', function () {
 
     // Check the content of the last message
     $lastMessage = end($messages);
-    expect($lastMessage->getContent() ?? $lastMessage)->toContain('This is a streaming response');
+    expect($lastMessage->getContentAsString())->toContain('This is a streaming response');
 });
 
 // Test the streaming with a callback
@@ -185,7 +185,7 @@ it('can stream responses with a callback', function () {
 
     // Check the content of the last chunk
     $lastChunk = end($receivedChunks);
-    expect($lastChunk->getContent() ?? $lastChunk)->toContain('This is a streaming response');
+    expect($lastChunk->getContentAsString())->toContain('This is a streaming response');
 });
 
 // Test structured output streaming

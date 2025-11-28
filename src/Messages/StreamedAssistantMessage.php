@@ -4,6 +4,7 @@ namespace LarAgent\Messages;
 
 use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Messages\DataModels\Content\TextContent;
 
 class StreamedAssistantMessage extends AssistantMessage implements MessageInterface
 {
@@ -13,9 +14,17 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
 
     protected ?string $lastChunk = null;
 
+    /**
+     * Internal string buffer for streaming content.
+     * Kept separate from $content (TextContent) until streaming completes.
+     */
+    protected string $contentBuffer = '';
+
     public function __construct(string $content = '', array $metadata = [])
     {
         parent::__construct($content, $metadata);
+        // Initialize buffer from content
+        $this->contentBuffer = $content;
     }
 
     /**
@@ -25,8 +34,10 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
      */
     public function appendContent(string $chunk): self
     {
-        $this->content .= $chunk;
+        $this->contentBuffer .= $chunk;
         $this->lastChunk = $chunk;
+        // Update the TextContent with the new buffer
+        $this->content = new TextContent($this->contentBuffer);
 
         return $this;
     }

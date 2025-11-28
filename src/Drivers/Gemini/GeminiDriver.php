@@ -6,6 +6,7 @@ use Generator;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
@@ -21,6 +22,8 @@ class GeminiDriver extends LlmDriver
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/';
 
     protected array $config = [];
+
+    protected MessageFormatter $formatter;
 
     public function __construct(array $settings = [])
     {
@@ -45,6 +48,23 @@ class GeminiDriver extends LlmDriver
         ]);
 
         $this->lastResponse = null;
+        $this->formatter = $this->createFormatter();
+    }
+
+    /**
+     * Create the message formatter for this driver.
+     */
+    protected function createFormatter(): MessageFormatter
+    {
+        return new GeminiMessageFormatter();
+    }
+
+    /**
+     * Get the message formatter.
+     */
+    public function getFormatter(): MessageFormatter
+    {
+        return $this->formatter;
     }
 
     /**
@@ -74,59 +94,43 @@ class GeminiDriver extends LlmDriver
      */
     protected function handleResponse(array $responseData): AssistantMessage
     {
-        if (isset($responseData['candidates'][0]['finishReason'])) {
-            $finishReason = $responseData['candidates'][0]['finishReason'];
+        // Use formatter's hasToolCalls since Gemini returns 'STOP' even with tool calls
+        if ($this->formatter->hasToolCalls($responseData)) {
+            $toolCalls = $this->formatter->extractToolCalls($responseData);
+            $metaData = [
+                'usage' => $this->formatter->extractUsage($responseData),
+                'tool_calls' => $toolCalls,
+            ];
 
-            // Check if there are function calls in the response, regardless of finish reason
-            $toolCalls = $this->extractToolCalls($responseData);
+            return new ToolCallMessage($toolCalls, $metaData);
+        }
 
-            if (! empty($toolCalls)) {
-                $message = $this->toolCallsToMessage($toolCalls);
-                $metaData = [
-                    'usage' => $this->extractUsage($responseData),
-                    'tool_calls' => $toolCalls,
-                ];
+        $finishReason = $this->formatter->extractFinishReason($responseData);
 
-                return new ToolCallMessage($toolCalls, $message, $metaData);
-            }
+        if ($finishReason === 'stop') {
+            $content = $this->formatter->extractContent($responseData);
+            $metaData = [
+                'usage' => $this->formatter->extractUsage($responseData),
+            ];
 
-            if ($finishReason === 'STOP') {
-                $content = $responseData['candidates'][0]['content']['parts'][0]['text'] ?? '';
-                $metaData = [
-                    'usage' => $this->extractUsage($responseData),
-                ];
+            return new AssistantMessage($content, $metaData);
+        }
 
-                return new AssistantMessage($content, $metaData);
-            }
-
-            if ($finishReason === 'RECITATION' || $finishReason === 'SAFETY') {
-                throw new RuntimeException("Gemini API finished with reason: {$finishReason}");
-            }
+        if ($finishReason === 'content_filter') {
+            $rawReason = $responseData['candidates'][0]['finishReason'] ?? 'UNKNOWN';
+            throw new RuntimeException("Gemini API finished with reason: {$rawReason}");
         }
 
         throw new RuntimeException('Unexpected response format from Gemini API');
     }
 
     /**
-     * Extract tool calls from response data.
+     * @deprecated Use GeminiMessageFormatter::extractToolCalls() instead.
+     *             This method is maintained for backwards compatibility.
      */
     protected function extractToolCalls(array $responseData): array
     {
-        $toolCalls = [];
-        if (isset($responseData['candidates'][0]['content']['parts'])) {
-            foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
-                if (isset($part['functionCall'])) {
-                    // Create ToolCall objects instead of arrays
-                    $toolCalls[] = new \LarAgent\ToolCall(
-                        'tool_call_'.uniqid(), // Generate a unique ID
-                        $part['functionCall']['name'] ?? '',
-                        json_encode($part['functionCall']['args'] ?? [])
-                    );
-                }
-            }
-        }
-
-        return $toolCalls;
+        return $this->formatter->extractToolCalls($responseData);
     }
 
     /**
@@ -150,7 +154,6 @@ class GeminiDriver extends LlmDriver
 
             $stream = $response->getBody();
             $streamedMessage = new StreamedAssistantMessage;
-            $toolCalls = [];
             $toolCallsSummary = [];
             $finishReason = null;
             $lastResponseData = null;
@@ -178,9 +181,9 @@ class GeminiDriver extends LlmDriver
                     // Store last response data for usage information
                     $lastResponseData = $responseData;
 
-                    // Get finish reason if available
+                    // Get finish reason if available (use formatter for normalization)
                     if (isset($responseData['candidates'][0]['finishReason'])) {
-                        $finishReason = $responseData['candidates'][0]['finishReason'];
+                        $finishReason = $this->formatter->extractFinishReason($responseData);
                     }
 
                     // Check for tool calls (function calls in Gemini)
@@ -224,20 +227,18 @@ class GeminiDriver extends LlmDriver
                 $this->lastResponse = $lastResponseData;
             }
 
-            // Set usage information if available
+            // Set usage information if available (use formatter)
             if ($lastResponseData) {
-                $usage = $this->extractUsage($lastResponseData);
+                $usage = $this->formatter->extractUsage($lastResponseData);
                 $streamedMessage->setUsage($usage);
             }
 
             // If we have tool calls, return a ToolCallMessage
-            if (! empty($toolCallsSummary) && ($finishReason !== 'STOP' || $finishReason === null)) {
+            if (! empty($toolCallsSummary) && ($finishReason !== 'stop' || $finishReason === null)) {
                 $toolCallObjects = array_values($toolCallsSummary);
-                $message = $this->toolCallsToMessage($toolCallObjects);
 
                 $toolCallMessage = new ToolCallMessage(
                     $toolCallObjects,
-                    $message,
                     $streamedMessage->getUsage() ? ['usage' => $streamedMessage->getUsage()] : []
                 );
 
@@ -269,58 +270,17 @@ class GeminiDriver extends LlmDriver
      */
     protected function preparePayload(array $messages, array $options = []): array
     {
-        $systemInstructions = [];
-        $filteredMessages = [];
-
-        foreach ($messages as $message) {
-            $role = $message['role'];
-            if ($role === 'system' || $role === 'developer') {
-                if (isset($message['content']) && is_string($message['content'])) {
-                    $systemInstructions[] = $message['content'];
-                }
-            } elseif ($role !== 'tool') {
-                $filteredMessages[] = $message;
-            }
-        }
-
-        $contents = [];
-        foreach ($filteredMessages as $message) {
-            $role = $this->mapRoleToGeminiRole($message['role']);
-            $parts = [];
-
-            // Check for parts first (for tool calls and tool results)
-            if (isset($message['parts']) && is_array($message['parts'])) {
-                $parts = $message['parts'];
-            } elseif (isset($message['content']) && is_string($message['content']) && $message['content'] !== '') {
-                $parts[] = ['text' => $message['content']];
-            } elseif (isset($message['content']) && is_array($message['content'])) {
-                foreach ($message['content'] as $contentPart) {
-                    if (isset($contentPart['text']) && is_string($contentPart['text'])) {
-                        $parts[] = ['text' => $contentPart['text']];
-                    } elseif (isset($contentPart['type']) && $contentPart['type'] === 'text') {
-                        $parts[] = ['text' => $contentPart['text'] ?? ''];
-                    }
-                }
-            }
-
-            if (! empty($parts)) {
-                $contents[] = [
-                    'role' => $role,
-                    'parts' => $parts,
-                ];
-            }
-        }
+        // Use formatter to convert Message objects to Gemini format
+        $contents = $this->formatter->formatMessages($messages);
+        
+        // Extract system instructions separately (Gemini-specific)
+        $systemInstruction = $this->formatter->extractSystemInstruction($messages);
 
         $payload = ['contents' => $contents];
 
         // System instructions
-        if (! empty($systemInstructions)) {
-            $instructionText = implode("\n", $systemInstructions);
-            $payload['systemInstruction'] = [
-                'parts' => [
-                    ['text' => $instructionText],
-                ],
-            ];
+        if ($systemInstruction !== null) {
+            $payload['systemInstruction'] = $systemInstruction;
         }
 
         // Generation config
@@ -352,16 +312,9 @@ class GeminiDriver extends LlmDriver
             $payload['generationConfig'] = $generationConfig;
         }
 
-        // Tools support - CORRECTED structure
+        // Tools support - use formatter for consistent tool formatting
         if (! empty($this->tools)) {
-            $payload['tools'] = [
-                [
-                    'functionDeclarations' => array_map(
-                        fn ($tool) => $this->formatToolForPayload($tool),
-                        array_values($this->tools)
-                    ),
-                ],
-            ];
+            $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
         }
 
         return $payload;
@@ -380,25 +333,12 @@ class GeminiDriver extends LlmDriver
     }
 
     /**
-     * Extract usage information from Gemini response.
+     * @deprecated Use GeminiMessageFormatter::extractUsage() instead.
+     *             This method is maintained for backwards compatibility.
      */
     protected function extractUsage(array $responseData): array
     {
-        $usage = [
-            'prompt_tokens' => 0,
-            'completion_tokens' => 0,
-            'total_tokens' => 0,
-        ];
-
-        if (isset($responseData['usageMetadata'])) {
-            $usage = [
-                'prompt_tokens' => $responseData['usageMetadata']['promptTokenCount'] ?? 0,
-                'completion_tokens' => $responseData['usageMetadata']['candidatesTokenCount'] ?? 0,
-                'total_tokens' => $responseData['usageMetadata']['totalTokenCount'] ?? 0,
-            ];
-        }
-
-        return $usage;
+        return $this->formatter->extractUsage($responseData);
     }
 
     /**
@@ -423,7 +363,8 @@ class GeminiDriver extends LlmDriver
     }
 
     /**
-     * Convert a tool call result to a message format.
+     * @deprecated Use GeminiMessageFormatter::formatToolResultMessage() instead.
+     *             This method is maintained for backwards compatibility.
      */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
     {
@@ -446,7 +387,8 @@ class GeminiDriver extends LlmDriver
     }
 
     /**
-     * Convert tool calls to a message format.
+     * @deprecated Use GeminiMessageFormatter::formatToolCallMessage() instead.
+     *             This method is maintained for backwards compatibility.
      */
     public function toolCallsToMessage(array $toolCalls): array
     {

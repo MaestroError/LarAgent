@@ -17,6 +17,7 @@ class MockSessionIdentity implements SessionIdentityContract
     public function getKey(): string { return 'key'; }
     public function toArray(): array { return []; }
     public static function fromArray(array $data): static { return new static(); }
+    public function withScope(string $scope): static { return new static(); }
 }
 
 class FailingDriver extends AbstractStorageDriver

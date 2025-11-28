@@ -3,6 +3,7 @@
 use LarAgent\History\InMemoryChatHistory;
 use LarAgent\LarAgent;
 use LarAgent\Message;
+use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
 
@@ -98,7 +99,7 @@ it('can run with tools', function () {
         ->withMessage($userMessage);
 
     $agent->afterResponse(function ($agent, $message) {
-        $message->setContent($message.'. Checked at 2024-01-01');
+        $message->setContent(new TextContent($message->getContentAsString() . '. Checked at 2024-01-01'));
     });
 
     $driver->addMockResponse('tool_calls', [
@@ -220,7 +221,7 @@ it('can stream messages using generator', function () {
 
     expect($messages)->not->toBeEmpty();
     $lastMessage = end($messages);
-    expect($lastMessage->getContent())->toBe('This is a streaming response');
+    expect($lastMessage->getContentAsString())->toBe('This is a streaming response');
 });
 
 it('can enable streaming mode and process streamed responses', function () {
@@ -267,12 +268,12 @@ it('can enable streaming mode and process streamed responses', function () {
 
     // Verify the last message contains the expected content
     $lastMessage = end($messages);
-    expect($lastMessage->getContent())->toBe('This is a streaming response');
+    expect($lastMessage->getContentAsString())->toBe('This is a streaming response');
 
     // Verify the message was added to chat history
     $historyMessages = $chatHistory->getMessages();
     expect($historyMessages)->toHaveCount(2); // User message + assistant response
-    expect(end($historyMessages)->getContent())->toBe('This is a streaming response');
+    expect(end($historyMessages)->getContentAsString())->toBe('This is a streaming response');
 });
 
 it('can set and get arbitrary configs', function () {

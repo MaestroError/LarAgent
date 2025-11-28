@@ -41,7 +41,6 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
 
             return new ToolCallMessage(
                 $toolCalls,
-                $this->toolCallsToMessage($toolCalls),
                 $responseData['metaData'] ?? []
             );
         }
@@ -87,7 +86,6 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
 
             $toolCallMessage = new ToolCallMessage(
                 $toolCalls,
-                $this->toolCallsToMessage($toolCalls),
                 $responseData['metaData'] ?? []
             );
 

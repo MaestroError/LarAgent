@@ -23,4 +23,20 @@ class MessageContent extends DataModelArray
     {
         return 'type';
     }
+
+    /**
+     * Convert MessageContent to string by extracting text from TextContent items.
+     *
+     * @return string
+     */
+    public function __toString(): string
+    {
+        $texts = [];
+        foreach ($this->items as $item) {
+            if ($item instanceof TextContent) {
+                $texts[] = (string) $item;
+            }
+        }
+        return implode("\n", $texts);
+    }
 }

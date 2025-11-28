@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use LarAgent\Agent;
 use LarAgent\API\Completion\CompletionRequestDTO;
 use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Message;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\PhantomTool;
@@ -132,11 +132,13 @@ class Completions
         $messages = $this->completion->messages;
         if (! empty($messages)) {
             $last = array_pop($messages);
-            foreach ($messages as $message) {
-                $this->agent->addMessage(Message::fromArray($message));
+            $messageArray = new MessageArray($messages);
+            foreach ($messageArray->all() as $message) {
+                $this->agent->addMessage($message);
             }
 
-            $this->agent->message(Message::fromArray($last));
+            $lastArray = new MessageArray([$last]);
+            $this->agent->message($lastArray->all()[0]);
         }
 
         $this->agent->withoutModelInChatSessionId();

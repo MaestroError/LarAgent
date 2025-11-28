@@ -13,6 +13,8 @@ This document outlines the plan to implement a new `ChatHistoryStorage` class th
 -   Token-based auto-truncation before save
 -   Returns typed `MessageArray` instead of plain arrays
 
+_Note: code examples given here are conceptual, real implementation is up to you_
+
 ---
 
 ## Current State Analysis
@@ -38,6 +40,8 @@ Located in `src/Messages/`:
 -   `buildFromArray()` method populates from array data (**TO BE DEPRECATED**)
 -   `toArray()` returns public properties + dynamic properties
 -   `toArrayWithMeta()` includes metadata
+
+**Note:** Include metadata by default in toArray (We should deprecate storeMeta property)
 
 ### New Storage Abstraction (`src/Context/Abstract/Storage.php`)
 
@@ -194,33 +198,7 @@ protected function validateAllowedModel(DataModelContract $item): void
 
 ### Phase 2: Message Classes Updates
 
-#### 2.1 Add `getMessageType()` Using class_basename
-
-```php
-// src/Core/Abstractions/Message.php
-
-public function getMessageType(): string
-{
-    return class_basename(static::class);
-}
-```
-
-#### 2.2 Update `toArrayWithMeta()` to Include Type
-
-```php
-// src/Core/Abstractions/Message.php
-
-public function toArrayWithMeta(): array
-{
-    return [
-        '_type' => $this->getMessageType(),
-        ...$this->toArray(),
-        'metadata' => $this->metadata,
-    ];
-}
-```
-
-#### 2.3 Deprecate `buildFromArray()`
+#### 2.1 Deprecate `buildFromArray()`
 
 ```php
 // src/Core/Abstractions/Message.php
@@ -235,7 +213,7 @@ public function buildFromArray(array $data): self
 }
 ```
 
-#### 2.4 Override `fromArray()` in Message Base
+#### 2.2 Override `fromArray()` in Message Base
 
 ```php
 // src/Core/Abstractions/Message.php
@@ -252,7 +230,7 @@ public static function fromArray(array $data): static
 
     // Handle dynamic properties
     foreach ($data as $key => $value) {
-        if (!property_exists($instance, $key) && $key !== 'metadata' && $key !== '_type') {
+        if (!property_exists($instance, $key) && $key !== 'metadata') {
             $instance->__set($key, $value);
         }
     }
@@ -261,7 +239,275 @@ public static function fromArray(array $data): static
 }
 ```
 
-#### 2.5 Add `matchesArray()` to Ambiguous Message Types
+#### 2.3 Add `#[ExcludeFromSchema]` Attribute and Update Message Classes
+
+**PHP Property Override Rules:**
+
+-   Child classes **cannot change the type** of a parent property
+-   If parent has **no default**, child **can add** a default
+-   If parent has a default, child **can change** but **cannot remove** it
+
+**Strategy:** Remove defaults from `Message` base class for `$role` and `$content`, allowing children to:
+
+1. Add fixed default for `$role` (e.g., `'user'`, `'assistant'`)
+2. Add `= null` default for `$content` only where content may be empty (e.g., `ToolCallMessage`)
+
+##### 2.3.1 Create the Attribute
+
+```php
+// src/Attributes/ExcludeFromSchema.php
+
+namespace LarAgent\Attributes;
+
+use Attribute;
+
+#[Attribute(Attribute::TARGET_PROPERTY)]
+class ExcludeFromSchema
+{
+}
+```
+
+##### 2.3.2 Update `DataModel::generateSchema()` to Respect the Attribute
+
+```php
+// src/Core/Abstractions/DataModel.php
+
+use LarAgent\Attributes\ExcludeFromSchema;
+
+public static function generateSchema(): array
+{
+    $config = static::getCachedConfig();
+    $schema = [
+        'type' => 'object',
+        'properties' => [],
+        'required' => $config['required'],
+    ];
+
+    foreach ($config['properties'] as $name => $propConfig) {
+        // Skip properties marked with #[ExcludeFromSchema]
+        if ($propConfig['excludeFromSchema']) {
+            continue;
+        }
+
+        $propertySchema = static::getPropertySchemaFromConfig($propConfig);
+        if ($propertySchema) {
+            $schema['properties'][$name] = $propertySchema;
+        }
+    }
+
+    // Also remove excluded properties from required
+    $schema['required'] = array_values(array_filter(
+        $schema['required'],
+        fn($name) => !($config['properties'][$name]['excludeFromSchema'] ?? false)
+    ));
+
+    if (empty($schema['required'])) {
+        unset($schema['required']);
+    }
+
+    return $schema;
+}
+```
+
+##### 2.3.3 Update `getCachedConfig()` to Cache the Attribute
+
+```php
+// In getCachedConfig() method, add:
+
+$excludeAttributes = $property->getAttributes(ExcludeFromSchema::class);
+
+$config['properties'][$name] = [
+    'reflection' => $property,
+    'type' => $type,
+    'description' => $description,
+    'excludeFromSchema' => !empty($excludeAttributes),  // Add this
+];
+```
+
+##### 2.3.4 Update Message Base Class (Remove Defaults)
+
+```php
+// src/Core/Abstractions/Message.php
+
+abstract class Message extends DataModel implements MessageInterface
+{
+    #[Desc('The role of the message sender')]
+    public string|Role $role;  // NO DEFAULT - children will add their fixed value
+
+    #[Desc('The content of the message')]
+    public null|string|MessageContent $content;  // NO DEFAULT - children decide
+
+    // ... rest of class
+}
+```
+
+##### 2.3.5 Message Class Property Overrides
+
+Children add `#[ExcludeFromSchema]` on `$role` (fixed value) and add defaults where appropriate:
+
+```php
+// src/Messages/UserMessage.php
+
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Attributes\Desc;
+
+class UserMessage extends Message implements MessageInterface
+{
+    #[ExcludeFromSchema]
+    public string|Role $role = 'user';  // Fixed value, excluded from schema
+
+    #[Desc('The content of the message as an array of content parts (text, image, audio)')]
+    public null|string|MessageContent $content;  // Required - no default
+
+    // ... rest of class
+}
+```
+
+```php
+// src/Messages/AssistantMessage.php
+
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Attributes\Desc;
+
+class AssistantMessage extends Message implements MessageInterface
+{
+    #[ExcludeFromSchema]
+    public string|Role $role = 'assistant';  // Fixed value
+
+    #[Desc('The text content of the assistant response')]
+    public null|string|MessageContent $content;  // Required - no default
+
+    // ... rest of class
+}
+```
+
+```php
+// src/Messages/SystemMessage.php
+
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Attributes\Desc;
+
+class SystemMessage extends Message implements MessageInterface
+{
+    #[ExcludeFromSchema]
+    public string|Role $role = 'system';  // Fixed value
+
+    #[Desc('The system instruction content')]
+    public null|string|MessageContent $content;  // Required - no default
+}
+```
+
+```php
+// src/Messages/DeveloperMessage.php
+
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Attributes\Desc;
+
+class DeveloperMessage extends Message implements MessageInterface
+{
+    #[ExcludeFromSchema]
+    public string|Role $role = 'developer';  // Fixed value
+
+    #[Desc('The developer instruction content')]
+    public null|string|MessageContent $content;  // Required - no default
+}
+```
+
+```php
+// src/Messages/ToolCallMessage.php
+
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Attributes\Desc;
+
+class ToolCallMessage extends AssistantMessage implements MessageInterface
+{
+    #[ExcludeFromSchema]
+    public string|Role $role = 'assistant';  // Fixed value
+
+    #[ExcludeFromSchema]
+    public null|string|MessageContent $content = null;  // Optional - has default null
+
+    #[Desc('Array of tool calls requested by the assistant')]
+    public array $toolCalls;  // Required - no default
+
+    // ... rest of class
+}
+```
+
+```php
+// src/Messages/ToolResultMessage.php
+
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Attributes\Desc;
+
+class ToolResultMessage extends Message implements MessageInterface
+{
+    #[ExcludeFromSchema]
+    public string|Role $role = 'tool';  // Fixed value
+
+    #[Desc('The result content from tool execution')]
+    public null|string|MessageContent $content;  // Required - no default
+
+    #[Desc('The ID of the tool call this result responds to')]
+    public string $tool_call_id;  // Required - no default
+
+    // ... rest of class
+}
+```
+
+**Example Schema Output (with `#[ExcludeFromSchema]`):**
+
+```php
+// UserMessage::generateSchema() returns:
+[
+    'type' => 'object',
+    'properties' => [
+        'content' => [
+            'description' => 'The content of the message as an array of content parts (text, image, audio)',
+        ]
+    ],
+    'required' => ['content']
+]
+// Note: 'role' is NOT in schema - marked with #[ExcludeFromSchema]
+
+// ToolCallMessage::generateSchema() returns:
+[
+    'type' => 'object',
+    'properties' => [
+        'toolCalls' => [
+            'type' => 'array',
+            'description' => 'Array of tool calls requested by the assistant'
+        ]
+    ],
+    'required' => ['toolCalls']
+]
+// Note: 'role' and 'content' are NOT in schema - both marked with #[ExcludeFromSchema]
+
+// ToolResultMessage::generateSchema() returns:
+[
+    'type' => 'object',
+    'properties' => [
+        'content' => [
+            'description' => 'The result content from tool execution'
+        ],
+        'tool_call_id' => [
+            'type' => 'string',
+            'description' => 'The ID of the tool call this result responds to'
+        }
+    ],
+    'required' => ['content', 'tool_call_id']
+]
+// Note: 'role' is NOT in schema - marked with #[ExcludeFromSchema]
+```
+
+**Benefits of this approach:**
+
+1. **Explicit control** - Use `#[ExcludeFromSchema]` to mark fixed/internal properties
+2. **Leverages PHP rules** - Parent has no defaults, children add fixed defaults for `$role`
+3. **Flexible `$content`** - Only `ToolCallMessage` has `$content = null` (optional), others require it
+4. **Clean API** - Schema only shows what users actually need to provide
+
+#### 2.4 Add `matchesArray()` to Ambiguous Message Types
 
 ```php
 // src/Messages/ToolCallMessage.php
@@ -276,7 +522,7 @@ public static function fromArray(array $data): static
     $toolCalls = $data['tool_calls'] ?? [];
     $metadata = $data['metadata'] ?? [];
 
-    unset($data['_type'], $data['metadata']);
+    unset($data['metadata']);
 
     return new static($toolCalls, $data, $metadata);
 }
@@ -299,7 +545,7 @@ public static function fromArray(array $data): static
 }
 ```
 
-#### 2.6 Add `fromArray()` to Other Message Classes
+#### 2.5 Add `fromArray()` to Other Message Classes
 
 ```php
 // src/Messages/UserMessage.php
@@ -338,7 +584,7 @@ public static function fromArray(array $data): static
 public static function fromArray(array $data): static
 {
     $metadata = $data['metadata'] ?? [];
-    unset($data['_type'], $data['metadata']);
+    unset($data['metadata']);
     return new static($data, $metadata);
 }
 ```
@@ -388,7 +634,7 @@ class MessageArray extends DataModelArray
 ### Phase 4: Create ChatHistoryConfig DTO
 
 ```php
-// src/Context/DTOs/ChatHistoryConfig.php
+// src/Core/DTO/ChatHistoryConfig.php
 
 namespace LarAgent\Context\DTOs;
 
@@ -644,62 +890,6 @@ class ChatHistoryStorage extends Storage
 
 ---
 
-### Phase 6: Hook Registration from Agent
-
-The Agent class should be able to configure hooks when setting up chat history:
-
-```php
-// Example usage in Agent class
-
-protected function configureChatHistory(): ChatHistoryConfig
-{
-    return new ChatHistoryConfig(
-        contextWindow: $this->contextWindowSize,
-        reservedForCompletion: 1000,
-        onBeforeSave: function (ChatHistoryStorage $storage) {
-            // Custom pre-save logic
-            Log::info('Saving chat history', ['count' => $storage->count()]);
-        },
-        onAfterLoad: function (ChatHistoryStorage $storage) {
-            // Custom post-load logic
-        },
-        truncationCallback: function (MessageArray $messages, int $tokens, ChatHistoryConfig $config) {
-            // Custom truncation: Keep system + last N messages
-            $systemMessages = [];
-            $otherMessages = [];
-
-            foreach ($messages as $msg) {
-                if ($msg->getRole() === 'system') {
-                    $systemMessages[] = $msg;
-                } else {
-                    $otherMessages[] = $msg;
-                }
-            }
-
-            // Keep last 20 non-system messages
-            $kept = array_slice($otherMessages, -20);
-
-            $messages->clear();
-            foreach ($systemMessages as $msg) {
-                $messages->add($msg);
-            }
-            foreach ($kept as $msg) {
-                $messages->add($msg);
-            }
-        },
-    );
-}
-
-// In Agent constructor or setup method
-$this->chatHistory = new ChatHistoryStorage(
-    $this->getStorageDrivers(),
-    $this->getSessionIdentity(),
-    $this->configureChatHistory()
-);
-```
-
----
-
 ### Phase 7: Testing
 
 #### 7.1 MessageArray Tests
@@ -865,33 +1055,35 @@ test('ChatHistoryStorage uses custom truncation callback', function () {
 
 ### New Files
 
-| File                                                | Purpose                        |
-| --------------------------------------------------- | ------------------------------ |
-| `src/Messages/DataModels/MessageArray.php`          | Polymorphic message collection |
-| `src/Context/ChatHistoryStorage.php`                | New storage implementation     |
-| `src/Context/DTOs/ChatHistoryConfig.php`            | Configuration DTO with hooks   |
-| `tests/LarAgent/Messages/MessageArrayTest.php`      | MessageArray tests             |
-| `tests/LarAgent/Context/ChatHistoryStorageTest.php` | Storage tests                  |
+| File                                                | Purpose                                     |
+| --------------------------------------------------- | ------------------------------------------- |
+| `src/Attributes/ExcludeFromSchema.php`              | Attribute to exclude properties from schema |
+| `src/Messages/DataModels/MessageArray.php`          | Polymorphic message collection              |
+| `src/Context/ChatHistoryStorage.php`                | New storage implementation                  |
+| `src/Context/DTOs/ChatHistoryConfig.php`            | Configuration DTO with hooks                |
+| `tests/LarAgent/Messages/MessageArrayTest.php`      | MessageArray tests                          |
+| `tests/LarAgent/Context/ChatHistoryStorageTest.php` | Storage tests                               |
 
 ### Modified Files
 
-| File                                       | Changes                                                                          |
-| ------------------------------------------ | -------------------------------------------------------------------------------- |
-| `src/Core/Abstractions/DataModelArray.php` | Add nested discriminator support, `resolveFromCandidates()`                      |
-| `src/Core/Abstractions/Message.php`        | Add `getMessageType()`, update `toArrayWithMeta()`, deprecate `buildFromArray()` |
-| `src/Messages/UserMessage.php`             | Add `fromArray()`                                                                |
-| `src/Messages/AssistantMessage.php`        | Add `fromArray()`, `matchesArray()`                                              |
-| `src/Messages/SystemMessage.php`           | Add `fromArray()`                                                                |
-| `src/Messages/DeveloperMessage.php`        | Add `fromArray()`                                                                |
-| `src/Messages/ToolCallMessage.php`         | Add `fromArray()`, `matchesArray()`                                              |
-| `src/Messages/ToolResultMessage.php`       | Add `fromArray()`                                                                |
+| File                                       | Changes                                                                                           |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `src/Core/Abstractions/DataModel.php`      | Update `generateSchema()` to respect `#[ExcludeFromSchema]`, update `getCachedConfig()`           |
+| `src/Core/Abstractions/DataModelArray.php` | Add nested discriminator support, `resolveFromCandidates()`                                       |
+| `src/Core/Abstractions/Message.php`        | Remove defaults from `$role`/`$content`, deprecate `buildFromArray()`                             |
+| `src/Messages/UserMessage.php`             | Add `#[ExcludeFromSchema]` on `role` with default, add `fromArray()`                              |
+| `src/Messages/AssistantMessage.php`        | Add `#[ExcludeFromSchema]` on `role` with default, add `fromArray()`, `matchesArray()`            |
+| `src/Messages/SystemMessage.php`           | Add `#[ExcludeFromSchema]` on `role` with default, add `fromArray()`                              |
+| `src/Messages/DeveloperMessage.php`        | Add `#[ExcludeFromSchema]` on `role` with default, add `fromArray()`                              |
+| `src/Messages/ToolCallMessage.php`         | Add `#[ExcludeFromSchema]` on `role`/`content` with defaults, add `fromArray()`, `matchesArray()` |
+| `src/Messages/ToolResultMessage.php`       | Add `#[ExcludeFromSchema]` on `role` with default, add `fromArray()`                              |
 
 ---
 
 ## Implementation Order
 
 1. 🔲 Phase 1: Update DataModelArray for nested discriminator support
-2. 🔲 Phase 2: Update Message classes with `getMessageType()`, `fromArray()`, `matchesArray()`
+2. 🔲 Phase 2: Update Message classes with `fromArray()`, `matchesArray()`, property overrides
 3. 🔲 Phase 3: Create MessageArray
 4. 🔲 Phase 4: Create ChatHistoryConfig DTO
 5. 🔲 Phase 5: Create ChatHistoryStorage

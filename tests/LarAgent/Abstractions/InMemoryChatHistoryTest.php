@@ -11,7 +11,7 @@ it('can add and retrieve messages', function () {
 
     expect($chatHistory->getMessages())
         ->toHaveCount(1)
-        ->and($chatHistory->getLastMessage()->getContent())
+        ->and($chatHistory->getLastMessage()->getContent()->toArray())
         ->toBe([
             [
                 'type' => 'text',
@@ -38,7 +38,7 @@ it('supports array access for messages', function () {
 
     expect($chatHistory[0])
         ->toBeInstanceOf(UserMessage::class)
-        ->and($chatHistory[0]->getContent())
+        ->and($chatHistory[0]->getContent()->toArray())
         ->toBe([
             [
                 'type' => 'text',
@@ -64,7 +64,7 @@ it('can write and read messages to and from memory', function () {
 
     expect($chatHistory->getMessages())
         ->toHaveCount(1)
-        ->and($chatHistory->getMessages()[0]->getContent())
+        ->and($chatHistory->getMessages()[0]->getContent()->toArray())
         ->toBe([
             [
                 'type' => 'text',
@@ -97,7 +97,7 @@ it('can truncate old messages when exceeding context window', function () {
 
     expect($chatHistory->getMessages())
         ->toHaveCount(1)
-        ->and($chatHistory->getMessages()[0]->getContent())
+        ->and($chatHistory->getMessages()[0]->getContent()->toArray())
         ->toBe([
             [
                 'type' => 'text',

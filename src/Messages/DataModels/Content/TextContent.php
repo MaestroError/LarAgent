@@ -14,6 +14,16 @@ class TextContent extends DataModel
     #[Desc('The text content')]
     public string $text;
 
+    public function __construct(string $text = '')
+    {
+        $this->text = $text;
+    }
+
+    public function __toString(): string
+    {
+        return $this->text;
+    }
+
     public function toArray(): array
     {
         return [
@@ -24,12 +34,10 @@ class TextContent extends DataModel
 
     public static function fromArray(array $attributes): static
     {
-        $instance = new static();
+        $text = $attributes['text'] ?? '';
+        $instance = new static($text);
         if (isset($attributes['type'])) {
             $instance->type = $attributes['type'];
-        }
-        if (isset($attributes['text'])) {
-            $instance->text = $attributes['text'];
         }
         return $instance;
     }

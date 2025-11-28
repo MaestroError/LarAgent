@@ -3,6 +3,7 @@
 use Illuminate\Contracts\Auth\Authenticatable;
 use LarAgent\Agent;
 use LarAgent\Message;
+use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
 
@@ -56,7 +57,7 @@ class TestAgent extends Agent
         if ($this->n > 1) {
             return;
         } else {
-            $message->setContent($message.'. Edited via event');
+            $message->setContent(new TextContent($message->getContentAsString() . '. Edited via event'));
         }
     }
 
@@ -181,17 +182,17 @@ it('can handle image urls in response', function () {
     $messages = $agent->chatHistory()->getMessages();
     $firstUserMessage = $messages[1];
 
-    expect($firstUserMessage->getContent())->toBeArray()
-        ->and($firstUserMessage->getContent())->toHaveCount(3) // text + 2 images
-        ->and($firstUserMessage->getContent()[0])->toMatchArray([
+    expect($firstUserMessage->getContent()->toArray())->toBeArray()
+        ->and($firstUserMessage->getContent()->toArray())->toHaveCount(3) // text + 2 images
+        ->and($firstUserMessage->getContent()->toArray()[0])->toMatchArray([
             'type' => 'text',
             'text' => 'Test message Please respond appropriately.',
         ])
-        ->and($firstUserMessage->getContent()[1])->toMatchArray([
+        ->and($firstUserMessage->getContent()->toArray()[1])->toMatchArray([
             'type' => 'image_url',
             'image_url' => ['url' => 'http://example.com/image1.jpg'],
         ])
-        ->and($firstUserMessage->getContent()[2])->toMatchArray([
+        ->and($firstUserMessage->getContent()->toArray()[2])->toMatchArray([
             'type' => 'image_url',
             'image_url' => ['url' => 'http://example.com/image2.jpg'],
         ]);
@@ -464,7 +465,7 @@ it('uses developer role for instructions when enabled', function () {
     $messages = $agent->chatHistory()->getMessages();
     $hasDevMessage = false;
     foreach ($messages as $message) {
-        if ($message->getRole() === 'developer' && $message->getContent() === 'You are a test agent.') {
+        if ($message->getRole() === 'developer' && $message->getContentAsString() === 'You are a test agent.') {
             $hasDevMessage = true;
             break;
         }
@@ -546,8 +547,8 @@ it('can accept UserMessage instance in message method', function () {
     ];
 
     expect($storedMessage)->toBe($userMessage);
-    expect($storedMessage->getContent())->toBeArray();
-    expect($storedMessage->getContent())->toEqual($expectedContent);
+    expect($storedMessage->getContent()->toArray())->toBeArray();
+    expect($storedMessage->getContent()->toArray())->toEqual($expectedContent);
     expect($storedMessage->getMetadata())->toHaveKey('custom_field');
     expect($storedMessage->getMetadata()['custom_field'])->toBe('test_value');
 

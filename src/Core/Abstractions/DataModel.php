@@ -4,6 +4,7 @@ namespace LarAgent\Core\Abstractions;
 
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Attributes\Desc;
+use LarAgent\Attributes\ExcludeFromSchema;
 use ArrayAccess;
 use JsonSerializable;
 use ReflectionClass;
@@ -80,11 +81,22 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
         ];
 
         foreach ($config['properties'] as $name => $propConfig) {
+            // Skip properties marked with #[ExcludeFromSchema]
+            if ($propConfig['excludeFromSchema'] ?? false) {
+                continue;
+            }
+
             $propertySchema = static::getPropertySchemaFromConfig($propConfig);
             if ($propertySchema) {
                 $schema['properties'][$name] = $propertySchema;
             }
         }
+
+        // Also remove excluded properties from required
+        $schema['required'] = array_values(array_filter(
+            $schema['required'],
+            fn($name) => !($config['properties'][$name]['excludeFromSchema'] ?? false)
+        ));
         
         if (empty($schema['required'])) {
             unset($schema['required']);
@@ -211,13 +223,16 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
                 $config['required'][] = $name;
             }
 
-            $attributes = $property->getAttributes(Desc::class);
-            $description = !empty($attributes) ? $attributes[0]->newInstance()->description : null;
+            $descAttributes = $property->getAttributes(Desc::class);
+            $description = !empty($descAttributes) ? $descAttributes[0]->newInstance()->description : null;
+
+            $excludeAttributes = $property->getAttributes(ExcludeFromSchema::class);
 
             $config['properties'][$name] = [
                 'reflection' => $property,
                 'type' => $type,
                 'description' => $description,
+                'excludeFromSchema' => !empty($excludeAttributes),
             ];
         }
 

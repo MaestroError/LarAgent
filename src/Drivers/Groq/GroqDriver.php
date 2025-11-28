@@ -4,7 +4,9 @@ namespace LarAgent\Drivers\Groq;
 
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Drivers\OpenAi\OpenAiMessageFormatter;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
@@ -14,6 +16,8 @@ use LucianoTonet\GroqPHP\Groq;
 class GroqDriver extends LlmDriver implements LlmDriverInterface
 {
     protected mixed $client;
+
+    protected MessageFormatter $formatter;
 
     public function __construct(array $settings = [])
     {
@@ -28,6 +32,24 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
 
         $this->client = $apiKey ? new Groq($apiKey, $options) : null;
+        $this->formatter = $this->createFormatter();
+    }
+
+    /**
+     * Create the message formatter for this driver.
+     * Groq uses OpenAI-compatible format.
+     */
+    protected function createFormatter(): MessageFormatter
+    {
+        return new OpenAiMessageFormatter();
+    }
+
+    /**
+     * Get the message formatter.
+     */
+    public function getFormatter(): MessageFormatter
+    {
+        return $this->formatter;
     }
 
     public function sendMessage(array $messages, array $options = []): AssistantMessage
@@ -41,36 +63,20 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         $response = $this->client->chat()->completions()->create($payload);
         $this->lastResponse = $response;
 
-        $finishReason = $response['choices'][0]['finish_reason'] ?? null;
-        $metaData = ['usage' => $response['usage'] ?? []];
+        // Use formatter for extraction
+        $finishReason = $this->formatter->extractFinishReason($response);
+        $metaData = ['usage' => $this->formatter->extractUsage($response)];
 
-        if (
-            $finishReason === 'tool_calls'
-            && isset($response['choices'][0]['message']['tool_calls'])
-            && ! empty($response['choices'][0]['message']['tool_calls'])
-        ) {
-            $toolCalls = array_map(function ($tc) {
-                return new ToolCall(
-                    $tc['id'],
-                    $tc['function']['name'] ?? '',
-                    $tc['function']['arguments'] ?? '{}'
-                );
-            }, $response['choices'][0]['message']['tool_calls']);
+        if ($finishReason === 'tool_calls') {
+            $toolCalls = $this->formatter->extractToolCalls($response);
 
-            $toolCallMessage = new ToolCallMessage(
-                $toolCalls,
-                $this->toolCallsToMessage($toolCalls),
-                $metaData
-            );
-
-            return $toolCallMessage;
+            return new ToolCallMessage($toolCalls, $metaData);
         }
 
         if ($finishReason === 'stop') {
-            $content = $response['choices'][0]['message']['content'] ?? '';
-            $assistantMessage = new AssistantMessage($content, $metaData);
+            $content = $this->formatter->extractContent($response);
 
-            return $assistantMessage;
+            return new AssistantMessage($content, $metaData);
         }
 
         throw new \Exception('Unexpected finish reason: '.$finishReason);
@@ -138,7 +144,6 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
             $toolMsg = new ToolCallMessage(
                 $toolCallObjects,
-                $this->toolCallsToMessage($toolCallObjects),
                 $lastUsage ? ['usage' => $lastUsage] : []
             );
 
@@ -212,11 +217,11 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
     {
-        $content = json_decode($toolCall->getArguments(), true);
-        $content[$toolCall->getToolName()] = $result;
-
         return [
             'role' => 'tool',
             'name' => $toolCall->getToolName(),
@@ -225,6 +230,9 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolCallsToMessage(array $toolCalls): array
     {
         $toolCallsArray = [];
@@ -253,8 +261,11 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
         $this->setConfig($options);
 
+        // Format messages using the formatter (converts Message objects to API format)
+        $formattedMessages = $this->formatter->formatMessages($messages);
+
         $payload = array_merge($this->getConfig(), [
-            'messages' => $messages,
+            'messages' => $formattedMessages,
         ]);
 
         if ($this->structuredOutputEnabled()) {
@@ -274,9 +285,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
 
         if (! empty($this->tools)) {
-            foreach ($this->getRegisteredTools() as $tool) {
-                $payload['tools'][] = $this->formatToolForPayload($tool);
-            }
+            $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
         }
 
         return $payload;

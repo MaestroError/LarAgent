@@ -345,7 +345,7 @@ it('can stream responses using respondStreamed', function () {
     // Check the content of the last message
     $lastMessage = end($messages);
 
-    expect($lastMessage->getContent() ?? $lastMessage)->toContain('This is a streaming response');
+    expect($lastMessage->getContentAsString() ?? $lastMessage)->toContain('This is a streaming response');
 });
 
 it('can stream responses using streamResponse in plain format', function () {

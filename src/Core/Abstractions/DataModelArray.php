@@ -56,17 +56,7 @@ abstract class DataModelArray implements DataModelArrayContract
 
         foreach ($attributes as $item) {
             if ($item instanceof DataModelContract) {
-                // Verify it's an instance of an allowed model
-                $isAllowed = false;
-                foreach ($allowedModels as $modelClass) {
-                    if ($item instanceof $modelClass) {
-                        $isAllowed = true;
-                        break;
-                    }
-                }
-                if (!$isAllowed) {
-                    throw new InvalidArgumentException("Item is not an instance of an allowed model.");
-                }
+                $this->validateAllowedModel($item);
                 $this->items[] = $item;
                 continue;
             }
@@ -75,44 +65,97 @@ abstract class DataModelArray implements DataModelArrayContract
                 throw new InvalidArgumentException("Item must be an array or DataModel instance.");
             }
 
-            // Determine target class
-            $targetClass = null;
-
-            if (count($allowedModels) === 1) {
-                $targetClass = $allowedModels[0];
-            } else {
-                // Polymorphic resolution
-                if (!isset($item[$discriminator])) {
-                    throw new InvalidArgumentException("Missing discriminator field '{$discriminator}' for polymorphic array.");
-                }
-                
-                $typeValue = $item[$discriminator];
-                
-                // We need a way to map the discriminator value to the class.
-                // By default, we can check if the allowedModels array is associative ['value' => Class::class]
-                // or if we need to inspect the classes (e.g. if they have a 'type' property default value).
-                // For simplicity and performance, let's assume allowedModels can be associative for mapping,
-                // or we check a static property/constant on the model, or we just try to match.
-                
-                // Let's support associative array in allowedModels for explicit mapping:
-                // ['text' => TextContent::class, 'image' => ImageContent::class]
-                if (isset($allowedModels[$typeValue])) {
-                    $targetClass = $allowedModels[$typeValue];
-                } else {
-                    // Fallback: Check if allowedModels is a list and we can't map easily without instantiation or reflection
-                    // Let's assume strict associative mapping for polymorphism for now as it's cleanest.
-                    throw new InvalidArgumentException("Unknown discriminator value: {$typeValue}");
-                }
-            }
-
-            if (!is_subclass_of($targetClass, DataModelContract::class)) {
-                throw new InvalidArgumentException("Target class {$targetClass} must implement DataModelContract.");
-            }
-
+            $targetClass = $this->resolveTargetClass($item, $allowedModels, $discriminator);
             $this->items[] = $targetClass::fromArray($item);
         }
 
         return $this;
+    }
+
+    /**
+     * Resolve the target class for a given item based on discriminator.
+     *
+     * @param array $item
+     * @param array $allowedModels
+     * @param string $discriminator
+     * @return string
+     */
+    protected function resolveTargetClass(array $item, array $allowedModels, string $discriminator): string
+    {
+        // Single model - no discriminator needed
+        if (count($allowedModels) === 1 && array_is_list($allowedModels)) {
+            return $allowedModels[0];
+        }
+
+        if (!isset($item[$discriminator])) {
+            throw new InvalidArgumentException("Missing discriminator field '{$discriminator}'.");
+        }
+
+        $discriminatorValue = $item[$discriminator];
+
+        if (!isset($allowedModels[$discriminatorValue])) {
+            throw new InvalidArgumentException("Unknown discriminator value: {$discriminatorValue}");
+        }
+
+        $target = $allowedModels[$discriminatorValue];
+
+        // Single class - use directly
+        if (is_string($target)) {
+            return $target;
+        }
+
+        // Array of classes - resolve via matchesArray()
+        if (is_array($target)) {
+            return $this->resolveFromCandidates($target, $item);
+        }
+
+        throw new InvalidArgumentException("Invalid model mapping for: {$discriminatorValue}");
+    }
+
+    /**
+     * Resolve target class from multiple candidates using matchesArray().
+     *
+     * @param array $candidates
+     * @param array $item
+     * @return string
+     */
+    protected function resolveFromCandidates(array $candidates, array $item): string
+    {
+        foreach ($candidates as $class) {
+            if (method_exists($class, 'matchesArray') && $class::matchesArray($item)) {
+                return $class;
+            }
+        }
+
+        // If no matchesArray method or none matched, use first as default
+        return $candidates[0];
+    }
+
+    /**
+     * Validate that an item is an instance of an allowed model.
+     *
+     * @param DataModelContract $item
+     * @return void
+     * @throws InvalidArgumentException
+     */
+    protected function validateAllowedModel(DataModelContract $item): void
+    {
+        $allowedModels = static::allowedModels();
+        $isAllowed = false;
+
+        foreach ($allowedModels as $modelOrArray) {
+            $classes = is_array($modelOrArray) ? $modelOrArray : [$modelOrArray];
+            foreach ($classes as $class) {
+                if ($item instanceof $class) {
+                    $isAllowed = true;
+                    break 2;
+                }
+            }
+        }
+
+        if (!$isAllowed) {
+            throw new InvalidArgumentException("Item is not an instance of an allowed model.");
+        }
     }
 
     public static function fromArray(array $attributes): static
@@ -145,9 +188,21 @@ abstract class DataModelArray implements DataModelArrayContract
 
         $allowedModels = static::allowedModels();
 
-        if (count($allowedModels) === 1) {
+        // Flatten allowedModels - extract all classes including those in nested arrays
+        $allClasses = [];
+        foreach ($allowedModels as $modelOrArray) {
+            if (is_array($modelOrArray)) {
+                foreach ($modelOrArray as $class) {
+                    $allClasses[] = $class;
+                }
+            } else {
+                $allClasses[] = $modelOrArray;
+            }
+        }
+
+        if (count($allClasses) === 1) {
             // Single type
-            $class = reset($allowedModels);
+            $class = $allClasses[0];
             if (method_exists($class, 'generateSchema')) {
                 $schema['items'] = $class::generateSchema();
             } else {
@@ -161,7 +216,7 @@ abstract class DataModelArray implements DataModelArrayContract
         } else {
             // Polymorphic
             $schema['items']['oneOf'] = [];
-            foreach ($allowedModels as $class) {
+            foreach ($allClasses as $class) {
                 if (method_exists($class, 'generateSchema')) {
                     $schema['items']['oneOf'][] = $class::generateSchema();
                 } else {
@@ -224,6 +279,88 @@ abstract class DataModelArray implements DataModelArrayContract
     public function add(DataModelContract $item): static
     {
         $this->offsetSet(null, $item);
+        return $this;
+    }
+
+    /**
+     * Find an item's index by a key/value match.
+     * Internal helper reused by other methods.
+     *
+     * @param string $key The property key to match
+     * @param mixed $value The value to match
+     * @return int|null The index of the found item, or null
+     */
+    protected function findItem(string $key, mixed $value): ?int
+    {
+        foreach ($this->items as $index => $item) {
+            if (isset($item[$key]) && $item[$key] === $value) {
+                return $index;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Get an item by a key/value match.
+     *
+     * @param string $key The property key to match
+     * @param mixed $value The value to match
+     * @return DataModelContract|null
+     */
+    public function getItem(string $key, mixed $value): ?DataModelContract
+    {
+        $index = $this->findItem($key, $value);
+        return $index !== null ? $this->items[$index] : null;
+    }
+
+    /**
+     * Set (replace) an item by a key/value match.
+     * If no matching item found, adds the new item.
+     *
+     * @param string $key The property key to match
+     * @param mixed $value The value to match
+     * @param DataModelContract $newItem The new item to set
+     * @return static
+     */
+    public function setItem(string $key, mixed $value, DataModelContract $newItem): static
+    {
+        $this->validateAllowedModel($newItem);
+
+        $index = $this->findItem($key, $value);
+        if ($index !== null) {
+            $this->items[$index] = $newItem;
+        } else {
+            $this->items[] = $newItem;
+        }
+
+        return $this;
+    }
+
+    /**
+     * Check if an item with the given key/value exists.
+     *
+     * @param string $key The property key to match
+     * @param mixed $value The value to match
+     * @return bool
+     */
+    public function hasItem(string $key, mixed $value): bool
+    {
+        return $this->findItem($key, $value) !== null;
+    }
+
+    /**
+     * Remove an item by a key/value match.
+     *
+     * @param string $key The property key to match
+     * @param mixed $value The value to match
+     * @return static
+     */
+    public function removeItem(string $key, mixed $value): static
+    {
+        $index = $this->findItem($key, $value);
+        if ($index !== null) {
+            array_splice($this->items, $index, 1);
+        }
         return $this;
     }
 
@@ -311,6 +448,16 @@ abstract class DataModelArray implements DataModelArrayContract
     public function isEmpty(): bool
     {
         return empty($this->items);
+    }
+
+    /**
+     * Get all items as an array.
+     *
+     * @return DataModelContract[]
+     */
+    public function all(): array
+    {
+        return $this->items;
     }
 
     /**

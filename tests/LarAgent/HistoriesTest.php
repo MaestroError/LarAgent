@@ -7,9 +7,10 @@ use LarAgent\History\FileChatHistory;
 use LarAgent\History\JsonChatHistory;
 use LarAgent\History\SessionChatHistory;
 use LarAgent\Message;
+use LarAgent\Messages\SystemMessage;
 
 dataset('messages', [
-    Message::create(Role::SYSTEM->value, 'You are helpful assistant', ['test' => 'meta']),
+    new SystemMessage('You are helpful assistant', ['test' => 'meta']),
 ]);
 
 it('can read and write session chat history', function ($message) {
@@ -147,7 +148,7 @@ it('can save and load keys in cache chat history', function () {
 
 it('can remove chat from session history', function () {
     $history = new SessionChatHistory('test_session_remove');
-    $message = Message::create(Role::SYSTEM->value, 'Test message');
+    $message = Message::system('Test message');
 
     $history->addMessage($message);
     $history->writeToMemory();
@@ -167,7 +168,7 @@ it('can remove chat from session history', function () {
 
 it('can remove chat from json history', function () {
     $history = new JsonChatHistory('test_json_remove', ['folder' => __DIR__.'/json_storage']);
-    $message = Message::create(Role::SYSTEM->value, 'Test message');
+    $message = Message::system('Test message');
 
     $history->addMessage($message);
     $history->writeToMemory();
@@ -190,7 +191,7 @@ it('can remove chat from json history', function () {
 it('can remove chat from file history', function () {
     Storage::fake('local');
     $history = new FileChatHistory('test_file_remove', ['disk' => 'local', 'folder' => 'chat_histories']);
-    $message = Message::create(Role::SYSTEM->value, 'Test message');
+    $message = Message::system('Test message');
 
     $history->addMessage($message);
     $history->writeToMemory();
@@ -210,7 +211,7 @@ it('can remove chat from file history', function () {
 
 it('can remove chat from cache history', function () {
     $history = new CacheChatHistory('test_cache_remove');
-    $message = Message::create(Role::SYSTEM->value, 'Test message');
+    $message = Message::system('Test message');
 
     $history->addMessage($message);
     $history->writeToMemory();
@@ -230,7 +231,7 @@ it('can remove chat from cache history', function () {
 
 it('can remove chat from custom cache store', function () {
     $history = new CacheChatHistory('test_store_remove', ['store' => 'array']);
-    $message = Message::create(Role::SYSTEM->value, 'Test message');
+    $message = Message::system('Test message');
 
     $history->addMessage($message);
     $history->writeToMemory();

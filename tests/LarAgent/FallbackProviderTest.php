@@ -59,7 +59,7 @@ it('falls back to secondary provider on streamed failure', function () {
     $chunks = [];
     foreach ($stream as $message) {
         if ($message instanceof StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
-            $chunks[] = $message->getContent();
+            $chunks[] = $message->getContentAsString();
         }
     }
 
