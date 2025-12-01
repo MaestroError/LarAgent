@@ -6,6 +6,73 @@ All notable changes to `LarAgent` will be documented in this file.
 
 ### ⚠️ Breaking Changes (v0.8 → v1.0)
 
+#### 6. DriverConfig DTO Replaces Array-Based Configuration
+
+**What Changed:**
+
+-   Driver configurations now use `DriverConfig` DTO internally instead of plain arrays
+-   `LlmDriver` constructor now accepts `DriverConfig|array` (backward compatible)
+-   `LlmDriver::sendMessage()` and `sendMessageStreamed()` accept `DriverConfig|array` for override settings
+-   Configuration property names use camelCase: `apiKey`, `apiUrl`, `maxCompletionTokens`, etc.
+-   Provider configs in `config/laragent.php` still use snake_case (`api_key`, `api_url`) - mapped automatically
+
+**Migration Required for Custom Drivers:**
+
+If you have custom LLM drivers extending `LlmDriver`, update the constructor:
+
+```php
+// Before (v0.8)
+class MyCustomDriver extends LlmDriver
+{
+    public function __construct(array $settings = [])
+    {
+        $this->settings = $settings;
+        // custom initialization
+    }
+}
+
+// After (v1.0)
+use LarAgent\Core\DTO\DriverConfig;
+
+class MyCustomDriver extends LlmDriver
+{
+    public function __construct(DriverConfig|array $settings = [])
+    {
+        parent::__construct($settings); // Required - initializes $this->driverConfig
+        // custom initialization
+    }
+}
+```
+
+**Accessing Configuration in Custom Drivers:**
+
+```php
+// Array access (still works - backward compatible)
+$model = $this->getSettings()['model'];
+$apiKey = $this->getSettings()['apiKey'];
+
+// Typed access (new, recommended)
+$model = $this->getDriverConfig()->model;
+$apiKey = $this->getDriverConfig()->apiKey;
+$temperature = $this->getDriverConfig()->temperature;
+
+// Check if property is set
+if ($this->getDriverConfig()->has('temperature')) {
+    // ...
+}
+
+// Get with default
+$temp = $this->getDriverConfig()->get('temperature', 0.7);
+
+// Access extra configs
+$custom = $this->getDriverConfig()->getExtra('customOption');
+```
+
+**No Changes Required If:**
+
+-   You're only using built-in drivers (OpenAI, Claude, Gemini, Groq)
+-   You're using the Agent class API normally
+
 #### 1. Message::create() and Message::fromArray() Removed
 
 **What Changed:**
@@ -128,6 +195,10 @@ The following methods are deprecated in all drivers:
 
 ### Added
 
+-   `DriverConfig` DTO for type-safe driver configuration
+-   `DriverConfig::fromArray()`, `::wrap()`, `::merge()`, `::withExtra()` methods
+-   `DriverConfig::set()`, `::get()`, `::has()`, `::getExtra()`, `::getExtras()` methods
+-   `LlmDriver::getDriverConfig()` for typed access to driver configuration
 -   `MessageFormatter` interface for driver message transformation
 -   `OpenAiMessageFormatter`, `ClaudeMessageFormatter`, `GeminiMessageFormatter` implementations
 -   `ToolCall` now extends `DataModel` with proper serialization
@@ -141,6 +212,9 @@ The following methods are deprecated in all drivers:
 
 ### Changed
 
+-   `LlmDriver` constructor now accepts `DriverConfig|array` (backward compatible)
+-   `LlmDriver::sendMessage()` and `sendMessageStreamed()` accept `DriverConfig|array` for override settings
+-   `LarAgent` class now stores `DriverConfig` internally instead of individual properties
 -   `Message` base class is now abstract with no `$content` property
 -   Each message type defines its own typed content (`TextContent`, `MessageContent`, etc.)
 -   `Message` facade is now a pure factory (static methods only)
