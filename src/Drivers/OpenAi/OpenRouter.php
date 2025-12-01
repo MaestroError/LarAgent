@@ -2,6 +2,8 @@
 
 namespace LarAgent\Drivers\OpenAi;
 
+use LarAgent\Core\DTO\DriverConfig;
+
 class OpenRouter extends OpenAiCompatible
 {
     protected string $default_api_url = 'https://openrouter.ai/api/v1';
@@ -10,18 +12,30 @@ class OpenRouter extends OpenAiCompatible
 
     protected string $title = 'LarAgent';
 
-    public function __construct(array $provider = [])
+    public function __construct(DriverConfig|array $settings = [])
     {
-        // Set default values
-        $provider['api_url'] = $provider['api_url'] ?? $this->default_api_url;
-        $this->referer = $provider['referer'] ?? $this->referer;
-        $this->title = $provider['title'] ?? $this->title;
+        // Convert to DriverConfig if needed
+        $provided = is_array($settings) ? DriverConfig::fromArray($settings) : $settings;
+
+        // Extract custom options from extras
+        $this->referer = $provided->getExtra('referer', $this->referer);
+        $this->title = $provided->getExtra('title', $this->title);
+
+        // Create defaults config, then merge with provided settings (provided takes precedence)
+        $defaults = new DriverConfig(
+            api_url: $this->default_api_url,
+        );
+        $settings = $defaults->merge($provided);
 
         // Construct parent class and client
-        parent::__construct($provider);
-        $this->client = $this->buildClient($provider['api_key'], $provider['api_url'], [
-            'HTTP-Referer' => $this->referer,
-            'X-Title' => $this->title,
-        ]);
+        parent::__construct($settings);
+        $this->client = $this->buildClient(
+            $this->getDriverConfig()->api_key,
+            $this->getDriverConfig()->api_url,
+            [
+                'HTTP-Referer' => $this->referer,
+                'X-Title' => $this->title,
+            ]
+        );
     }
 }

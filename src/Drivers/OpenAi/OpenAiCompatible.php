@@ -2,17 +2,20 @@
 
 namespace LarAgent\Drivers\OpenAi;
 
+use LarAgent\Core\DTO\DriverConfig;
 use OpenAI;
 
 class OpenAiCompatible extends BaseOpenAiDriver
 {
     protected string $default_url = 'https://api.openai.com/v1';
 
-    public function __construct(array $provider = [])
+    public function __construct(DriverConfig|array $settings = [])
     {
-        parent::__construct($provider);
-        if ($provider['api_key']) {
-            $this->client = $this->buildClient($provider['api_key'], $provider['api_url'] ?? $this->default_url);
+        parent::__construct($settings);
+        $apiKey = $this->getDriverConfig()->api_key;
+        $apiUrl = $this->getDriverConfig()->api_url ?? $this->default_url;
+        if ($apiKey) {
+            $this->client = $this->buildClient($apiKey, $apiUrl);
         } else {
             throw new \Exception('OpenAiCompatible driver requires api_key in provider settings.');
         }

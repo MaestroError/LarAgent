@@ -6,6 +6,7 @@ use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Hooks;
 use LarAgent\Messages\ToolCallMessage;
@@ -401,7 +402,7 @@ class LarAgent
         $this->chatHistory = $chatHistory;
     }
 
-    public static function setup(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory, array $configs = []): self
+    public static function setup(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory, DriverConfig|array $configs = []): self
     {
         $agent = new self($driver, $chatHistory);
         $agent->initializeConfigs($configs);
@@ -409,12 +410,33 @@ class LarAgent
         return $agent;
     }
 
-    public function initializeConfigs(array $configs): void
+    public function initializeConfigs(DriverConfig|array $configs): void
     {
-        $excludedKeys = [
-            'api_key',
-            'api_url',
-        ];
+        // If it's a DriverConfig, extract values directly from typed properties
+        if ($configs instanceof DriverConfig) {
+            $this->model = $configs->model ?? $this->model;
+            $this->maxCompletionTokens = $configs->maxCompletionTokens ?? $this->maxCompletionTokens;
+            $this->temperature = $configs->temperature ?? $this->temperature;
+            $this->n = $configs->n ?? $this->n;
+            $this->topP = $configs->topP ?? $this->topP;
+            $this->frequencyPenalty = $configs->frequencyPenalty ?? $this->frequencyPenalty;
+            $this->presencePenalty = $configs->presencePenalty ?? $this->presencePenalty;
+            $this->parallelToolCalls = $configs->parallelToolCalls ?? $this->parallelToolCalls;
+            $this->toolChoice = $configs->toolChoice ?? $this->toolChoice;
+            $this->modalities = $configs->modalities ?? $this->modalities;
+            $this->audio = $configs->audio ?? $this->audio;
+
+            // Set any extras from the DriverConfig
+            $extras = $configs->getExtras();
+            if (! empty($extras)) {
+                $this->setConfigs($extras);
+            }
+
+            return;
+        }
+
+        // Handle legacy array format (camelCase keys expected)
+        $excludedKeys = ['apiKey', 'apiUrl'];
         $standardKeys = [
             'contextWindowSize',
             'maxCompletionTokens',
@@ -704,51 +726,29 @@ class LarAgent
         return $response;
     }
 
-    protected function buildConfig(): array
+    protected function buildConfig(): DriverConfig
     {
-        $configs = [
-            'model' => $this->getModel(),
-            'max_completion_tokens' => $this->getMaxCompletionTokens(),
-            'temperature' => $this->getTemperature(),
-        ];
+        $config = new DriverConfig(
+            model: $this->getModel(),
+            maxCompletionTokens: $this->getMaxCompletionTokens(),
+            temperature: $this->getTemperature(),
+            n: $this->getN(),
+            topP: $this->getTopP(),
+            frequencyPenalty: $this->getFrequencyPenalty(),
+            presencePenalty: $this->getPresencePenalty(),
+            parallelToolCalls: ! empty($this->tools) ? $this->getParallelToolCalls() : null,
+            toolChoice: ! empty($this->tools) ? $this->getToolChoice() : null,
+            modalities: ! empty($this->modalities) ? $this->modalities : null,
+            audio: ! empty($this->audio) ? $this->audio : null,
+        );
 
-        if ($this->getN() !== null) {
-            $configs['n'] = $this->getN();
+        // Add any extra configs from Configs trait
+        $extras = $this->getConfigs();
+        if (! empty($extras)) {
+            $config = $config->withExtra($extras);
         }
 
-        if ($this->getTopP() !== null) {
-            $configs['top_p'] = $this->getTopP();
-        }
-
-        if ($this->getFrequencyPenalty() !== null) {
-            $configs['frequency_penalty'] = $this->getFrequencyPenalty();
-        }
-
-        if ($this->getPresencePenalty() !== null) {
-            $configs['presence_penalty'] = $this->getPresencePenalty();
-        }
-
-        if (! empty($this->tools)) {
-            $PTC = $this->getParallelToolCalls();
-            if ($PTC !== null) {
-                $configs['parallel_tool_calls'] = $PTC;
-            }
-
-            $toolChoice = $this->getToolChoice();
-            if ($toolChoice !== null) {
-                $configs['tool_choice'] = $toolChoice;
-            }
-        }
-
-        if (! empty($this->modalities)) {
-            $configs['modalities'] = $this->modalities;
-        }
-
-        if (! empty($this->audio)) {
-            $configs['audio'] = $this->audio;
-        }
-
-        return [...$configs, ...$this->getConfigs()];
+        return $config;
     }
 
     protected function injectInstructions(): void

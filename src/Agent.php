@@ -10,6 +10,7 @@ use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\DTO\AgentDTO;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
@@ -1297,9 +1298,9 @@ class Agent
         }
     }
 
-    protected function initDriver($settings): void
+    protected function initDriver(DriverConfig $config): void
     {
-        $this->llmDriver = new $this->driver($settings);
+        $this->llmDriver = new $this->driver($config);
     }
 
     protected function setupProviderData(): void
@@ -1312,10 +1313,14 @@ class Agent
             $this->history = $provider['chat_history'] ?? config('laragent.default_chat_history');
         }
         $this->providerName = $provider['name'] ?? '';
+        
+        // Extract provider settings into agent properties
         $this->setupDriverConfigs($provider);
 
-        $settings = array_merge($provider, $this->buildConfigsFromAgent());
-        $this->initDriver($settings);
+        // Build final config from agent properties (which now include provider defaults)
+        $finalConfig = $this->buildConfigsFromAgent();
+
+        $this->initDriver($finalConfig);
     }
 
     protected function setupAgent(): void
@@ -1325,52 +1330,30 @@ class Agent
     }
 
     /**
-     * Build configuration array from agent properties.
+     * Build configuration DriverConfig from agent properties.
      * Overrides provider data with agent properties.
      *
-     * @return array The configuration array with model, API key, API URL, and optional parameters.
+     * @return DriverConfig The configuration DTO with model, API key, API URL, and optional parameters.
      */
-    protected function buildConfigsFromAgent(): array
+    protected function buildConfigsFromAgent(): DriverConfig
     {
-        $config = [
-            'model' => $this->model(),
-            'api_key' => $this->getApiKey(),
-            'api_url' => $this->getApiUrl(),
-        ];
-        if (property_exists($this, 'maxCompletionTokens')) {
-            $config['maxCompletionTokens'] = $this->maxCompletionTokens;
-        }
-        if (property_exists($this, 'temperature')) {
-            $config['temperature'] = $this->temperature;
-        }
-        if (property_exists($this, 'n')) {
-            $config['n'] = $this->n;
-        }
-        if (property_exists($this, 'topP')) {
-            $config['topP'] = $this->topP;
-        }
-        if (property_exists($this, 'frequencyPenalty')) {
-            $config['frequencyPenalty'] = $this->frequencyPenalty;
-        }
-        if (property_exists($this, 'presencePenalty')) {
-            $config['presencePenalty'] = $this->presencePenalty;
-        }
-        if (property_exists($this, 'parallelToolCalls')) {
-            $config['parallelToolCalls'] = $this->parallelToolCalls;
-        }
-        if (property_exists($this, 'toolChoice')) {
-            $config['toolChoice'] = $this->toolChoice;
-        }
+        $config = new DriverConfig(
+            model: $this->model(),
+            apiKey: $this->getApiKey(),
+            apiUrl: $this->getApiUrl(),
+            maxCompletionTokens: $this->maxCompletionTokens ?? null,
+            temperature: $this->temperature ?? null,
+            n: $this->n ?? null,
+            topP: $this->topP ?? null,
+            frequencyPenalty: $this->frequencyPenalty ?? null,
+            presencePenalty: $this->presencePenalty ?? null,
+            parallelToolCalls: $this->parallelToolCalls ?? null,
+            toolChoice: $this->toolChoice ?? null,
+            modalities: ! empty($this->modalities) ? $this->modalities : null,
+            audio: ! empty($this->audio) ? $this->audio : null,
+        );
 
-        if (! empty($this->modalities)) {
-            $config['modalities'] = $this->modalities;
-        }
-
-        if (! empty($this->audio)) {
-            $config['audio'] = $this->audio;
-        }
-
-        return [...$config, ...$this->configs];
+        return $config->withExtra($this->configs);
     }
 
     protected function registerEvents(): void

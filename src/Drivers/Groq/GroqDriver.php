@@ -6,6 +6,7 @@ use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Drivers\OpenAi\OpenAiMessageFormatter;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
@@ -19,12 +20,13 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
     protected MessageFormatter $formatter;
 
-    public function __construct(array $settings = [])
+    public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
 
-        $apiKey = $settings['api_key'] ?? null;
-        $apiUrl = $settings['api_url'] ?? null;
+        $driverConfig = $this->getDriverConfig();
+        $apiKey = $driverConfig->apiKey;
+        $apiUrl = $driverConfig->apiUrl;
 
         $options = [];
         if ($apiUrl) {
@@ -52,13 +54,13 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         return $this->formatter;
     }
 
-    public function sendMessage(array $messages, array $options = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Groq driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         $response = $this->client->chat()->completions()->create($payload);
         $this->lastResponse = $response;
@@ -82,13 +84,13 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         throw new \Exception('Unexpected finish reason: '.$finishReason);
     }
 
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Groq driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
         $payload['stream'] = true;
 
         $stream = new StreamedAssistantMessage;
@@ -253,21 +255,44 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
-    protected function preparePayload(array $messages, array $options = []): array
+    protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
-        if (empty($options['model'])) {
-            $options['model'] = $this->getSettings()['model'] ?? 'llama-3.3-70b-versatile';
-        }
-
-        $this->setConfig($options);
+        // Merge driver config with override settings
+        $overrideConfig = DriverConfig::wrap($overrideSettings);
+        $config = $this->getDriverConfig()->merge($overrideConfig);
 
         // Format messages using the formatter (converts Message objects to API format)
         $formattedMessages = $this->formatter->formatMessages($messages);
 
-        $payload = array_merge($this->getConfig(), [
+        // Build payload with known properties
+        $payload = [
+            'model' => $config->model ?? 'llama-3.3-70b-versatile',
             'messages' => $formattedMessages,
-        ]);
+        ];
 
+        // Add optional known properties
+        if ($config->has('temperature')) {
+            $payload['temperature'] = $config->temperature;
+        }
+        if ($config->has('maxCompletionTokens')) {
+            $payload['max_tokens'] = $config->maxCompletionTokens;
+        }
+        if ($config->has('topP')) {
+            $payload['top_p'] = $config->topP;
+        }
+        if ($config->has('frequencyPenalty')) {
+            $payload['frequency_penalty'] = $config->frequencyPenalty;
+        }
+        if ($config->has('presencePenalty')) {
+            $payload['presence_penalty'] = $config->presencePenalty;
+        }
+
+        // Add any extra/custom settings
+        foreach ($config->getExtras() as $key => $value) {
+            $payload[$key] = $value;
+        }
+
+        // Structured output support
         if ($this->structuredOutputEnabled()) {
             $schema = $this->getResponseSchema();
 

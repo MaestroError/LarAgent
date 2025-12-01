@@ -8,6 +8,7 @@ use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
@@ -21,23 +22,22 @@ class GeminiDriver extends LlmDriver
 
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/';
 
-    protected array $config = [];
-
     protected MessageFormatter $formatter;
 
-    public function __construct(array $settings = [])
+    public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
 
-        if (empty($settings['api_key'])) {
+        $driverConfig = $this->getDriverConfig();
+
+        if (empty($driverConfig->apiKey)) {
             throw new RuntimeException('Gemini driver requires an API key.');
         }
 
-        $this->apiKey = $settings['api_key'];
-        $this->config = $settings;
+        $this->apiKey = $driverConfig->apiKey;
 
         // Configurable base URL
-        $this->baseUrl = $settings['api_url'] ?? $this->baseUrl;
+        $this->baseUrl = $driverConfig->apiUrl ?? $this->baseUrl;
 
         $this->httpClient = new Client([
             'base_uri' => $this->baseUrl,
@@ -70,12 +70,15 @@ class GeminiDriver extends LlmDriver
     /**
      * Send a message to the LLM and receive a response using native Gemini API.
      */
-    public function sendMessage(array $messages, array $options = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         try {
-            $payload = $this->preparePayload($messages, $options);
+            $payload = $this->preparePayload($messages, $overrideSettings);
 
-            $model = $options['model'] ?? $this->config['model'] ?? 'gemini-1.5-flash-latest';
+            // Get merged config for model
+            $overrideConfig = DriverConfig::wrap($overrideSettings);
+            $config = $this->getDriverConfig()->merge($overrideConfig);
+            $model = $config->model ?? 'gemini-1.5-flash-latest';
 
             $url = "models/{$model}:generateContent";
 
@@ -136,12 +139,15 @@ class GeminiDriver extends LlmDriver
     /**
      * Send a message to the LLM and receive a streamed response.
      */
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): Generator
     {
         try {
-            $payload = $this->preparePayload($messages, $options);
+            $payload = $this->preparePayload($messages, $overrideSettings);
 
-            $model = $options['model'] ?? $this->config['model'] ?? 'gemini-1.5-flash-latest';
+            // Get merged config for model
+            $overrideConfig = DriverConfig::wrap($overrideSettings);
+            $config = $this->getDriverConfig()->merge($overrideConfig);
+            $model = $config->model ?? 'gemini-1.5-flash-latest';
 
             // Use streaming endpoint
             $url = "models/{$model}:streamGenerateContent";
@@ -268,8 +274,12 @@ class GeminiDriver extends LlmDriver
     /**
      * Prepare the payload for API request.
      */
-    protected function preparePayload(array $messages, array $options = []): array
+    protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
+        // Merge driver config with override settings
+        $overrideConfig = DriverConfig::wrap($overrideSettings);
+        $config = $this->getDriverConfig()->merge($overrideConfig);
+
         // Use formatter to convert Message objects to Gemini format
         $contents = $this->formatter->formatMessages($messages);
         
@@ -283,28 +293,31 @@ class GeminiDriver extends LlmDriver
             $payload['systemInstruction'] = $systemInstruction;
         }
 
-        // Generation config
+        // Generation config with known properties
         $generationConfig = [];
-        if (isset($options['temperature'])) {
-            $generationConfig['temperature'] = $options['temperature'];
+        
+        if ($config->has('temperature')) {
+            $generationConfig['temperature'] = $config->temperature;
         }
-        if (isset($options['max_tokens'])) {
-            $generationConfig['maxOutputTokens'] = $options['max_tokens'];
+        if ($config->has('maxCompletionTokens')) {
+            $generationConfig['maxOutputTokens'] = $config->maxCompletionTokens;
         }
-        if (isset($options['top_p'])) {
-            $generationConfig['topP'] = $options['top_p'];
+        if ($config->has('topP')) {
+            $generationConfig['topP'] = $config->topP;
         }
-        if (isset($options['top_k'])) {
-            $generationConfig['topK'] = $options['top_k'];
+        
+        // Gemini-specific extras (top_k, etc.)
+        if ($config->getExtra('top_k') !== null) {
+            $generationConfig['topK'] = $config->getExtra('top_k');
         }
 
         // Structured output support
         if ($this->structuredOutputEnabled()) {
             $generationConfig['responseJsonSchema'] = $this->getResponseSchema();
             $generationConfig['responseMimeType'] = 'application/json';
-        } elseif (isset($options['response_schema'])) {
-            // Fallback to options if response schema is passed via options
-            $generationConfig['responseJsonSchema'] = $options['response_schema'];
+        } elseif ($config->getExtra('response_schema') !== null) {
+            // Fallback to config if response schema is passed via settings
+            $generationConfig['responseJsonSchema'] = $config->getExtra('response_schema');
             $generationConfig['responseMimeType'] = 'application/json';
         }
 

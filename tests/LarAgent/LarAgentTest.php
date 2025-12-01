@@ -157,11 +157,11 @@ it('includes optional config values when set', function () {
     $buildConfig->setAccessible(true);
     $config = $buildConfig->invoke($agent);
 
-    expect($config)->toMatchArray([
+    expect($config->toArray())->toMatchArray([
         'n' => 2,
-        'top_p' => 0.8,
-        'frequency_penalty' => 0.1,
-        'presence_penalty' => 0.2,
+        'topP' => 0.8,
+        'frequencyPenalty' => 0.1,
+        'presencePenalty' => 0.2,
     ]);
 });
 

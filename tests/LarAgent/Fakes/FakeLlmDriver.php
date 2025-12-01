@@ -5,6 +5,7 @@ namespace LarAgent\Tests\LarAgent\Fakes;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\ToolCall;
@@ -12,6 +13,11 @@ use LarAgent\ToolCall;
 class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
 {
     protected array $mockResponses = [];
+
+    /**
+     * Stores the last override settings passed to sendMessage/sendMessageStreamed for testing verification.
+     */
+    protected array $lastOverrideSettings = [];
 
     public function addMockResponse(string $finishReason, array $responseData): void
     {
@@ -21,9 +27,20 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
-    public function sendMessage(array $messages, array $options = []): AssistantMessage|ToolCallMessage
+    /**
+     * Get the merged config (settings + overrides) from the last call.
+     * Used by tests to verify configuration was passed correctly.
+     */
+    public function getConfig(): array
     {
-        $this->setConfig($options);
+        return array_merge($this->getSettings(), $this->lastOverrideSettings);
+    }
+
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
+    {
+        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
+            ? $overrideSettings->toArray() 
+            : $overrideSettings;
 
         if (empty($this->mockResponses)) {
             throw new \Exception('No mock responses are defined.');
@@ -60,15 +77,17 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
      * This is a simplified implementation for testing purposes.
      *
      * @param  array  $messages  Array of messages to send
-     * @param  array  $options  Configuration options
+     * @param  array  $overrideSettings  Configuration overrides
      * @param  callable|null  $callback  Optional callback function to process each chunk
      * @return \Generator A generator that yields chunks of the response
      *
      * @throws \Exception
      */
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
-        $this->setConfig($options);
+        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
+            ? $overrideSettings->toArray() 
+            : $overrideSettings;
 
         if (empty($this->mockResponses)) {
             throw new \Exception('No mock responses are defined.');

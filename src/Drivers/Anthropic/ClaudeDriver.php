@@ -8,6 +8,7 @@ use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
@@ -21,11 +22,13 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
     protected MessageFormatter $formatter;
 
-    public function __construct(array $settings = [])
+    public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
-        if ($settings['api_key']) {
-            $this->client = $this->buildClient($settings['api_key'], $settings['api_url'] ?? $this->default_url);
+        $apiKey = $this->getDriverConfig()->apiKey;
+        $apiUrl = $this->getDriverConfig()->apiUrl ?? $this->default_url;
+        if ($apiKey) {
+            $this->client = $this->buildClient($apiKey, $apiUrl);
         } else {
             throw new \Exception('API key is required to use the Claude driver.');
         }
@@ -60,13 +63,13 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         return $client;
     }
 
-    public function sendMessage(array $messages, array $options = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         $response = $this->client->messages()->create($payload);
         $this->lastResponse = $response;
@@ -93,13 +96,13 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         throw new \Exception('Unexpected stop reason: '.$response->stop_reason);
     }
 
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
         $payload['stream'] = true;
 
         $response = $this->client->messages()->createStreamed($payload);
@@ -272,21 +275,15 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
     }
 
-    protected function preparePayload(array $messages, array $options = []): array
+    protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
         if ($this->structuredOutputEnabled()) {
             throw new \Exception('Anthropic/Claude driver does not support structured output through JSON schema.');
         }
 
-        $payload = [];
-
-        if (empty($options['model'])) {
-            $options['model'] = $this->settings['model'] ?? 'claude-3-7-sonnet-latest';
-        }
-
-        $payload['model'] = $options['model'];
-
-        $this->setConfig($options);
+        // Merge driver config with override settings
+        $overrideConfig = DriverConfig::wrap($overrideSettings);
+        $config = $this->getDriverConfig()->merge($overrideConfig);
 
         // Use formatter to extract system instruction
         $systemPrompt = $this->formatter->extractSystemInstruction($messages);
@@ -294,16 +291,28 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         // Use formatter to convert Message objects to Claude format
         $chatMessages = $this->formatter->formatMessages($messages);
 
+        // Build payload with known properties
+        $payload = [
+            'model' => $config->model ?? 'claude-3-7-sonnet-latest',
+            'messages' => $chatMessages,
+            'max_tokens' => $config->maxCompletionTokens ?? 1024,
+        ];
+
         if ($systemPrompt) {
             $payload['system'] = $systemPrompt;
         }
 
-        $payload['messages'] = $chatMessages;
+        // Add optional known properties
+        if ($config->has('temperature')) {
+            $payload['temperature'] = $config->temperature;
+        }
+        if ($config->has('topP')) {
+            $payload['top_p'] = $config->topP;
+        }
 
-        $payload['max_tokens'] = $options['max_completion_tokens'] ?? $this->settings['max_completion_tokens'] ?? 1024;
-
-        if (isset($options['temperature'])) {
-            $payload['temperature'] = $options['temperature'];
+        // Add any extra/custom settings (Claude-specific options)
+        foreach ($config->getExtras() as $key => $value) {
+            $payload[$key] = $value;
         }
 
         if (! empty($this->tools)) {

@@ -268,10 +268,11 @@ it('excludes parallel_tool_calls from config when set to null', function () {
 
     $buildConfigsFromAgent = $reflection->getMethod('buildConfigsFromAgent');
     $buildConfigsFromAgent->setAccessible(true);
-    $config = $buildConfigsFromAgent->invoke($agent);
+    $driverConfig = $buildConfigsFromAgent->invoke($agent);
 
-    expect($config)->toHaveKey('parallelToolCalls')
-        ->and($config['parallelToolCalls'])->toBeNull();
+    // DriverConfig has parallelToolCalls as null, and toArray() filters out null values
+    expect($driverConfig->parallelToolCalls)->toBeNull()
+        ->and($driverConfig->toArray())->not->toHaveKey('parallelToolCalls');
 });
 
 it('includes toolChoice when using tool selection methods', function () {
@@ -283,24 +284,25 @@ it('includes toolChoice when using tool selection methods', function () {
     $agent->withTool(Tool::create('dummy', 'd')->setCallback(fn () => 'x'));
 
     $agent->toolAuto();
-    $config = $buildConfigs->invoke($agent);
-    expect($config)->toHaveKey('toolChoice')
-        ->and($config['toolChoice'])->toBe('auto')
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toBe('auto')
+        ->and($driverConfig->toArray())->toHaveKey('toolChoice')
+        ->and($driverConfig->toArray()['toolChoice'])->toBe('auto')
         ->and($agent->getToolChoice())->toBe('auto');
 
     $agent->toolNone();
-    $config = $buildConfigs->invoke($agent);
-    expect($config['toolChoice'])->toBe('none')
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toBe('none')
         ->and($agent->getToolChoice())->toBe('none');
 
     $agent->toolRequired();
-    $config = $buildConfigs->invoke($agent);
-    expect($config['toolChoice'])->toBe('required')
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toBe('required')
         ->and($agent->getToolChoice())->toBe('required');
 
     $agent->forceTool('test_tool');
-    $config = $buildConfigs->invoke($agent);
-    expect($config['toolChoice'])->toMatchArray([
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toMatchArray([
         'type' => 'function',
         'function' => ['name' => 'test_tool'],
     ])->and($agent->getToolChoice())->toMatchArray([
@@ -339,9 +341,9 @@ it('passes optional parameters to driver config', function () {
 
     expect($config)->toMatchArray([
         'n' => 3,
-        'top_p' => 0.7,
-        'frequency_penalty' => 0.2,
-        'presence_penalty' => 0.1,
+        'topP' => 0.7,
+        'frequencyPenalty' => 0.2,
+        'presencePenalty' => 0.1,
     ]);
 });
 

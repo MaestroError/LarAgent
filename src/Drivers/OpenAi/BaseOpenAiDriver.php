@@ -6,6 +6,7 @@ use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
@@ -21,7 +22,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
     protected MessageFormatter $formatter;
 
-    public function __construct(array $settings = [])
+    public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
         $this->formatter = $this->createFormatter();
@@ -48,19 +49,19 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
      * Send a message to the LLM and receive a response.
      *
      * @param  array  $messages  Array of messages to send
-     * @param  array  $options  Configuration options
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @return AssistantMessage The response from the LLM
      *
      * @throws \Exception
      */
-    public function sendMessage(array $messages, array $options = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the OpenAI driver.');
         }
 
         // Prepare the payload with common settings
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         // Make an API call to OpenAI ("/chat" endpoint)
         $this->lastResponse = $this->client->chat()->create($payload);
@@ -75,7 +76,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
         if (
             $finishReason === 'tool_calls'
-            || (isset($options['tool_choice']) && is_array($options['tool_choice']) && isset($responseArray['choices'][0]['message']['tool_calls']))
+            || (isset($payload['tool_choice']) && is_array($payload['tool_choice']) && isset($responseArray['choices'][0]['message']['tool_calls']))
         ) {
             // Extract tool calls using formatter
             $toolCalls = $this->formatter->extractToolCalls($responseArray);
@@ -86,7 +87,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         if ($finishReason === 'stop') {
             $content = $this->formatter->extractContent($responseArray);
 
-            if (isset($options['n']) && $options['n'] > 1) {
+            if (isset($payload['n']) && $payload['n'] > 1) {
                 $contentsArray = [];
 
                 foreach ($responseArray['choices'] as $choice) {
@@ -108,20 +109,20 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
      * Send a message to the LLM and receive a streamed response.
      *
      * @param  array  $messages  Array of messages to send
-     * @param  array  $options  Configuration options
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @param  callable|null  $callback  Optional callback function to process each chunk
      * @return \Generator A generator that yields chunks of the response
      *
      * @throws \Exception
      */
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('OpenAI API key is required to use the OpenAI driver.');
         }
 
         // Prepare the payload with common settings
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         // Add stream-specific options
         $payload['stream'] = true;
@@ -323,24 +324,60 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
      * Prepare the payload for API request with common settings
      *
      * @param  array  $messages  The messages to send
-     * @param  array  $options  Configuration options
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @return array The prepared payload
      */
-    protected function preparePayload(array $messages, array $options = []): array
+    protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
-        // Add model if from provider data if not provided via options
-        if (empty($options['model'])) {
-            $options['model'] = $this->getSettings()['model'] ?? 'gpt-4o-mini';
-        }
-
-        $this->setConfig($options);
+        // Merge driver config with override settings
+        $overrideConfig = DriverConfig::wrap($overrideSettings);
+        $config = $this->getDriverConfig()->merge($overrideConfig);
 
         // Format messages using the formatter (converts Message objects to API format)
         $formattedMessages = $this->formatter->formatMessages($messages);
 
-        $payload = array_merge($this->getConfig(), [
+        // Build payload with known properties
+        $payload = [
+            'model' => $config->model ?? 'gpt-4o-mini',
             'messages' => $formattedMessages,
-        ]);
+        ];
+
+        // Add optional known properties
+        if ($config->has('temperature')) {
+            $payload['temperature'] = $config->temperature;
+        }
+        if ($config->has('maxCompletionTokens')) {
+            $payload['max_completion_tokens'] = $config->maxCompletionTokens;
+        }
+        if ($config->has('n')) {
+            $payload['n'] = $config->n;
+        }
+        if ($config->has('topP')) {
+            $payload['top_p'] = $config->topP;
+        }
+        if ($config->has('frequencyPenalty')) {
+            $payload['frequency_penalty'] = $config->frequencyPenalty;
+        }
+        if ($config->has('presencePenalty')) {
+            $payload['presence_penalty'] = $config->presencePenalty;
+        }
+        if ($config->has('toolChoice')) {
+            $payload['tool_choice'] = $config->toolChoice;
+        }
+        if ($config->has('parallelToolCalls')) {
+            $payload['parallel_tool_calls'] = $config->parallelToolCalls;
+        }
+        if ($config->has('modalities')) {
+            $payload['modalities'] = $config->modalities;
+        }
+        if ($config->has('audio')) {
+            $payload['audio'] = $config->audio;
+        }
+
+        // Add any extra/custom settings
+        foreach ($config->getExtras() as $key => $value) {
+            $payload[$key] = $value;
+        }
 
         // Set the response format if "responseSchema" is provided
         if ($this->structuredOutputEnabled()) {
