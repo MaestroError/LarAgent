@@ -45,7 +45,7 @@ class MakeAgentToolCommand extends Command
         File::put($filePath, $content);
 
         $this->info("Agent tool created successfully: {$name}");
-        $this->info("Location: {$filePath}");
+        $this->line("Location: {$filePath}");
 
         return Command::SUCCESS;
     }
