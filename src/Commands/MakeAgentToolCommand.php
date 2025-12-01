@@ -34,10 +34,10 @@ class MakeAgentToolCommand extends Command
         $stub = File::get(__DIR__.'/stubs/agent-tool.stub');
 
         // Replace placeholders
-        $toolNameKebab = Str::snake($name);
+        $toolNameSnake = Str::snake($name);
         $content = str_replace(
             ['{{ class }}', '{{ name }}'],
-            [$name, $toolNameKebab],
+            [$name, $toolNameSnake],
             $stub
         );
 
