@@ -113,6 +113,20 @@ class DriverConfig
     }
 
     /**
+     * Set a property value directly
+     */
+    public function set(string $property, mixed $value): static
+    {
+        if (property_exists($this, $property) && $property !== 'extra') {
+            $this->$property = $value;
+        } else {
+            $this->extra[$property] = $value;
+        }
+
+        return $this;
+    }
+
+    /**
      * Merge with another DriverConfig (other takes precedence for non-null values)
      */
     public function merge(DriverConfig $other): static

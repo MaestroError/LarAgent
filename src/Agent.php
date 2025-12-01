@@ -1353,7 +1353,7 @@ class Agent
             audio: ! empty($this->audio) ? $this->audio : null,
         );
 
-        return $config->withExtra($this->configs);
+        return $config->withExtra($this->getConfigs());
     }
 
     protected function registerEvents(): void
