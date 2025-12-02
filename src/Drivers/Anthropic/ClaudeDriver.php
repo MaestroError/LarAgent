@@ -12,6 +12,7 @@ use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\DataModels\Usage;
 use LarAgent\ToolCall;
 
 class ClaudeDriver extends LlmDriver implements LlmDriverInterface
@@ -79,18 +80,23 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
         // Use formatter extraction methods
         $finishReason = $this->formatter->extractFinishReason($responseArray);
-        $metaData = ['usage' => $this->formatter->extractUsage($responseArray)];
+        $usageData = $this->formatter->extractUsage($responseArray);
+        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
 
         if ($finishReason === 'tool_calls') {
             $toolCalls = $this->formatter->extractToolCalls($responseArray);
 
-            return new ToolCallMessage($toolCalls, $metaData);
+            $message = new ToolCallMessage($toolCalls);
+            $message->setUsage($usage);
+            return $message;
         }
 
         if ($finishReason === 'stop') {
             $content = $this->formatter->extractContent($responseArray);
 
-            return new AssistantMessage($content, $metaData);
+            $message = new AssistantMessage($content);
+            $message->setUsage($usage);
+            return $message;
         }
 
         throw new \Exception('Unexpected stop reason: '.$response->stop_reason);
@@ -131,7 +137,9 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     // create earliest usage timeline
                     $usageTimeline[] = ['event' => 'message_start', 'usage' => $messageStartUsage];
 
-                    $streamedMessage->setUsage($messageStartUsage);
+                    // Normalize usage through formatter
+                    $normalizedUsage = $this->formatter->extractUsage(['usage' => $messageStartUsage]);
+                    $streamedMessage->setUsage(Usage::fromArray($normalizedUsage));
                 }
 
                 continue;
@@ -230,13 +238,8 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $finalUsage = $chunk->usage?->toArray() ?? $finalUsage;
                     $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
 
-                    $toolCallMessage = new ToolCallMessage(
-                        $toolCalls,
-                        [
-                            'usage' => $merged,
-                            'usage_timeline' => $usageTimeline,
-                        ]
-                    );
+                    $toolCallMessage = new ToolCallMessage($toolCalls);
+                    $toolCallMessage->setUsage(Usage::fromArray($merged));
 
                     if ($callback) {
                         $callback($toolCallMessage);
@@ -250,7 +253,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $finalUsage = $chunk->usage?->toArray() ?? $finalUsage;
                     // set the final usage on the streamed text message
                     $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
-                    $streamedMessage->setUsage($merged);
+                    $streamedMessage->setUsage(Usage::fromArray($merged));
                     break;
                 }
             }
@@ -263,7 +266,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         // Finalize the stream: attach merged usage, trigger callback,
         // mark the message as complete, and yield the final message.
         $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
-        $streamedMessage->setUsage($merged);
+        $streamedMessage->setUsage(Usage::fromArray($merged));
 
         if ($callback) {
             $callback($streamedMessage);
@@ -400,21 +403,22 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
         // Input tokens: the first snapshot already represents the full prompt
         // (final often omits it or repeats same value). Prefer first.
-        $input = $first['input_tokens'] ?? $final['input_tokens'] ?? null;
+        $input = $first['input_tokens'] ?? $final['input_tokens'] ?? 0;
 
         // Output tokens: final is the total at the end, not a delta.
         // Prefer final, else fall back to first.
-        $output = $final['output_tokens'] ?? $first['output_tokens'] ?? null;
+        $output = $final['output_tokens'] ?? $first['output_tokens'] ?? 0;
 
         // Sanity: if both exist and "first > final", pick the max to avoid weird regressions.
         if (isset($first['output_tokens'], $final['output_tokens'])) {
             $output = max($first['output_tokens'], $final['output_tokens']);
         }
 
+        // Return normalized keys for Usage DataModel
         return [
-            'input_tokens' => $input,
-            'output_tokens' => $output,
-            'total_tokens' => ($input ?? 0) + ($output ?? 0),
+            'prompt_tokens' => $input,
+            'completion_tokens' => $output,
+            'total_tokens' => $input + $output,
         ];
     }
 }

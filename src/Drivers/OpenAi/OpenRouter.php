@@ -23,15 +23,15 @@ class OpenRouter extends OpenAiCompatible
 
         // Create defaults config, then merge with provided settings (provided takes precedence)
         $defaults = new DriverConfig(
-            api_url: $this->default_api_url,
+            apiUrl: $this->default_api_url,
         );
         $settings = $defaults->merge($provided);
 
         // Construct parent class and client
         parent::__construct($settings);
         $this->client = $this->buildClient(
-            $this->getDriverConfig()->api_key,
-            $this->getDriverConfig()->api_url,
+            $this->getDriverConfig()->apiKey,
+            $this->getDriverConfig()->apiUrl,
             [
                 'HTTP-Referer' => $this->referer,
                 'X-Title' => $this->title,

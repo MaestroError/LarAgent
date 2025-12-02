@@ -10,8 +10,6 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
 {
     protected bool $isComplete = false;
 
-    protected ?array $usage = null;
-
     protected ?string $lastChunk = null;
 
     /**
@@ -58,25 +56,6 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
     public function isComplete(): bool
     {
         return $this->isComplete;
-    }
-
-    /**
-     * Set usage information (available only when stream is complete)
-     */
-    public function setUsage(?array $usage): self
-    {
-        $this->usage = $usage;
-        $this->metadata['usage'] = $usage;
-
-        return $this;
-    }
-
-    /**
-     * Get usage information
-     */
-    public function getUsage(): ?array
-    {
-        return $this->usage;
     }
 
     public function getLastChunk(): ?string

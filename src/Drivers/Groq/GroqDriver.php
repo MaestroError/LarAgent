@@ -11,6 +11,7 @@ use LarAgent\Drivers\OpenAi\OpenAiMessageFormatter;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\DataModels\Usage;
 use LarAgent\ToolCall;
 use LucianoTonet\GroqPHP\Groq;
 
@@ -67,18 +68,23 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
         // Use formatter for extraction
         $finishReason = $this->formatter->extractFinishReason($response);
-        $metaData = ['usage' => $this->formatter->extractUsage($response)];
+        $usageData = $this->formatter->extractUsage($response);
+        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
 
         if ($finishReason === 'tool_calls') {
             $toolCalls = $this->formatter->extractToolCalls($response);
 
-            return new ToolCallMessage($toolCalls, $metaData);
+            $message = new ToolCallMessage($toolCalls);
+            $message->setUsage($usage);
+            return $message;
         }
 
         if ($finishReason === 'stop') {
             $content = $this->formatter->extractContent($response);
 
-            return new AssistantMessage($content, $metaData);
+            $message = new AssistantMessage($content);
+            $message->setUsage($usage);
+            return $message;
         }
 
         throw new \Exception('Unexpected finish reason: '.$finishReason);
@@ -97,7 +103,6 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         $toolCalls = [];
         $toolCallsSummary = [];
         $finishReason = null;
-        $lastUsage = null;
 
         $response = $this->client->chat()->completions()->create($payload);
 
@@ -106,11 +111,11 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
             // Usage info (Groq uses `x_groq.usage` or `usage`)
             if (isset($chunk['x_groq']['usage']) && is_array($chunk['x_groq']['usage'])) {
-                $lastUsage = (array) $chunk['x_groq']['usage'];
-                $stream->setUsage($lastUsage);
+                $usageData = $this->formatter->extractUsage(['usage' => $chunk['x_groq']['usage']]);
+                $stream->setUsage(Usage::fromArray($usageData));
             } elseif (isset($chunk['usage']) && is_array($chunk['usage'])) {
-                $lastUsage = (array) $chunk['usage'];
-                $stream->setUsage($lastUsage);
+                $usageData = $this->formatter->extractUsage($chunk);
+                $stream->setUsage(Usage::fromArray($usageData));
             }
 
             $choice = $chunk['choices'][0] ?? [];
@@ -144,10 +149,12 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                 );
             }, array_values($toolCallsSummary));
 
-            $toolMsg = new ToolCallMessage(
-                $toolCallObjects,
-                $lastUsage ? ['usage' => $lastUsage] : []
-            );
+            $toolMsg = new ToolCallMessage($toolCallObjects);
+            
+            // Transfer usage from streamed message if available
+            if ($stream->getUsage() !== null) {
+                $toolMsg->setUsage($stream->getUsage());
+            }
 
             if ($callback) {
                 $callback($toolMsg);
@@ -158,9 +165,6 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
 
         // Always yield final message
-        if ($lastUsage) {
-            $stream->setUsage($lastUsage);
-        }
         $stream->setComplete(true);
 
         if ($callback) {

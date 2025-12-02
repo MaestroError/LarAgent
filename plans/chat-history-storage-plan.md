@@ -1,13 +1,5 @@
 # Chat History Storage Implementation Plan (Phase 4+)
 
-## Overview
-
-This plan continues from the completed phases (1-3) of `history-implementation.md` to implement `ChatHistoryStorage` - a new storage class that leverages the existing `Storage` abstraction while providing chat-specific features and event hooks.
-
-**Status:** Phases 1-3 completed (DataModelArray nested discriminator, Message classes updates, MessageArray).
-
----
-
 ## Goals
 
 -   Create `ChatHistoryStorage` extending `Storage` abstraction
@@ -98,6 +90,7 @@ Update all drivers to set usage directly on AssistantMessage/ToolCallMessage ins
 ### Notes
 
 -   StreamedAssistantMessage already has `setUsage()` method - align it to use Usage DataModel
+-   Handle usage keys inside driver, UsageData class should not include any logic, just pass correct keys
 
 ---
 
@@ -174,13 +167,7 @@ public function __construct(
 -   `save()`/`load()` are the main API; `readFromMemory()`/`writeToMemory()` are for direct driver access
 -   Usage data is always stored (it's part of the message, not metadata)
 -   Metadata storage is opt-in via constructor parameter
-
-### ChatHistory Contract Updates
-
-Add to `LarAgent\Core\Contracts\ChatHistory`:
-
--   `save(): void` - Smart save with dirty tracking
--   `load(): void` - Lazy load from storage
+-   Avoid implementing current chat history contract
 
 ---
 

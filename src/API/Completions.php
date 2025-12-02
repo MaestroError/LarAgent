@@ -45,8 +45,9 @@ class Completions
 
         if ($response instanceof MessageInterface) {
             $message = $response->toArrayWithMeta();
-            // Keep usage data separately
-            $usage = $message['metadata']['usage'] ?? null;
+            // Get usage from message directly (first-class property) or fall back to metadata (legacy)
+            $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
+            unset($message['usage']);
             unset($message['metadata']['usage']);
 
             $choices = [[
@@ -265,9 +266,9 @@ class Completions
     {
         foreach ($stream as $chunk) {
             if ($chunk instanceof StreamedAssistantMessage) {
-                // Add usage data
+                // Get usage from message directly (first-class property) or fall back to metadata (legacy)
                 $message = $chunk->toArrayWithMeta();
-                $usage = $message['metadata']['usage'] ?? null;
+                $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
 
                 yield [
                     'id' => $this->agent->getChatSessionId(),
@@ -286,9 +287,9 @@ class Completions
                     'usage' => $usage,
                 ];
             } elseif ($chunk instanceof ToolCallMessage) {
-                // Add usage data
+                // Get usage from message directly (first-class property) or fall back to metadata (legacy)
                 $message = $chunk->toArrayWithMeta();
-                $usage = $message['metadata']['usage'] ?? null;
+                $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
                 yield [
                     'id' => $this->agent->getChatSessionId(),
                     'object' => 'chat.completion.chunk',

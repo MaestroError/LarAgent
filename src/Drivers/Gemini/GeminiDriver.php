@@ -12,6 +12,7 @@ use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\DataModels\Usage;
 use RuntimeException;
 
 class GeminiDriver extends LlmDriver
@@ -97,26 +98,26 @@ class GeminiDriver extends LlmDriver
      */
     protected function handleResponse(array $responseData): AssistantMessage
     {
+        $usageData = $this->formatter->extractUsage($responseData);
+        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
+
         // Use formatter's hasToolCalls since Gemini returns 'STOP' even with tool calls
         if ($this->formatter->hasToolCalls($responseData)) {
             $toolCalls = $this->formatter->extractToolCalls($responseData);
-            $metaData = [
-                'usage' => $this->formatter->extractUsage($responseData),
-                'tool_calls' => $toolCalls,
-            ];
 
-            return new ToolCallMessage($toolCalls, $metaData);
+            $message = new ToolCallMessage($toolCalls);
+            $message->setUsage($usage);
+            return $message;
         }
 
         $finishReason = $this->formatter->extractFinishReason($responseData);
 
         if ($finishReason === 'stop') {
             $content = $this->formatter->extractContent($responseData);
-            $metaData = [
-                'usage' => $this->formatter->extractUsage($responseData),
-            ];
 
-            return new AssistantMessage($content, $metaData);
+            $message = new AssistantMessage($content);
+            $message->setUsage($usage);
+            return $message;
         }
 
         if ($finishReason === 'content_filter') {
@@ -235,18 +236,22 @@ class GeminiDriver extends LlmDriver
 
             // Set usage information if available (use formatter)
             if ($lastResponseData) {
-                $usage = $this->formatter->extractUsage($lastResponseData);
-                $streamedMessage->setUsage($usage);
+                $usageData = $this->formatter->extractUsage($lastResponseData);
+                if (!empty($usageData)) {
+                    $streamedMessage->setUsage(Usage::fromArray($usageData));
+                }
             }
 
             // If we have tool calls, return a ToolCallMessage
             if (! empty($toolCallsSummary) && ($finishReason !== 'stop' || $finishReason === null)) {
                 $toolCallObjects = array_values($toolCallsSummary);
 
-                $toolCallMessage = new ToolCallMessage(
-                    $toolCallObjects,
-                    $streamedMessage->getUsage() ? ['usage' => $streamedMessage->getUsage()] : []
-                );
+                $toolCallMessage = new ToolCallMessage($toolCallObjects);
+                
+                // Transfer usage from streamed message if available
+                if ($streamedMessage->getUsage() !== null) {
+                    $toolCallMessage->setUsage($streamedMessage->getUsage());
+                }
 
                 // Execute callback if provided
                 if ($callback) {

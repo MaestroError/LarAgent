@@ -105,6 +105,7 @@ class ClaudeMessageFormatter implements MessageFormatter
     /**
      * Extract usage/token information from Claude response.
      * Claude uses 'input_tokens'/'output_tokens' instead of 'prompt_tokens'/'completion_tokens'.
+     * Normalizes to standard keys: prompt_tokens, completion_tokens, total_tokens.
      */
     public function extractUsage(array $response): array
     {
@@ -117,9 +118,6 @@ class ClaudeMessageFormatter implements MessageFormatter
             'prompt_tokens' => $inputTokens,
             'completion_tokens' => $outputTokens,
             'total_tokens' => $inputTokens + $outputTokens,
-            // Also include original Claude field names
-            'input_tokens' => $inputTokens,
-            'output_tokens' => $outputTokens,
         ];
     }
 

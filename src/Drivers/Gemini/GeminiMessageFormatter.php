@@ -110,24 +110,27 @@ class GeminiMessageFormatter implements MessageFormatter
     /**
      * Extract usage/token information from Gemini response.
      * Gemini uses 'usageMetadata' with different field names.
+     * Normalizes to standard keys: prompt_tokens, completion_tokens, total_tokens.
      */
     public function extractUsage(array $response): array
     {
-        $usage = [
-            'prompt_tokens' => 0,
-            'completion_tokens' => 0,
-            'total_tokens' => 0,
-        ];
-
-        if (isset($response['usageMetadata'])) {
-            $usage = [
-                'prompt_tokens' => $response['usageMetadata']['promptTokenCount'] ?? 0,
-                'completion_tokens' => $response['usageMetadata']['candidatesTokenCount'] ?? 0,
-                'total_tokens' => $response['usageMetadata']['totalTokenCount'] ?? 0,
+        if (!isset($response['usageMetadata'])) {
+            return [
+                'prompt_tokens' => 0,
+                'completion_tokens' => 0,
+                'total_tokens' => 0,
             ];
         }
 
-        return $usage;
+        $meta = $response['usageMetadata'];
+        $promptTokens = $meta['promptTokenCount'] ?? 0;
+        $completionTokens = $meta['candidatesTokenCount'] ?? 0;
+
+        return [
+            'prompt_tokens' => $promptTokens,
+            'completion_tokens' => $completionTokens,
+            'total_tokens' => $meta['totalTokenCount'] ?? ($promptTokens + $completionTokens),
+        ];
     }
 
     /**

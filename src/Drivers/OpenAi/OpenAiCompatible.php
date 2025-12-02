@@ -12,8 +12,8 @@ class OpenAiCompatible extends BaseOpenAiDriver
     public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
-        $apiKey = $this->getDriverConfig()->api_key;
-        $apiUrl = $this->getDriverConfig()->api_url ?? $this->default_url;
+        $apiKey = $this->getDriverConfig()->apiKey;
+        $apiUrl = $this->getDriverConfig()->apiUrl ?? $this->default_url;
         if ($apiKey) {
             $this->client = $this->buildClient($apiKey, $apiUrl);
         } else {

@@ -169,9 +169,7 @@ describe('ClaudeMessageFormatter', function () {
 
         expect($usage['prompt_tokens'])->toBe(100)
             ->and($usage['completion_tokens'])->toBe(50)
-            ->and($usage['total_tokens'])->toBe(150)
-            ->and($usage['input_tokens'])->toBe(100)
-            ->and($usage['output_tokens'])->toBe(50);
+            ->and($usage['total_tokens'])->toBe(150);
     });
 
     // ========== extractToolCalls Tests ==========

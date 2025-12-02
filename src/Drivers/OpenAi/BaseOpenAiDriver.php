@@ -10,6 +10,7 @@ use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\DataModels\Usage;
 use LarAgent\ToolCall;
 
 /**
@@ -69,9 +70,8 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         // Extract data using formatter
         $finishReason = $this->formatter->extractFinishReason($responseArray);
-        $metaData = [
-            'usage' => $this->formatter->extractUsage($responseArray),
-        ];
+        $usageData = $this->formatter->extractUsage($responseArray);
+        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
 
         // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
         if (
@@ -81,7 +81,9 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
             // Extract tool calls using formatter
             $toolCalls = $this->formatter->extractToolCalls($responseArray);
 
-            return new ToolCallMessage($toolCalls, $metaData);
+            $message = new ToolCallMessage($toolCalls);
+            $message->setUsage($usage);
+            return $message;
         }
 
         if ($finishReason === 'stop') {
@@ -99,7 +101,9 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
                 $content = json_encode($contentsArray);
             }
 
-            return new AssistantMessage($content, $metaData);
+            $message = new AssistantMessage($content);
+            $message->setUsage($usage);
+            return $message;
         }
 
         throw new \Exception('Unexpected finish reason: '.$finishReason);
@@ -146,11 +150,11 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             // Check if this is the last chunk with usage information
             if (isset($response->usage)) {
-                $streamedMessage->setUsage([
-                    'prompt_tokens' => $response->usage->promptTokens,
-                    'completion_tokens' => $response->usage->completionTokens,
-                    'total_tokens' => $response->usage->totalTokens,
-                ]);
+                $streamedMessage->setUsage(new Usage(
+                    $response->usage->promptTokens,
+                    $response->usage->completionTokens,
+                    $response->usage->totalTokens
+                ));
                 $streamedMessage->setComplete(true);
 
                 // Execute callback if provided
@@ -200,10 +204,12 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
             }, array_values($toolCallsSummary));
 
             // Create ToolCallMessage directly - formatter handles conversion when needed
-            $toolCallMessage = new ToolCallMessage(
-                $toolCallObjects,
-                $streamedMessage->getUsage() ? ['usage' => $streamedMessage->getUsage()] : []
-            );
+            $toolCallMessage = new ToolCallMessage($toolCallObjects);
+            
+            // Transfer usage from streamed message if available
+            if ($streamedMessage->getUsage() !== null) {
+                $toolCallMessage->setUsage($streamedMessage->getUsage());
+            }
 
             // Execute callback if provided
             if ($callback) {

@@ -8,6 +8,7 @@ use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Messages\DataModels\Usage;
 use LarAgent\ToolCall;
 
 class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
@@ -56,17 +57,25 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
             $toolCallId = '12345';
             $toolCalls[] = new ToolCall($toolCallId, $responseData['toolName'], $responseData['arguments']);
 
-            return new ToolCallMessage(
-                $toolCalls,
-                $responseData['metaData'] ?? []
-            );
+            $message = new ToolCallMessage($toolCalls);
+            
+            // Set usage if provided in metadata
+            if (isset($responseData['metaData']['usage'])) {
+                $message->setUsage(Usage::fromArray($responseData['metaData']['usage']));
+            }
+            
+            return $message;
         }
 
         if ($finishReason === 'stop') {
-            return new AssistantMessage(
-                $responseData['content'],
-                $responseData['metaData'] ?? []
-            );
+            $message = new AssistantMessage($responseData['content']);
+            
+            // Set usage if provided in metadata
+            if (isset($responseData['metaData']['usage'])) {
+                $message->setUsage(Usage::fromArray($responseData['metaData']['usage']));
+            }
+            
+            return $message;
         }
 
         throw new \Exception('Unexpected finish reason: '.$finishReason);
@@ -103,10 +112,12 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
             $toolCallId = '12345';
             $toolCalls[] = new ToolCall($toolCallId, $responseData['toolName'], $responseData['arguments']);
 
-            $toolCallMessage = new ToolCallMessage(
-                $toolCalls,
-                $responseData['metaData'] ?? []
-            );
+            $toolCallMessage = new ToolCallMessage($toolCalls);
+            
+            // Set usage if provided in metadata
+            if (isset($responseData['metaData']['usage'])) {
+                $toolCallMessage->setUsage(Usage::fromArray($responseData['metaData']['usage']));
+            }
 
             // Call the callback if provided
             if ($callback) {
@@ -115,10 +126,12 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
 
             yield $toolCallMessage;
         } elseif ($finishReason === 'stop') {
-            $message = new AssistantMessage(
-                $responseData['content'],
-                $responseData['metaData'] ?? []
-            );
+            $message = new AssistantMessage($responseData['content']);
+            
+            // Set usage if provided in metadata
+            if (isset($responseData['metaData']['usage'])) {
+                $message->setUsage(Usage::fromArray($responseData['metaData']['usage']));
+            }
 
             // Call the callback if provided
             if ($callback) {

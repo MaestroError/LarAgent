@@ -9,6 +9,7 @@ use LarAgent\Core\Enums\Role;
 use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Attributes\Desc;
 use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\Usage;
 
 class AssistantMessage extends Message implements MessageInterface
 {
@@ -17,6 +18,13 @@ class AssistantMessage extends Message implements MessageInterface
 
     #[Desc('The text content of the assistant response')]
     public ?TextContent $content;
+
+    /**
+     * Token usage information from the API response.
+     * Excluded from schema as it's not sent to the LLM API.
+     */
+    #[ExcludeFromSchema]
+    public ?Usage $usage = null;
 
     public function __construct(string|TextContent $content = '', array $metadata = [])
     {
@@ -45,6 +53,35 @@ class AssistantMessage extends Message implements MessageInterface
     }
 
     /**
+     * Get the usage information for this message.
+     */
+    public function getUsage(): ?Usage
+    {
+        return $this->usage;
+    }
+
+    /**
+     * Set the usage information for this message.
+     * Accepts either a Usage DataModel or an array (for backward compatibility).
+     * 
+     * @param Usage|array|null $usage
+     * @return $this
+     */
+    public function setUsage(Usage|array|null $usage): static
+    {
+        if ($usage === null) {
+            $this->usage = null;
+        } elseif ($usage instanceof Usage) {
+            $this->usage = $usage;
+        } else {
+            // Convert array to Usage DataModel
+            $this->usage = Usage::fromArray($usage);
+        }
+
+        return $this;
+    }
+
+    /**
      * Check if array data matches AssistantMessage (no tool_calls).
      */
     public static function matchesArray(array $data): bool
@@ -66,6 +103,11 @@ class AssistantMessage extends Message implements MessageInterface
 
         if (!empty($this->extras)) {
             $result['extras'] = $this->extras;
+        }
+
+        // Include usage for storage purposes (not sent to API)
+        if ($this->usage !== null) {
+            $result['usage'] = $this->usage->toArray();
         }
 
         return $result;
@@ -99,6 +141,11 @@ class AssistantMessage extends Message implements MessageInterface
         // Handle id if provided
         if (isset($data['id'])) {
             $instance->id = $data['id'];
+        }
+        
+        // Reconstruct usage from array data
+        if (isset($data['usage']) && is_array($data['usage'])) {
+            $instance->usage = Usage::fromArray($data['usage']);
         }
         
         return $instance;
