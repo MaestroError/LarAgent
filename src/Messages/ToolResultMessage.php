@@ -70,7 +70,7 @@ class ToolResultMessage extends Message implements MessageInterface
             'role' => $this->getRole(),
             'content' => $this->content ? (string) $this->content : '',
             'tool_call_id' => $this->getToolCallId(),
-            'id' => $this->id,
+            'message_uuid' => $this->message_uuid,
         ];
 
         if (!empty($this->extras)) {
@@ -94,9 +94,9 @@ class ToolResultMessage extends Message implements MessageInterface
         
         $instance = new static($content, $toolCallId, $toolName, $metadata);
         
-        // Handle id if provided
-        if (isset($data['id'])) {
-            $instance->id = $data['id'];
+        // Handle message_uuid if provided
+        if (isset($data['message_uuid'])) {
+            $instance->message_uuid = $data['message_uuid'];
         }
         
         return $instance;

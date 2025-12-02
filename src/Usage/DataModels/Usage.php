@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\Messages\DataModels;
+namespace LarAgent\Usage\DataModels;
 
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;

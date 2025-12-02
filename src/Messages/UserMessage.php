@@ -57,9 +57,9 @@ class UserMessage extends Message implements MessageInterface
             $instance->content = new MessageContent($content);
             $instance->metadata = $metadata;
             
-            // Handle id if provided
-            if (isset($data['id'])) {
-                $instance->id = $data['id'];
+            // Handle message_uuid if provided
+            if (isset($data['message_uuid'])) {
+                $instance->message_uuid = $data['message_uuid'];
             }
             
             return $instance;
@@ -67,9 +67,9 @@ class UserMessage extends Message implements MessageInterface
 
         $instance = new static($content, $metadata);
         
-        // Handle id if provided
-        if (isset($data['id'])) {
-            $instance->id = $data['id'];
+        // Handle message_uuid if provided
+        if (isset($data['message_uuid'])) {
+            $instance->message_uuid = $data['message_uuid'];
         }
         
         return $instance;

@@ -15,7 +15,7 @@ use LarAgent\Messages\DataModels\MessageContent;
 abstract class Message extends DataModel implements MessageInterface
 {
     #[ExcludeFromSchema]
-    public string $id;
+    public string $message_uuid;
 
     #[Desc('The role of the message sender')]
     public string|Role $role;  // NO DEFAULT - children will add their fixed value
@@ -35,8 +35,8 @@ abstract class Message extends DataModel implements MessageInterface
     public function __construct()
     {
         // Auto-generate ID if not set
-        if (!isset($this->id)) {
-            $this->id = $this->generateId();
+        if (!isset($this->message_uuid)) {
+            $this->message_uuid = $this->generateId();
         }
     }
 
@@ -50,7 +50,7 @@ abstract class Message extends DataModel implements MessageInterface
      */
     public function getId(): string
     {
-        return $this->id;
+        return $this->message_uuid;
     }
 
     // Implementation of MessageInterface methods
@@ -158,8 +158,8 @@ abstract class Message extends DataModel implements MessageInterface
     {
         $properties = parent::toArray();
 
-        // Include id in output (for storage)
-        $properties['id'] = $this->id;
+        // Include message_uuid in output (for storage)
+        $properties['message_uuid'] = $this->message_uuid;
 
         // Include extras if not empty
         if (!empty($this->extras)) {
@@ -204,11 +204,11 @@ abstract class Message extends DataModel implements MessageInterface
 
         $instance = parent::fromArray($data);
 
-        // Handle id - use from data or generate new
-        if (isset($data['id'])) {
-            $instance->id = $data['id'];
-        } elseif (!isset($instance->id)) {
-            $instance->id = $instance->generateId();
+        // Handle message_uuid - use from data or generate new
+        if (isset($data['message_uuid'])) {
+            $instance->message_uuid = $data['message_uuid'];
+        } elseif (!isset($instance->message_uuid)) {
+            $instance->message_uuid = $instance->generateId();
         }
 
         if (isset($data['metadata'])) {

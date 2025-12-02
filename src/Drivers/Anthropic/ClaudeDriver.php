@@ -12,7 +12,7 @@ use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
 
 class ClaudeDriver extends LlmDriver implements LlmDriverInterface

@@ -50,13 +50,13 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
 
         $instance = new static($toolCalls, $metadata);
         
-        // Handle id if provided
-        if (isset($data['id'])) {
-            $instance->id = $data['id'];
+        // Handle message_uuid if provided
+        if (isset($data['message_uuid'])) {
+            $instance->message_uuid = $data['message_uuid'];
         }
         
         // Handle any extras
-        $knownKeys = ['role', 'tool_calls', 'metadata', 'id', 'extras', 'content'];
+        $knownKeys = ['role', 'tool_calls', 'metadata', 'message_uuid', 'extras', 'content'];
         foreach ($data as $key => $value) {
             if (!in_array($key, $knownKeys)) {
                 $instance->extras[$key] = $value;
@@ -85,7 +85,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
             'role' => $this->getRole(),
             'content' => null,
             'tool_calls' => $this->toolCalls->toArray(),
-            'id' => $this->id,
+            'message_uuid' => $this->message_uuid,
         ];
 
         if (!empty($this->extras)) {

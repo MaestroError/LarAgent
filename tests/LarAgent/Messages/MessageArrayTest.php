@@ -1,7 +1,7 @@
 <?php
 
 use LarAgent\Messages\DataModels\MessageArray;
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Messages\UserMessage;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\SystemMessage;

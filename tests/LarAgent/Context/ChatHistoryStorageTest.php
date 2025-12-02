@@ -1,10 +1,10 @@
 <?php
 
-use LarAgent\Context\ChatHistoryStorage;
+use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Messages\DataModels\MessageArray;
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Messages\UserMessage;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\SystemMessage;

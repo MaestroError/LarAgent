@@ -16,7 +16,7 @@ use LarAgent\Drivers\Gemini\GeminiDriver;
 use LarAgent\Drivers\Groq\GroqDriver;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
 use LarAgent\Drivers\OpenAi\OpenRouter;
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Tests\TestCase;
 
 uses(TestCase::class);

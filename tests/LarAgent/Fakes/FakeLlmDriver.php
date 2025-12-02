@@ -8,7 +8,7 @@ use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
 
 class FakeLlmDriver extends LlmDriver implements LlmDriverInterface

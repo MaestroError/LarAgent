@@ -1,6 +1,6 @@
 <?php
 
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 
 test('Usage: Creates from constructor with defaults', function () {
     $usage = new Usage();

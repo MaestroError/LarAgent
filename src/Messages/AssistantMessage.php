@@ -9,7 +9,7 @@ use LarAgent\Core\Enums\Role;
 use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Attributes\Desc;
 use LarAgent\Messages\DataModels\Content\TextContent;
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 
 class AssistantMessage extends Message implements MessageInterface
 {
@@ -98,7 +98,7 @@ class AssistantMessage extends Message implements MessageInterface
         $result = [
             'role' => $this->getRole(),
             'content' => $this->content ? (string) $this->content : null,
-            'id' => $this->id,
+            'message_uuid' => $this->message_uuid,
         ];
 
         if (!empty($this->extras)) {
@@ -138,9 +138,9 @@ class AssistantMessage extends Message implements MessageInterface
         
         $instance = new static($content, $metadata);
         
-        // Handle id if provided
-        if (isset($data['id'])) {
-            $instance->id = $data['id'];
+        // Handle message_uuid if provided
+        if (isset($data['message_uuid'])) {
+            $instance->message_uuid = $data['message_uuid'];
         }
         
         // Reconstruct usage from array data

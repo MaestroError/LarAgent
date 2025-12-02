@@ -1,6 +1,6 @@
 <?php
 
-namespace LarAgent\Context;
+namespace LarAgent\Context\Storages;
 
 use LarAgent\Context\Abstract\Storage;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;

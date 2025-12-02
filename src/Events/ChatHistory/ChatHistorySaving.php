@@ -4,7 +4,7 @@ namespace LarAgent\Events\ChatHistory;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use LarAgent\Context\ChatHistoryStorage;
+use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Messages\DataModels\MessageArray;
 
 class ChatHistorySaving

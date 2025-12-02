@@ -1,7 +1,7 @@
 <?php
 
 use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\DataModels\Usage;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Messages\DataModels\Content\TextContent;
 
 test('AssistantMessage: Creates with string content', function () {
@@ -154,12 +154,12 @@ test('AssistantMessage: Handles single TextContent format in fromArray', functio
     expect((string) $message->getContent())->toBe('Single text');
 });
 
-test('AssistantMessage: Preserves id in round-trip', function () {
+test('AssistantMessage: Preserves message_uuid in round-trip', function () {
     $original = new AssistantMessage('Hello');
-    $originalId = $original->id;
+    $originalId = $original->message_uuid;
 
     $array = $original->toArray();
     $restored = AssistantMessage::fromArray($array);
 
-    expect($restored->id)->toBe($originalId);
+    expect($restored->message_uuid)->toBe($originalId);
 });
