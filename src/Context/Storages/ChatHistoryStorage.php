@@ -51,9 +51,9 @@ class ChatHistoryStorage extends Storage
      * 
      * @return string The storage prefix
      */
-    protected function getStoragePrefix(): string
+    public static function getStoragePrefix(): string
     {
-        return 'chat_history';
+        return 'chatHistory';
     }
 
     /**
@@ -84,8 +84,7 @@ class ChatHistoryStorage extends Storage
      */
     public function getMessages(): MessageArray
     {
-        $this->ensureLoaded();
-        return $this->items;
+        return $this->get();
     }
 
     /**

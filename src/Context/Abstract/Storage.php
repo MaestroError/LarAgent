@@ -67,7 +67,7 @@ abstract class Storage implements StorageContract
      * 
      * @return string The storage prefix (e.g., 'chat_history', 'state', 'memory')
      */
-    abstract protected function getStoragePrefix(): string;
+    abstract public static function getStoragePrefix(): string;
 
     /**
      * Reset items to an empty DataModelArray

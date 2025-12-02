@@ -5,14 +5,14 @@ namespace LarAgent\Context;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 
-class SessionIdentity implements SessionIdentityContract
+class SessionIdentity extends DataModel implements SessionIdentityContract
 {
-    protected string $key;
+    public string $key;
 
     /**
      * The scope for storage isolation (e.g., 'chat_history', 'state', 'memory')
      */
-    protected ?string $scope = null;
+    public ?string $scope = null;
 
     public function __construct(
         public readonly string $agentName,
