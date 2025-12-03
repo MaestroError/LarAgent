@@ -156,6 +156,15 @@ class Agent
     /** @var string */
     protected $chatSessionId;
 
+    /** @var bool */
+    protected $toolCaching = false;
+
+    /** @var int */
+    protected $toolCacheTtl = 3600;
+
+    /** @var string|null */
+    protected $toolCacheStore = null;
+
     // Misc
     private array $builtInHistories = [
         'in_memory' => \LarAgent\History\InMemoryChatHistory::class,
@@ -183,6 +192,7 @@ class Agent
         $this->setName();
         $this->setChatSessionId($key);
         $this->setupChatHistory();
+        $this->setupToolCaching();
         $this->initMcpClient();
         $this->callEvent('onInitialize');
     }
@@ -699,10 +709,108 @@ class Agent
         $tools = [];
         foreach ($this->getMcpServers() as $serverConfig) {
             $parsedConfig = $this->parseMcpServerConfig($serverConfig);
+            
+            // Try to get from cache first
+            if ($this->toolCaching) {
+                $cachedTools = $this->getToolsFromCache($parsedConfig);
+                if ($cachedTools !== null) {
+                    $tools = array_merge($tools, $cachedTools);
+                    continue;
+                }
+            }
+
             $toolInstances = $this->buildToolsFromMcpConfig($parsedConfig);
+            
+            // Cache the results
+            if ($this->toolCaching && !empty($toolInstances)) {
+                $this->cacheTools($parsedConfig, $toolInstances);
+            }
+
             $tools = array_merge($tools, $toolInstances ?? []);
         }
 
+        return $tools;
+    }
+
+    protected function setupToolCaching()
+    {
+        $config = config('laragent.tool_caching', []);
+        $this->toolCaching = $config['enabled'] ?? false;
+        $this->toolCacheTtl = $config['ttl'] ?? 3600;
+        $this->toolCacheStore = $config['store'] ?? null;
+    }
+
+    protected function getCacheKey(array $parsedConfig): string
+    {
+        // Create a unique key based on server name, method, filter, and arguments
+        $key = 'laragent:tools:' . $parsedConfig['serverName'];
+        if ($parsedConfig['method']) {
+            $key .= ':' . $parsedConfig['method'];
+        }
+        if ($parsedConfig['filter']) {
+            $key .= ':' . $parsedConfig['filter'];
+        }
+        if (!empty($parsedConfig['filterArguments'])) {
+            $key .= ':' . md5(json_encode($parsedConfig['filterArguments']));
+        }
+        return $key;
+    }
+
+    protected function getToolsFromCache(array $parsedConfig): ?array
+    {
+        $key = $this->getCacheKey($parsedConfig);
+        $store = \Illuminate\Support\Facades\Cache::store($this->toolCacheStore);
+
+        if ($store->has($key)) {
+            $cachedData = $store->get($key);
+            return $this->reconstructTools($cachedData, $parsedConfig['serverName']);
+        }
+
+        return null;
+    }
+
+    protected function cacheTools(array $parsedConfig, array $tools): void
+    {
+        $key = $this->getCacheKey($parsedConfig);
+        $store = \Illuminate\Support\Facades\Cache::store($this->toolCacheStore);
+
+        $toolsData = array_map(function ($tool) {
+            return [
+                'name' => $tool->getName(),
+                'description' => $tool->getDescription(),
+                'properties' => $tool->getProperties(),
+                'required' => $tool->getRequired(),
+            ];
+        }, $tools);
+
+        $store->put($key, $toolsData, $this->toolCacheTtl);
+    }
+
+    protected function reconstructTools(array $toolsData, string $serverName): array
+    {
+        $tools = [];
+        foreach ($toolsData as $data) {
+            $tool = new Tool($data['name'], $data['description']);
+            $tool->setProperties($data['properties']);
+            $tool->setRequiredProps($data['required']);
+
+            // Re-bind the callback
+            $instance = $this;
+            $toolName = $data['name'];
+            
+            // Ensure connection exists (might need to reconnect if cached)
+            if (!isset($this->mcpConnections[$serverName])) {
+                 // We need to connect to execute the tool, but we don't need to fetch tools again
+                 // This is lazy connection basically, but we need to ensure client is ready
+                 $this->mcpConnections[$serverName] = $this->createMcpClient()->connect($serverName);
+            }
+
+            $tool->setCallback(function (...$args) use ($instance, $toolName, $serverName) {
+                return json_encode($instance->mcpConnections[$serverName]->callTool($toolName, $args));
+            });
+
+            $tools[] = $tool;
+        }
         return $tools;
     }
 

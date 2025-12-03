@@ -112,6 +112,12 @@ return [
      */
     'fallback_provider' => null,
 
+    'tool_caching' => [
+        'enabled' => env('LARAGENT_TOOL_CACHING', false),
+        'ttl' => env('LARAGENT_TOOL_CACHE_TTL', 3600), // 1 hour
+        'store' => env('LARAGENT_TOOL_CACHE_STORE', 'file'), // Cache store to use
+    ],
+
     'mcp_servers' => [
         'github' => [
             'type' => \Redberry\MCPClient\Enums\Transporters::HTTP,
