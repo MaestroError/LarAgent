@@ -709,20 +709,21 @@ class Agent
         $tools = [];
         foreach ($this->getMcpServers() as $serverConfig) {
             $parsedConfig = $this->parseMcpServerConfig($serverConfig);
-            
+
             // Try to get from cache first
             if ($this->toolCaching) {
                 $cachedTools = $this->getToolsFromCache($parsedConfig);
                 if ($cachedTools !== null) {
                     $tools = array_merge($tools, $cachedTools);
+
                     continue;
                 }
             }
 
             $toolInstances = $this->buildToolsFromMcpConfig($parsedConfig);
-            
+
             // Cache the results
-            if ($this->toolCaching && !empty($toolInstances)) {
+            if ($this->toolCaching && ! empty($toolInstances)) {
                 $this->cacheTools($parsedConfig, $toolInstances);
             }
 
@@ -743,16 +744,17 @@ class Agent
     protected function getCacheKey(array $parsedConfig): string
     {
         // Create a unique key based on server name, method, filter, and arguments
-        $key = 'laragent:tools:' . $parsedConfig['serverName'];
+        $key = 'laragent:tools:'.$parsedConfig['serverName'];
         if ($parsedConfig['method']) {
-            $key .= ':' . $parsedConfig['method'];
+            $key .= ':'.$parsedConfig['method'];
         }
         if ($parsedConfig['filter']) {
-            $key .= ':' . $parsedConfig['filter'];
+            $key .= ':'.$parsedConfig['filter'];
         }
-        if (!empty($parsedConfig['filterArguments'])) {
-            $key .= ':' . md5(json_encode($parsedConfig['filterArguments']));
+        if (! empty($parsedConfig['filterArguments'])) {
+            $key .= ':'.md5(json_encode($parsedConfig['filterArguments']));
         }
+
         return $key;
     }
 
@@ -763,6 +765,7 @@ class Agent
 
         if ($store->has($key)) {
             $cachedData = $store->get($key);
+
             return $this->reconstructTools($cachedData, $parsedConfig['serverName']);
         }
 
@@ -797,12 +800,12 @@ class Agent
             // Re-bind the callback
             $instance = $this;
             $toolName = $data['name'];
-            
+
             // Ensure connection exists (might need to reconnect if cached)
-            if (!isset($this->mcpConnections[$serverName])) {
-                 // We need to connect to execute the tool, but we don't need to fetch tools again
-                 // This is lazy connection basically, but we need to ensure client is ready
-                 $this->mcpConnections[$serverName] = $this->createMcpClient()->connect($serverName);
+            if (! isset($this->mcpConnections[$serverName])) {
+                // We need to connect to execute the tool, but we don't need to fetch tools again
+                // This is lazy connection basically, but we need to ensure client is ready
+                $this->mcpConnections[$serverName] = $this->createMcpClient()->connect($serverName);
             }
 
             $tool->setCallback(function (...$args) use ($instance, $toolName, $serverName) {
@@ -811,6 +814,7 @@ class Agent
 
             $tools[] = $tool;
         }
+
         return $tools;
     }
 
