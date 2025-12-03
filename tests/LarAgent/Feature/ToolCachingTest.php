@@ -103,7 +103,7 @@ class ToolCachingTest extends TestCase
         ]);
 
         // Trigger tool building (which should cache)
-        $tools = $agent->testBuildToolsFromMcpServers();
+        $tools = $agent->test_build_tools_from_mcp_servers();
 
         $this->assertCount(1, $tools);
         $this->assertEquals('test_tool', $tools[0]->getName());
@@ -162,7 +162,7 @@ class ToolCachingTest extends TestCase
 
         $agent2->mockMcpClient = $mockClient2;
 
-        $tools2 = $agent2->testBuildToolsFromMcpServers();
+        $tools2 = $agent2->test_build_tools_from_mcp_servers();
 
         $this->assertCount(1, $tools2);
         $this->assertEquals('test_tool', $tools2[0]->getName());
