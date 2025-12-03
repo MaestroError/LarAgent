@@ -10,6 +10,7 @@ use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
+use LarAgent\Messages\DataModels\MessageArray;
 
 class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
 {
@@ -37,7 +38,7 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
         return array_merge($this->getSettings(), $this->lastOverrideSettings);
     }
 
-    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
+    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
     {
         $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
             ? $overrideSettings->toArray() 
@@ -92,7 +93,7 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
      *
      * @throws \Exception
      */
-    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
+    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
         $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
             ? $overrideSettings->toArray() 

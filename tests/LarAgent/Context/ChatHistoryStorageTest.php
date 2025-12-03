@@ -22,7 +22,7 @@ test('ChatHistoryStorage: Can be constructed', function () {
     $storage = new ChatHistoryStorage([InMemoryStorage::class], $identity);
 
     expect($storage)->toBeInstanceOf(ChatHistoryStorage::class);
-    expect($storage->getIdentifier())->toBe('chat_history_agent_chat');
+    expect($storage->getIdentifier())->toBe('chatHistory_agent_chat');
 });
 
 test('ChatHistoryStorage: getMessages returns MessageArray', function () {
@@ -203,7 +203,7 @@ test('ChatHistoryStorage: Does not store metadata when storeMeta is false', func
     $storage1->save();
 
     // Read raw data from driver
-    $scopedIdentity = $identity->withScope('chat_history');
+    $scopedIdentity = $identity->withScope('chatHistory');
     $rawData = $driver->readFromMemory($scopedIdentity);
 
     // Metadata should not be in raw storage
@@ -222,7 +222,7 @@ test('ChatHistoryStorage: Stores metadata when storeMeta is true', function () {
     $storage1->save();
 
     // Read raw data from driver
-    $scopedIdentity = $identity->withScope('chat_history');
+    $scopedIdentity = $identity->withScope('chatHistory');
     $rawData = $driver->readFromMemory($scopedIdentity);
 
     // Metadata should be in raw storage
@@ -234,7 +234,7 @@ test('ChatHistoryStorage: readFromMemory forces load', function () {
     $identity = createChatIdentity('agent', 'chat');
 
     // Pre-populate driver
-    $scopedIdentity = $identity->withScope('chat_history');
+    $scopedIdentity = $identity->withScope('chatHistory');
     $driver->writeToMemory($scopedIdentity, [
         ['role' => 'user', 'content' => 'Pre-existing']
     ]);
@@ -262,7 +262,7 @@ test('ChatHistoryStorage: writeToMemory forces write', function () {
     $storage->writeToMemory();
 
     // Verify written
-    $scopedIdentity = $identity->withScope('chat_history');
+    $scopedIdentity = $identity->withScope('chatHistory');
     $rawData = $driver->readFromMemory($scopedIdentity);
     expect($rawData)->toHaveCount(1);
     expect($rawData[0]['role'])->toBe('user');
@@ -278,7 +278,7 @@ test('ChatHistoryStorage: save only saves when dirty', function () {
     expect($storage->isDirty())->toBeFalse();
     $storage->save();
 
-    $scopedIdentity = $identity->withScope('chat_history');
+    $scopedIdentity = $identity->withScope('chatHistory');
     expect($driver->readFromMemory($scopedIdentity))->toBeNull();
 
     // Add message makes it dirty
@@ -296,9 +296,9 @@ test('ChatHistoryStorage: Has isolated storage prefix', function () {
 
     $storage = new ChatHistoryStorage([$driver], $identity);
 
-    // The internal scoped identity should have 'chat_history' prefix
-    expect($storage->getIdentity()->getScope())->toBe('chat_history');
-    expect($storage->getIdentifier())->toContain('chat_history');
+    // The internal scoped identity should have 'chatHistory' prefix
+    expect($storage->getIdentity()->getScope())->toBe('chatHistory');
+    expect($storage->getIdentifier())->toContain('chatHistory');
 });
 
 test('ChatHistoryStorage: Handles ToolCallMessage', function () {

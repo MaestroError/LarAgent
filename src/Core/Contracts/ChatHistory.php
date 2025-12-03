@@ -3,12 +3,13 @@
 namespace LarAgent\Core\Contracts;
 
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Messages\DataModels\MessageArray;
 
 interface ChatHistory
 {
     public function addMessage(MessageInterface $message): void;
 
-    public function getMessages(): array;
+    public function getMessages(): MessageArray;
 
     public function getIdentifier(): string;
 
@@ -23,10 +24,4 @@ interface ChatHistory
     public function readFromMemory(): void;
 
     public function writeToMemory(): void;
-
-    public function setContextWindow(int $tokens): void;
-
-    public function exceedsContextWindow(int $tokens): bool;
-
-    public function truncateOldMessages(int $messagesCount): void;
 }

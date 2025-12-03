@@ -217,12 +217,12 @@ it('can dynamically change model', function () {
 it('can get chat keys filtered by agent class', function () {
     // Create a few chat sessions with different agents and models
     $agent1 = TestAgent::for('user1');
-    $agent1->withModelInChatSessionId()->withModel('gpt-4')->respond('First message from user1');
+    $agent1->withModel('gpt-4')->respond('First message from user1');
 
     // Create a different agent class to ensure filtering works
     class AnotherAgent extends TestAgent {}
     $otherAgent = AnotherAgent::for('user3');
-    $otherAgent->withModelInChatSessionId()->respond('Message from other agent');
+    $otherAgent->respond('Message from other agent');
 
     // Get chat keys for TestAgent
     $testAgentKeys = $agent1->getChatKeys();
@@ -231,8 +231,8 @@ it('can get chat keys filtered by agent class', function () {
     expect($testAgentKeys)
         ->toBeArray()
         ->and($testAgentKeys)->toHaveCount(1)
-        ->and($testAgentKeys)->toContain('TestAgent_gpt-4_user1')
-        ->and($testAgentKeys)->not->toContain('AnotherAgent_gpt-4o-mini_user3');
+        ->and($testAgentKeys)->toContain('chatHistory_TestAgent_user1')
+        ->and($testAgentKeys)->not->toContain('chatHistory_AnotherAgent_user3');
 
     // Get chat keys for AnotherAgent
     $otherAgentKeys = $otherAgent->getChatKeys();
@@ -241,9 +241,9 @@ it('can get chat keys filtered by agent class', function () {
     expect($otherAgentKeys)
         ->toBeArray()
         ->and($otherAgentKeys)->toHaveCount(1)
-        ->and($otherAgentKeys)->toEqual(['AnotherAgent_gpt-4o-mini_user3'])
-        ->and($otherAgentKeys)->toContain('AnotherAgent_gpt-4o-mini_user3')
-        ->and($otherAgentKeys)->not->toContain('TestAgent_gpt-4_user1');
+        ->and($otherAgentKeys)->toEqual(['chatHistory_AnotherAgent_user3'])
+        ->and($otherAgentKeys)->toContain('chatHistory_AnotherAgent_user3')
+        ->and($otherAgentKeys)->not->toContain('chatHistory_TestAgent_user1');
 });
 
 it('can add custom message to chat history', function () {

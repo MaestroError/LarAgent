@@ -8,6 +8,7 @@ use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Usage\DataModels\Usage;
@@ -49,13 +50,13 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
     /**
      * Send a message to the LLM and receive a response.
      *
-     * @param  array  $messages  Array of messages to send
+     * @param  MessageArray  $messages  Array of messages to send
      * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @return AssistantMessage The response from the LLM
      *
      * @throws \Exception
      */
-    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
+    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the OpenAI driver.');
@@ -112,14 +113,14 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
     /**
      * Send a message to the LLM and receive a streamed response.
      *
-     * @param  array  $messages  Array of messages to send
+     * @param  MessageArray  $messages  Array of messages to send
      * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @param  callable|null  $callback  Optional callback function to process each chunk
      * @return \Generator A generator that yields chunks of the response
      *
      * @throws \Exception
      */
-    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('OpenAI API key is required to use the OpenAI driver.');

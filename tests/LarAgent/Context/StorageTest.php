@@ -33,7 +33,7 @@ class TestStorage extends Storage
         return TestDataModelArray::class;
     }
 
-    protected function getStoragePrefix(): string
+    public static function getStoragePrefix(): string
     {
         return 'test';
     }
@@ -376,7 +376,7 @@ class AnotherStorage extends Storage
         return TestDataModelArray::class;
     }
 
-    protected function getStoragePrefix(): string
+    public static function getStoragePrefix(): string
     {
         return 'another';
     }

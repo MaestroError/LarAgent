@@ -28,14 +28,14 @@ class SessionIdentity extends DataModel implements SessionIdentityContract
     /**
      * Create instance from array
      */
-    public static function fromArray(array $data): self
+    public static function fromArray(array $attributes): static
     {
         return new self(
-            agentName: $data['agentName'] ?? '',
-            chatName: !empty($data['chatName']) ? $data['chatName'] : null,
-            userId: !empty($data['userId']) ? $data['userId'] : null,
-            group: !empty($data['group']) ? $data['group'] : null,
-            scope: !empty($data['scope']) ? $data['scope'] : null
+            agentName: $attributes['agentName'] ?? '',
+            chatName: !empty($attributes['chatName']) ? $attributes['chatName'] : null,
+            userId: !empty($attributes['userId']) ? $attributes['userId'] : null,
+            group: !empty($attributes['group']) ? $attributes['group'] : null,
+            scope: !empty($attributes['scope']) ? $attributes['scope'] : null
         );
     }
 

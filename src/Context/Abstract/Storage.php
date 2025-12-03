@@ -43,11 +43,14 @@ abstract class Storage implements StorageContract
      * @param SessionIdentityContract $identity The identity for this storage
      */
     public function __construct(
-        array $driversConfig,
+        array|string $driversConfig,
         SessionIdentityContract $identity
     ) {
         // Apply storage-specific scope to the identity for isolation
         $this->identity = $identity->withScope($this->getStoragePrefix());
+        if (!is_array($driversConfig)) {
+            $driversConfig = [$driversConfig];
+        }
         $this->storageManager = new StorageManager($driversConfig);
         
         // Initialize empty DataModelArray

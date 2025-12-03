@@ -12,8 +12,9 @@ use LarAgent\Events\ChatHistory\ChatHistorySaving;
 use LarAgent\Events\ChatHistory\ChatHistorySaved;
 use LarAgent\Events\ChatHistory\MessageAdding;
 use LarAgent\Events\ChatHistory\MessageAdded;
+use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 
-class ChatHistoryStorage extends Storage
+class ChatHistoryStorage extends Storage implements ChatHistoryInterface
 {
     /**
      * Whether to store metadata with messages
@@ -23,12 +24,12 @@ class ChatHistoryStorage extends Storage
     /**
      * Create a new ChatHistoryStorage instance
      *
-     * @param array $driversConfig Configuration for storage drivers
+     * @param array|string $driversConfig Configuration for storage drivers
      * @param SessionIdentityContract $identity The identity for this storage
      * @param bool $storeMeta Whether to store metadata (default: false)
      */
     public function __construct(
-        array $driversConfig,
+        array|string $driversConfig,
         SessionIdentityContract $identity,
         bool $storeMeta = false
     ) {

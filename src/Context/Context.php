@@ -300,6 +300,11 @@ class Context implements ContextContract
         return $this->identityStorage;
     }
 
+    public function removeIdentityFromTracking(string $key): void
+    {
+        $this->identityStorage->removeByKey($key);
+    }
+
     /**
      * Get the drivers configuration.
      *

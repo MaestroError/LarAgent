@@ -10,6 +10,7 @@ use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Usage\DataModels\Usage;
@@ -71,7 +72,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Send a message to the LLM and receive a response using native Gemini API.
      */
-    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
+    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         try {
             $payload = $this->preparePayload($messages, $overrideSettings);
@@ -140,7 +141,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Send a message to the LLM and receive a streamed response.
      */
-    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): Generator
+    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): Generator
     {
         try {
             $payload = $this->preparePayload($messages, $overrideSettings);

@@ -35,8 +35,8 @@ class AgentChatRemoveCommand extends Command
 
             foreach ($chatKeys as $key) {
                 $this->line("Removing chat history: {$key}");
-                $agent->chatHistory()->removeChatFromMemory($key);
             }
+            $agent->context()->remove();
 
             $this->info("Successfully removed all chat histories for agent: {$agentName}");
         } else {

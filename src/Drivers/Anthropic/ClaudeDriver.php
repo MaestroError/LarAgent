@@ -10,6 +10,7 @@ use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Usage\DataModels\Usage;
@@ -64,7 +65,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         return $client;
     }
 
-    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
+    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');
@@ -102,7 +103,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         throw new \Exception('Unexpected stop reason: '.$response->stop_reason);
     }
 
-    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');

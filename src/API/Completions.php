@@ -142,8 +142,6 @@ class Completions
             $this->agent->message($lastArray->all()[0]);
         }
 
-        $this->agent->withoutModelInChatSessionId();
-
         if ($this->completion->model) {
             $this->agent->withModel($this->completion->model);
         }
