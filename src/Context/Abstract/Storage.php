@@ -37,20 +37,30 @@ abstract class Storage implements StorageContract
     protected bool $loaded = false;
 
     /**
+     * Default driver class to use when no drivers config provided
+     */
+    protected array $defaultDrivers = [];
+
+    /**
      * Create a new Storage instance
      *
-     * @param array $driversConfig Configuration for storage drivers
      * @param SessionIdentityContract $identity The identity for this storage
+     * @param array|string|null $driversConfig Configuration for storage drivers
      */
     public function __construct(
-        array|string $driversConfig,
-        SessionIdentityContract $identity
+        SessionIdentityContract $identity,
+        array|string|null $driversConfig = null
     ) {
         // Apply storage-specific scope to the identity for isolation
         $this->identity = $identity->withScope($this->getStoragePrefix());
-        if (!is_array($driversConfig)) {
+        
+        // Use default driver if no config provided
+        if ($driversConfig === null) {
+            $driversConfig = $this->defaultDrivers;
+        } elseif (!is_array($driversConfig)) {
             $driversConfig = [$driversConfig];
         }
+        
         $this->storageManager = new StorageManager($driversConfig);
         
         // Initialize empty DataModelArray

@@ -47,7 +47,7 @@ function createIdentity(string $agent, ?string $chat = null): SessionIdentity
 
 test('Storage can be constructed with drivers config', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([InMemoryStorage::class], $identity);
+    $storage = new TestStorage($identity, [InMemoryStorage::class]);
     
     expect($storage)->toBeInstanceOf(Storage::class);
     // The storage now uses a scoped identity, so we check the original components
@@ -58,7 +58,7 @@ test('Storage can be constructed with drivers config', function () {
 
 test('Storage get returns empty array initially', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     expect($storage->get())->toBeInstanceOf(DataModelArray::class);
     expect($storage->get()->isEmpty())->toBeTrue();
@@ -66,7 +66,7 @@ test('Storage get returns empty array initially', function () {
 
 test('Storage set replaces all items', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     $items = [
         new TestDataModel('item1', 1),
@@ -82,7 +82,7 @@ test('Storage set replaces all items', function () {
 
 test('Storage getLast returns last item', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     $items = [
         new TestDataModel('item1', 1),
@@ -99,14 +99,14 @@ test('Storage getLast returns last item', function () {
 
 test('Storage getLast returns null when empty', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     expect($storage->getLast())->toBeNull();
 });
 
 test('Storage clear sets items to empty array', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     $storage->set([new TestDataModel('item1', 1)]);
     expect($storage->count())->toBe(1);
@@ -120,7 +120,7 @@ test('Storage clear sets items to empty array', function () {
 
 test('Storage count returns number of items', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     expect($storage->count())->toBe(0);
     
@@ -136,7 +136,7 @@ test('Storage count returns number of items', function () {
 test('Storage save persists items when dirty', function () {
     $driver = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([$driver], $identity);
+    $storage = new TestStorage($identity, [$driver]);
     
     $storage->set([new TestDataModel('test', 42)]);
     expect($storage->isDirty())->toBeTrue();
@@ -154,7 +154,7 @@ test('Storage save persists items when dirty', function () {
 test('Storage save does not persist when not dirty', function () {
     $driver = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([$driver], $identity);
+    $storage = new TestStorage($identity, [$driver]);
     
     expect($storage->isDirty())->toBeFalse();
     
@@ -176,7 +176,7 @@ test('Storage read loads items from storage', function () {
         ['name' => 'loaded2', 'value' => 20],
     ]);
     
-    $storage = new TestStorage([$driver], $identity);
+    $storage = new TestStorage($identity, [$driver]);
     $storage->read();
     
     $items = $storage->get();
@@ -189,7 +189,7 @@ test('Storage read handles empty storage gracefully', function () {
     $driver = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
     
-    $storage = new TestStorage([$driver], $identity);
+    $storage = new TestStorage($identity, [$driver]);
     $storage->read();
     
     expect($storage->get()->isEmpty())->toBeTrue();
@@ -197,7 +197,7 @@ test('Storage read handles empty storage gracefully', function () {
 
 test('Storage isDirty tracks changes correctly', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     expect($storage->isDirty())->toBeFalse();
     
@@ -214,7 +214,7 @@ test('Storage isDirty tracks changes correctly', function () {
 test('Storage remove deletes from all drivers', function () {
     $driver = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([$driver], $identity);
+    $storage = new TestStorage($identity, [$driver]);
     $scopedIdentity = $storage->getIdentity();
     
     // Save some data first
@@ -239,7 +239,7 @@ test('Storage remove works with multiple drivers', function () {
     $driver1 = new InMemoryStorage();
     $driver2 = new InMemoryStorage();
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([$driver1, $driver2], $identity);
+    $storage = new TestStorage($identity, [$driver1, $driver2]);
     $scopedIdentity = $storage->getIdentity();
     
     // Save some data first
@@ -275,7 +275,7 @@ test('InMemoryStorage removeFromMemory works correctly', function () {
 
 test('Storage add appends item', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     $storage->add(new TestDataModel('item1', 1));
     
@@ -286,7 +286,7 @@ test('Storage add appends item', function () {
 
 test('Storage removeItem removes item', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     $item1 = new TestDataModel('item1', 1);
     $item2 = new TestDataModel('item2', 2);
@@ -303,7 +303,7 @@ test('Storage removeItem removes item', function () {
 
 test('Storage removeItem removes item by key/value', function () {
     $identity = createIdentity('agent', 'chat');
-    $storage = new TestStorage([new InMemoryStorage()], $identity);
+    $storage = new TestStorage($identity, [new InMemoryStorage()]);
     
     $item1 = new TestDataModel('item1', 1);
     $item2 = new TestDataModel('item2', 2);
@@ -359,7 +359,7 @@ test('Different storage types have isolated keys', function () {
     $identity = createIdentity('agent', 'chat');
     
     // Create two different storage types with same identity
-    $testStorage = new TestStorage([$driver], $identity);
+    $testStorage = new TestStorage($identity, [$driver]);
     
     // TestStorage uses 'test' prefix
     expect($testStorage->getIdentity()->getKey())->toBe('test_agent_chat');
@@ -387,8 +387,8 @@ test('Two storage types sharing same driver dont interfere', function () {
     $identity = createIdentity('agent', 'chat');
     
     // Create two different storage types with same identity and driver
-    $storage1 = new TestStorage([$driver], $identity);
-    $storage2 = new AnotherStorage([$driver], $identity);
+    $storage1 = new TestStorage($identity, [$driver]);
+    $storage2 = new AnotherStorage($identity, [$driver]);
     
     // Add different data to each
     $storage1->set([new TestDataModel('from_test', 1)]);

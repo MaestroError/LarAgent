@@ -54,6 +54,11 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
         if (isset($data['message_uuid'])) {
             $instance->message_uuid = $data['message_uuid'];
         }
+
+        // Handle message_created if provided
+        if (isset($data['message_created'])) {
+            $instance->message_created = $data['message_created'];
+        }
         
         // Handle any extras
         $knownKeys = ['role', 'tool_calls', 'metadata', 'message_uuid', 'extras', 'content'];
@@ -86,6 +91,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
             'content' => null,
             'tool_calls' => $this->toolCalls->toArray(),
             'message_uuid' => $this->message_uuid,
+            'message_created' => $this->message_created,
         ];
 
         if (!empty($this->extras)) {

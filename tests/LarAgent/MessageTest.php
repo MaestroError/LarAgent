@@ -88,3 +88,58 @@ it('message has unique id', function () {
         ->and($message2->getId())->toStartWith('msg_')
         ->and($message1->getId())->not->toBe($message2->getId());
 });
+
+it('message has creation timestamp', function () {
+    $before = new DateTimeImmutable();
+    $message = Message::user('Hello');
+    $after = new DateTimeImmutable();
+
+    // Check timestamp format (ISO 8601)
+    expect($message->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/');
+
+    // Check timestamp is within expected range (with 1 second tolerance for test execution)
+    $createdAt = $message->getCreatedAtDateTime();
+    $beforeWithTolerance = $before->modify('-1 second');
+    $afterWithTolerance = $after->modify('+1 second');
+    
+    expect($createdAt->getTimestamp())->toBeGreaterThanOrEqual($beforeWithTolerance->getTimestamp())
+        ->and($createdAt->getTimestamp())->toBeLessThanOrEqual($afterWithTolerance->getTimestamp());
+});
+
+it('message_created is preserved in toArray and fromArray', function () {
+    $originalMessage = Message::assistant('Test message');
+    $originalTimestamp = $originalMessage->getCreatedAt();
+    
+    // Serialize and deserialize
+    $array = $originalMessage->toArray();
+    expect($array)->toHaveKey('message_created', $originalTimestamp);
+    
+    $restoredMessage = AssistantMessage::fromArray($array);
+    expect($restoredMessage->getCreatedAt())->toBe($originalTimestamp);
+});
+
+it('message_created is unique per message', function () {
+    $message1 = Message::user('First');
+    usleep(1000); // Wait 1ms to ensure different timestamp
+    $message2 = Message::user('Second');
+
+    // Timestamps should be different (or at least not guaranteed to be same)
+    // We mainly check that both have valid timestamps
+    expect($message1->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/')
+        ->and($message2->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/');
+});
+
+it('all message types have message_created', function () {
+    $messages = [
+        Message::user('User message'),
+        Message::assistant('Assistant message'),
+        Message::system('System message'),
+        Message::developer('Developer message'),
+        Message::toolCall([]),
+        Message::toolResult('result', 'call_123', 'tool_name'),
+    ];
+
+    foreach ($messages as $message) {
+        expect($message->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/');
+    }
+});

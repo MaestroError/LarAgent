@@ -67,8 +67,11 @@ class Agent
     /** @var array */
     protected $mcpConnections = [];
 
-    /** @var string */
+    /** @var string|array */
     protected $history;
+
+    /** @var array */
+    protected $storage;
 
     /** @var string */
     protected $driver;
@@ -144,10 +147,10 @@ class Agent
     // Misc
     private array $builtInHistories = [
         'in_memory' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-        'session' => \LarAgent\History\SessionChatHistory::class,
-        'cache' => \LarAgent\History\CacheChatHistory::class,
-        'file' => \LarAgent\History\FileChatHistory::class,
-        'json' => \LarAgent\History\JsonChatHistory::class,
+        'session' => \LarAgent\Context\Drivers\SessionStorage::class,
+        'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
+        'file' => \LarAgent\Context\Drivers\FileStorage::class,
+        'json' => \LarAgent\Context\Drivers\FileStorage::class,
     ];
 
     /** @var array */
@@ -168,7 +171,7 @@ class Agent
         $this->setName();
         $this->setChatSessionId($key, $this->name());
 
-        $defaultStorageDrivers = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+        $defaultStorageDrivers = $this->defaultStorageDrivers();
         $this->setupContext($defaultStorageDrivers);
 
         $this->setupChatHistory();
@@ -857,8 +860,7 @@ class Agent
 
     protected function setupChatHistory(): void
     {
-        $chatHistory = $this->createChatHistory();
-        $this->setChatHistory($chatHistory);
+        $this->setChatHistory($this->createChatHistory());
     }
 
     /**
@@ -868,27 +870,34 @@ class Agent
      */
     public function createChatHistory()
     {
-        $historyStorageDrivers = $this->resolveStorageDrivers();
+        $historyStorageDrivers = $this->historyStorageDrivers();
 
         $ChatHistoryStorage = new ChatHistoryStorage(
-            $historyStorageDrivers,
             $this->context()->getIdentity(),
+            $historyStorageDrivers,
             $this->storeMeta ?? false
         );
 
         return $ChatHistoryStorage;
     }
 
-    protected function resolveStorageDrivers(): string|array 
+    protected function historyStorageDrivers(): string|array 
     {
-        if(!$this->history) {
-            return [\LarAgent\Context\Drivers\InMemoryStorage::class];
-        }
         if (is_string($this->history)) {
             return $this->builtInHistories[$this->history] ?? $this->history;
-        } else {
-            return $this->history;
         }
+        if (!isset($this->history)) {
+            return $this->defaultStorageDrivers();
+        }
+        return $this->history;
+    }
+
+    protected function defaultStorageDrivers(): array
+    {
+        if (!isset($this->storage)) {
+            return $this->defaultStorageDrivers();
+        }
+        return $this->storage;
     }
 
     /**
@@ -1231,7 +1240,10 @@ class Agent
             $this->driver = $provider['driver'] ?? config('laragent.default_driver');
         }
         if (! isset($this->history)) {
-            $this->history = $provider['chat_history'] ?? config('laragent.default_chat_history');
+            $this->history = $provider['history'] ?? config('laragent.default_history_storage');
+        }
+        if (! isset($this->storage)) {
+            $this->storage = $provider['storage'] ?? config('laragent.default_storage');
         }
         $this->providerName = $provider['name'] ?? '';
         

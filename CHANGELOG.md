@@ -6,6 +6,10 @@ All notable changes to `LarAgent` will be documented in this file.
 
 ### ⚠️ Breaking Changes (v0.8 → v1.0)
 
+#### Provider config key
+
+Provider config key "chat_history" replaced with "history"
+
 #### Model name in chat session ID
 
 Deprecated Agent property `includeModelInChatSessionId` and all related methods:

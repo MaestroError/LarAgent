@@ -19,7 +19,7 @@ function createChatIdentity(string $agent, ?string $chat = null): SessionIdentit
 
 test('ChatHistoryStorage: Can be constructed', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([InMemoryStorage::class], $identity);
+    $storage = new ChatHistoryStorage($identity, [InMemoryStorage::class]);
 
     expect($storage)->toBeInstanceOf(ChatHistoryStorage::class);
     expect($storage->getIdentifier())->toBe('chatHistory_agent_chat');
@@ -27,7 +27,7 @@ test('ChatHistoryStorage: Can be constructed', function () {
 
 test('ChatHistoryStorage: getMessages returns MessageArray', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     $messages = $storage->getMessages();
 
@@ -37,7 +37,7 @@ test('ChatHistoryStorage: getMessages returns MessageArray', function () {
 
 test('ChatHistoryStorage: addMessage adds message', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     $storage->addMessage(new UserMessage('Hello'));
 
@@ -48,7 +48,7 @@ test('ChatHistoryStorage: addMessage adds message', function () {
 
 test('ChatHistoryStorage: addMessage with different message types', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     $storage->addMessage(new SystemMessage('You are helpful'));
     $storage->addMessage(new UserMessage('Hello'));
@@ -62,7 +62,7 @@ test('ChatHistoryStorage: addMessage with different message types', function () 
 
 test('ChatHistoryStorage: getLastMessage returns last message', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     $storage->addMessage(new UserMessage('First'));
     $storage->addMessage(new AssistantMessage('Second'));
@@ -75,14 +75,14 @@ test('ChatHistoryStorage: getLastMessage returns last message', function () {
 
 test('ChatHistoryStorage: getLastMessage returns null when empty', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     expect($storage->getLastMessage())->toBeNull();
 });
 
 test('ChatHistoryStorage: clear removes all messages', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     $storage->addMessage(new UserMessage('Hello'));
     $storage->addMessage(new AssistantMessage('Hi'));
@@ -97,7 +97,7 @@ test('ChatHistoryStorage: clear removes all messages', function () {
 
 test('ChatHistoryStorage: toArray returns messages as array', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     $storage->addMessage(new UserMessage('Hello'));
     $storage->addMessage(new AssistantMessage('Hi'));
@@ -112,7 +112,7 @@ test('ChatHistoryStorage: toArray returns messages as array', function () {
 
 test('ChatHistoryStorage: toArrayWithMeta includes metadata', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     $message = new UserMessage('Hello');
     $message->setMetadata(['custom' => 'data']);
@@ -125,21 +125,21 @@ test('ChatHistoryStorage: toArrayWithMeta includes metadata', function () {
 
 test('ChatHistoryStorage: storeMeta is false by default', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     expect($storage->shouldStoreMeta())->toBeFalse();
 });
 
 test('ChatHistoryStorage: storeMeta can be enabled', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity, true);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()], true);
 
     expect($storage->shouldStoreMeta())->toBeTrue();
 });
 
 test('ChatHistoryStorage: setStoreMeta changes setting', function () {
     $identity = createChatIdentity('agent', 'chat');
-    $storage = new ChatHistoryStorage([new InMemoryStorage()], $identity);
+    $storage = new ChatHistoryStorage($identity, [new InMemoryStorage()]);
 
     expect($storage->shouldStoreMeta())->toBeFalse();
 
@@ -153,14 +153,14 @@ test('ChatHistoryStorage: Persists and loads messages correctly', function () {
     $identity = createChatIdentity('agent', 'chat');
 
     // Create storage and add messages
-    $storage1 = new ChatHistoryStorage([$driver], $identity);
+    $storage1 = new ChatHistoryStorage($identity, [$driver]);
     $storage1->addMessage(new SystemMessage('You are helpful'));
     $storage1->addMessage(new UserMessage('Hello'));
     $storage1->addMessage(new AssistantMessage('Hi there!'));
     $storage1->save();
 
     // Create new storage instance and load
-    $storage2 = new ChatHistoryStorage([$driver], $identity);
+    $storage2 = new ChatHistoryStorage($identity, [$driver]);
     $storage2->readFromMemory();
 
     expect($storage2->count())->toBe(3);
@@ -174,14 +174,14 @@ test('ChatHistoryStorage: Always stores usage data', function () {
     $identity = createChatIdentity('agent', 'chat');
 
     // Create storage and add message with usage
-    $storage1 = new ChatHistoryStorage([$driver], $identity);
+    $storage1 = new ChatHistoryStorage($identity, [$driver]);
     $assistantMessage = new AssistantMessage('Response');
     $assistantMessage->setUsage(new Usage(100, 50, 150));
     $storage1->addMessage($assistantMessage);
     $storage1->save();
 
     // Load in new storage
-    $storage2 = new ChatHistoryStorage([$driver], $identity);
+    $storage2 = new ChatHistoryStorage($identity, [$driver]);
     $storage2->readFromMemory();
 
     $loadedMessage = $storage2->getMessages()[0];
@@ -196,7 +196,7 @@ test('ChatHistoryStorage: Does not store metadata when storeMeta is false', func
     $identity = createChatIdentity('agent', 'chat');
 
     // Create storage with storeMeta = false (default)
-    $storage1 = new ChatHistoryStorage([$driver], $identity, false);
+    $storage1 = new ChatHistoryStorage($identity, [$driver], false);
     $message = new UserMessage('Hello');
     $message->setMetadata(['secret' => 'data']);
     $storage1->addMessage($message);
@@ -215,7 +215,7 @@ test('ChatHistoryStorage: Stores metadata when storeMeta is true', function () {
     $identity = createChatIdentity('agent', 'chat');
 
     // Create storage with storeMeta = true
-    $storage1 = new ChatHistoryStorage([$driver], $identity, true);
+    $storage1 = new ChatHistoryStorage($identity, [$driver], true);
     $message = new UserMessage('Hello');
     $message->setMetadata(['secret' => 'data']);
     $storage1->addMessage($message);
@@ -239,7 +239,7 @@ test('ChatHistoryStorage: readFromMemory forces load', function () {
         ['role' => 'user', 'content' => 'Pre-existing']
     ]);
 
-    $storage = new ChatHistoryStorage([$driver], $identity);
+    $storage = new ChatHistoryStorage($identity, [$driver]);
 
     // Before read
     expect($storage->isLoaded())->toBeFalse();
@@ -255,7 +255,7 @@ test('ChatHistoryStorage: writeToMemory forces write', function () {
     $driver = new InMemoryStorage();
     $identity = createChatIdentity('agent', 'chat');
 
-    $storage = new ChatHistoryStorage([$driver], $identity);
+    $storage = new ChatHistoryStorage($identity, [$driver]);
     $storage->addMessage(new UserMessage('Test'));
 
     // Force write without checking dirty
@@ -272,7 +272,7 @@ test('ChatHistoryStorage: save only saves when dirty', function () {
     $driver = new InMemoryStorage();
     $identity = createChatIdentity('agent', 'chat');
 
-    $storage = new ChatHistoryStorage([$driver], $identity);
+    $storage = new ChatHistoryStorage($identity, [$driver]);
 
     // Not dirty, should not write
     expect($storage->isDirty())->toBeFalse();
@@ -294,7 +294,7 @@ test('ChatHistoryStorage: Has isolated storage prefix', function () {
     $driver = new InMemoryStorage();
     $identity = createChatIdentity('agent', 'chat');
 
-    $storage = new ChatHistoryStorage([$driver], $identity);
+    $storage = new ChatHistoryStorage($identity, [$driver]);
 
     // The internal scoped identity should have 'chatHistory' prefix
     expect($storage->getIdentity()->getScope())->toBe('chatHistory');
@@ -305,7 +305,7 @@ test('ChatHistoryStorage: Handles ToolCallMessage', function () {
     $driver = new InMemoryStorage();
     $identity = createChatIdentity('agent', 'chat');
 
-    $storage1 = new ChatHistoryStorage([$driver], $identity);
+    $storage1 = new ChatHistoryStorage($identity, [$driver]);
 
     $toolCall = new ToolCall('call_123', 'get_weather', '{"location": "London"}');
     $toolCallMessage = new ToolCallMessage([$toolCall]);
@@ -313,7 +313,7 @@ test('ChatHistoryStorage: Handles ToolCallMessage', function () {
     $storage1->save();
 
     // Load in new instance
-    $storage2 = new ChatHistoryStorage([$driver], $identity);
+    $storage2 = new ChatHistoryStorage($identity, [$driver]);
     $storage2->readFromMemory();
 
     expect($storage2->getMessages()[0])->toBeInstanceOf(ToolCallMessage::class);

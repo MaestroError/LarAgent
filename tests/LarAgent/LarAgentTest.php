@@ -10,7 +10,7 @@ use LarAgent\Context\SessionIdentity;
 
 it('can setup LarAgent', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory, [
         'model' => 'gpt-4o-mini',
     ]);
@@ -21,7 +21,7 @@ it('can setup LarAgent', function () {
 
 it('can set and get instructions', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $instructions = 'You are a helpful assistant.';
@@ -32,7 +32,7 @@ it('can set and get instructions', function () {
 
 it('can set and get message', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $message = Message::user('Hello');
@@ -43,7 +43,7 @@ it('can set and get message', function () {
 
 it('can set and get response schema', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $schema = [
@@ -60,7 +60,7 @@ it('can set and get response schema', function () {
 
 it('can run and get response', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $message = Message::user('Hello');
@@ -80,7 +80,7 @@ it('can run and get response', function () {
 
 it('can run with tools', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $tool = Tool::create('get_current_weather', 'Get the current weather in a given location')
@@ -128,7 +128,7 @@ it('can run with tools', function () {
 
 it('excludes parallel_tool_calls from config when set to null', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $agent->setParallelToolCalls(null);
@@ -145,7 +145,7 @@ it('excludes parallel_tool_calls from config when set to null', function () {
 
 it('includes optional config values when set', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $agent->setN(2);
@@ -168,7 +168,7 @@ it('includes optional config values when set', function () {
 
 it('uses developer role for instructions when enabled', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     $instructions = 'Test instructions';
@@ -194,7 +194,7 @@ it('uses developer role for instructions when enabled', function () {
 
 it('can stream messages using generator', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     // Prepare a mock response
@@ -227,7 +227,7 @@ it('can stream messages using generator', function () {
 
 it('can enable streaming mode and process streamed responses', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
 
     // Prepare a mock response
@@ -279,7 +279,7 @@ it('can enable streaming mode and process streamed responses', function () {
 
 it('can set and get arbitrary configs', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
     $agent->setConfig('test_key', 'test_value');
     expect($agent->getConfig('test_key'))->toBe('test_value');
@@ -287,7 +287,7 @@ it('can set and get arbitrary configs', function () {
 
 it('can chain arbitrary configs', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
     $agent->withConfigs(['test_key' => 'test_value']);
     $agent->withConfigs(['test_key2' => 'test_value2']);
@@ -297,7 +297,7 @@ it('can chain arbitrary configs', function () {
 
 it('arbitrary configs are overwritten during chaining', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory);
     $agent->withConfigs(['test_key' => 'test_value']);
     $agent->withConfigs(['test_key' => 'test_value2']);
@@ -306,7 +306,7 @@ it('arbitrary configs are overwritten during chaining', function () {
 
 it('arbitrary configs are only ones included in configs', function () {
     $driver = new FakeLlmDriver;
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-session'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-session'));
     $agent = LarAgent::setup($driver, $chatHistory, [
         'test_key' => 'test_value',
         'temperature' => 0.5,

@@ -101,7 +101,7 @@ class Context implements ContextContract
      */
     protected function buildIdentityStorage(): IdentityStorage
     {
-        return new IdentityStorage($this->driversConfig, $this->contextIdentity);
+        return new IdentityStorage($this->contextIdentity, $this->driversConfig);
     }
 
     /**

@@ -54,6 +54,7 @@ class SystemMessage extends Message implements MessageInterface
             'role' => $this->getRole(),
             'content' => $this->content ? (string) $this->content : null,
             'message_uuid' => $this->message_uuid,
+            'message_created' => $this->message_created,
         ];
 
         if (!empty($this->extras)) {
@@ -91,6 +92,11 @@ class SystemMessage extends Message implements MessageInterface
         // Handle message_uuid if provided
         if (isset($data['message_uuid'])) {
             $instance->message_uuid = $data['message_uuid'];
+        }
+
+        // Handle message_created if provided
+        if (isset($data['message_created'])) {
+            $instance->message_created = $data['message_created'];
         }
         
         return $instance;

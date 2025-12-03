@@ -24,16 +24,16 @@ class ChatHistoryStorage extends Storage implements ChatHistoryInterface
     /**
      * Create a new ChatHistoryStorage instance
      *
-     * @param array|string $driversConfig Configuration for storage drivers
      * @param SessionIdentityContract $identity The identity for this storage
+     * @param array|string|null $driversConfig Configuration for storage drivers
      * @param bool $storeMeta Whether to store metadata (default: false)
      */
     public function __construct(
-        array|string $driversConfig,
         SessionIdentityContract $identity,
+        array|string|null $driversConfig = null,
         bool $storeMeta = false
     ) {
-        parent::__construct($driversConfig, $identity);
+        parent::__construct($identity, $driversConfig);
         $this->storeMeta = $storeMeta;
     }
 

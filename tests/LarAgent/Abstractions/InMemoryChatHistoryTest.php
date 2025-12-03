@@ -5,7 +5,7 @@ use LarAgent\Messages\UserMessage;
 use LarAgent\Context\SessionIdentity;
 
 it('can add and retrieve messages', function () {
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-history'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-history'));
     $message = new UserMessage('What\'s the weather like in Boston? I prefer celsius');
 
     $chatHistory->addMessage($message);
@@ -22,7 +22,7 @@ it('can add and retrieve messages', function () {
 });
 
 it('can clear messages', function () {
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-history'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-history'));
     $chatHistory->addMessage(new UserMessage('Message 1'));
     $chatHistory->addMessage(new UserMessage('Message 2'));
 
@@ -32,7 +32,7 @@ it('can clear messages', function () {
 });
 
 it('supports array access for messages', function () {
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-history'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-history'));
     $message = new UserMessage('This is an array-accessible message');
 
     $chatHistory->addMessage($message);
@@ -55,7 +55,7 @@ it('supports array access for messages', function () {
 });
 
 it('can write and read messages to and from memory', function () {
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('test-memory-history'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-memory-history'));
     $message = new UserMessage('Remember this message in memory');
 
     $chatHistory->addMessage($message);
@@ -77,7 +77,7 @@ it('can write and read messages to and from memory', function () {
 });
 
 it('handles empty memory gracefully', function () {
-    $chatHistory = new InMemoryChatHistory([], new SessionIdentity('empty-memory-history'));
+    $chatHistory = new InMemoryChatHistory(new SessionIdentity('empty-memory-history'));
 
     // Ensure no errors occur when reading from empty memory
     $chatHistory->readFromMemory();

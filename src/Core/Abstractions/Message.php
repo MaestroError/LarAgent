@@ -17,6 +17,13 @@ abstract class Message extends DataModel implements MessageInterface
     #[ExcludeFromSchema]
     public string $message_uuid;
 
+    /**
+     * Timestamp when the message was created.
+     * Stored as ISO 8601 formatted string for easy serialization.
+     */
+    #[ExcludeFromSchema]
+    public string $message_created;
+
     #[Desc('The role of the message sender')]
     public string|Role $role;  // NO DEFAULT - children will add their fixed value
 
@@ -38,6 +45,11 @@ abstract class Message extends DataModel implements MessageInterface
         if (!isset($this->message_uuid)) {
             $this->message_uuid = $this->generateId();
         }
+
+        // Auto-set creation timestamp if not set
+        if (!isset($this->message_created)) {
+            $this->message_created = $this->generateTimestamp();
+        }
     }
 
     protected function generateId(): string
@@ -46,11 +58,35 @@ abstract class Message extends DataModel implements MessageInterface
     }
 
     /**
+     * Generate ISO 8601 timestamp for message creation
+     */
+    protected function generateTimestamp(): string
+    {
+        return (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+    }
+
+    /**
      * Get unique message identifier
      */
     public function getId(): string
     {
         return $this->message_uuid;
+    }
+
+    /**
+     * Get message creation timestamp as ISO 8601 string
+     */
+    public function getCreatedAt(): string
+    {
+        return $this->message_created;
+    }
+
+    /**
+     * Get message creation timestamp as DateTimeImmutable
+     */
+    public function getCreatedAtDateTime(): \DateTimeImmutable
+    {
+        return new \DateTimeImmutable($this->message_created);
     }
 
     // Implementation of MessageInterface methods
@@ -161,6 +197,9 @@ abstract class Message extends DataModel implements MessageInterface
         // Include message_uuid in output (for storage)
         $properties['message_uuid'] = $this->message_uuid;
 
+        // Include message_created in output (for storage)
+        $properties['message_created'] = $this->message_created;
+
         // Include extras if not empty
         if (!empty($this->extras)) {
             $properties['extras'] = $this->extras;
@@ -209,6 +248,13 @@ abstract class Message extends DataModel implements MessageInterface
             $instance->message_uuid = $data['message_uuid'];
         } elseif (!isset($instance->message_uuid)) {
             $instance->message_uuid = $instance->generateId();
+        }
+
+        // Handle message_created - use from data or generate new
+        if (isset($data['message_created'])) {
+            $instance->message_created = $data['message_created'];
+        } elseif (!isset($instance->message_created)) {
+            $instance->message_created = $instance->generateTimestamp();
         }
 
         if (isset($data['metadata'])) {
