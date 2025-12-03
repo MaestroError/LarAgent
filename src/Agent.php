@@ -165,6 +165,30 @@ class Agent
     /** @var array|null */
     protected $audio = null;
 
+    /** 
+     * Force read history from storage drivers
+     * On agent initialization
+     * 
+     * @var bool 
+     */
+    protected $forceReadHistory = false;
+
+    /** 
+     * Force save history to storage drivers
+     * After each agent response
+     * 
+     * @var bool 
+     */
+    protected $forceSaveHistory = false;
+
+    /** 
+     * Force read context from storage drivers
+     * On agent initialization
+     * 
+     * @var bool 
+     */
+    protected $forceReadContext = false;
+
     public function __construct($key)
     {
         $this->setupProviderData();
@@ -173,8 +197,16 @@ class Agent
 
         $defaultStorageDrivers = $this->defaultStorageDrivers();
         $this->setupContext($defaultStorageDrivers);
-
+        
+        if ($this->forceReadContext) {
+            $this->readContext();
+        }
+        
         $this->setupChatHistory();
+
+        if ($this->forceReadHistory) {
+            $this->chatHistory()->read();
+        }
 
         $this->initMcpClient();
         $this->callEvent('onInitialize');
@@ -881,6 +913,20 @@ class Agent
         return $ChatHistoryStorage;
     }
 
+    public function saveContext(): static
+    {
+        $this->context()->save();
+
+        return $this;
+    }
+
+    public function readContext(): static
+    {
+        $this->context()->read();
+
+        return $this;
+    }
+
     protected function historyStorageDrivers(): string|array 
     {
         if (is_string($this->history)) {
@@ -1307,8 +1353,14 @@ class Agent
             return $returnValue === false ? false : true;
         });
 
-        $this->agent->afterSend(function ($agent, $history, $message) use ($instance) {
+        $forceSaveChatHistory = $this->forceSaveHistory;
+
+        $this->agent->afterSend(function ($agent, $history, $message) use ($instance, $forceSaveChatHistory) {
             $returnValue = $instance->callEvent('afterSend', [$history, $message]);
+
+            if ($forceSaveChatHistory) {
+                $instance->chatHistory()->save();
+            }
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
