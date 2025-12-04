@@ -3,14 +3,11 @@
 namespace LarAgent\Core\Abstractions;
 
 use ArrayAccess;
-use JsonSerializable;
-use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Core\Contracts\DataModel as DataModelContract;
-use LarAgent\Core\Enums\Role;
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
 use LarAgent\Attributes\ExcludeFromSchema;
-use LarAgent\Messages\DataModels\MessageContent;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Enums\Role;
 
 abstract class Message extends DataModel implements MessageInterface
 {
@@ -42,19 +39,19 @@ abstract class Message extends DataModel implements MessageInterface
     public function __construct()
     {
         // Auto-generate ID if not set
-        if (!isset($this->message_uuid)) {
+        if (! isset($this->message_uuid)) {
             $this->message_uuid = $this->generateId();
         }
 
         // Auto-set creation timestamp if not set
-        if (!isset($this->message_created)) {
+        if (! isset($this->message_created)) {
             $this->message_created = $this->generateTimestamp();
         }
     }
 
     protected function generateId(): string
     {
-        return 'msg_' . bin2hex(random_bytes(12));
+        return 'msg_'.bin2hex(random_bytes(12));
     }
 
     /**
@@ -62,7 +59,7 @@ abstract class Message extends DataModel implements MessageInterface
      */
     protected function generateTimestamp(): string
     {
-        return (new \DateTimeImmutable())->format(\DateTimeInterface::ATOM);
+        return (new \DateTimeImmutable)->format(\DateTimeInterface::ATOM);
     }
 
     /**
@@ -114,6 +111,7 @@ abstract class Message extends DataModel implements MessageInterface
         if ($content === null) {
             return '';
         }
+
         // Delegate to content's string representation
         return (string) $content;
     }
@@ -201,7 +199,7 @@ abstract class Message extends DataModel implements MessageInterface
         $properties['message_created'] = $this->message_created;
 
         // Include extras if not empty
-        if (!empty($this->extras)) {
+        if (! empty($this->extras)) {
             $properties['extras'] = $this->extras;
         }
 
@@ -233,9 +231,6 @@ abstract class Message extends DataModel implements MessageInterface
 
     /**
      * Create a new instance from an array of attributes.
-     *
-     * @param array $data
-     * @return static
      */
     public static function fromArray(array $data): static
     {
@@ -246,14 +241,14 @@ abstract class Message extends DataModel implements MessageInterface
         // Handle message_uuid - use from data or generate new
         if (isset($data['message_uuid'])) {
             $instance->message_uuid = $data['message_uuid'];
-        } elseif (!isset($instance->message_uuid)) {
+        } elseif (! isset($instance->message_uuid)) {
             $instance->message_uuid = $instance->generateId();
         }
 
         // Handle message_created - use from data or generate new
         if (isset($data['message_created'])) {
             $instance->message_created = $data['message_created'];
-        } elseif (!isset($instance->message_created)) {
+        } elseif (! isset($instance->message_created)) {
             $instance->message_created = $instance->generateTimestamp();
         }
 
@@ -275,7 +270,7 @@ abstract class Message extends DataModel implements MessageInterface
 
         // Any array key not matching a known property goes to extras
         foreach ($data as $key => $value) {
-            if (!in_array($key, $knownProperties)) {
+            if (! in_array($key, $knownProperties)) {
                 $instance->extras[$key] = $value;
             }
         }

@@ -15,25 +15,25 @@ function createEloquentTestIdentity(string $agent, ?string $chat = null): Sessio
 
 beforeEach(function () {
     // Run only the simple-eloquent-storage migration
-    $migration = include __DIR__ . '/../../../src/Context/Database/migrations/create_laragent_storage_table.php';
+    $migration = include __DIR__.'/../../../src/Context/Database/migrations/create_laragent_storage_table.php';
     $migration->up();
 });
 
 afterEach(function () {
     // Clean up
-    $migration = include __DIR__ . '/../../../src/Context/Database/migrations/create_laragent_storage_table.php';
+    $migration = include __DIR__.'/../../../src/Context/Database/migrations/create_laragent_storage_table.php';
     $migration->down();
 });
 
 test('SimpleEloquentStorage: reads null when no data exists', function () {
-    $driver = new SimpleEloquentStorage();
+    $driver = new SimpleEloquentStorage;
     $identity = createEloquentTestIdentity('agent', 'chat');
 
     expect($driver->readFromMemory($identity))->toBeNull();
 });
 
 test('SimpleEloquentStorage: writes and reads data correctly', function () {
-    $driver = new SimpleEloquentStorage();
+    $driver = new SimpleEloquentStorage;
     $identity = createEloquentTestIdentity('agent', 'chat');
 
     $data = ['key' => 'value', 'nested' => ['foo' => 'bar']];
@@ -44,7 +44,7 @@ test('SimpleEloquentStorage: writes and reads data correctly', function () {
 });
 
 test('SimpleEloquentStorage: removes data correctly', function () {
-    $driver = new SimpleEloquentStorage();
+    $driver = new SimpleEloquentStorage;
     $identity = createEloquentTestIdentity('agent', 'chat');
 
     $driver->writeToMemory($identity, ['test' => 'data']);
@@ -57,7 +57,7 @@ test('SimpleEloquentStorage: removes data correctly', function () {
 });
 
 test('SimpleEloquentStorage: isolates data by identity', function () {
-    $driver = new SimpleEloquentStorage();
+    $driver = new SimpleEloquentStorage;
     $identity1 = createEloquentTestIdentity('agent1', 'chat1');
     $identity2 = createEloquentTestIdentity('agent2', 'chat2');
 
@@ -69,7 +69,7 @@ test('SimpleEloquentStorage: isolates data by identity', function () {
 });
 
 test('SimpleEloquentStorage: updates existing data', function () {
-    $driver = new SimpleEloquentStorage();
+    $driver = new SimpleEloquentStorage;
     $identity = createEloquentTestIdentity('agent', 'chat');
 
     $driver->writeToMemory($identity, ['version' => 1]);
@@ -83,7 +83,7 @@ test('SimpleEloquentStorage: updates existing data', function () {
 });
 
 test('SimpleEloquentStorage: handles complex nested data', function () {
-    $driver = new SimpleEloquentStorage();
+    $driver = new SimpleEloquentStorage;
     $identity = createEloquentTestIdentity('agent', 'chat');
 
     $complexData = [
@@ -102,7 +102,7 @@ test('SimpleEloquentStorage: handles complex nested data', function () {
 });
 
 test('SimpleEloquentStorage: remove returns true when record does not exist', function () {
-    $driver = new SimpleEloquentStorage();
+    $driver = new SimpleEloquentStorage;
     $identity = createEloquentTestIdentity('nonexistent', 'chat');
 
     $result = $driver->removeFromMemory($identity);
@@ -111,13 +111,13 @@ test('SimpleEloquentStorage: remove returns true when record does not exist', fu
 });
 
 test('LaragentStorage model: uses correct table', function () {
-    $model = new LaragentStorage();
+    $model = new LaragentStorage;
 
     expect($model->getTable())->toBe('laragent_storage');
 });
 
 test('LaragentStorage model: has correct fillable attributes', function () {
-    $model = new LaragentStorage();
+    $model = new LaragentStorage;
 
     expect($model->getFillable())->toBe(['key', 'data']);
 });

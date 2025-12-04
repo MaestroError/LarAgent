@@ -5,8 +5,8 @@ use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Facades\Storage;
 use LarAgent\Context\Drivers\CacheStorage;
 use LarAgent\Context\Drivers\FileStorage;
-use LarAgent\Context\Drivers\SessionStorage;
 use LarAgent\Context\Drivers\InMemoryStorage;
+use LarAgent\Context\Drivers\SessionStorage;
 use LarAgent\Context\SessionIdentity;
 
 // Helper to create identity
@@ -20,14 +20,14 @@ function createDriverTestIdentity(string $agent, ?string $chat = null): SessionI
 // ===========================================
 
 test('InMemoryStorage: reads null when no data exists', function () {
-    $driver = new InMemoryStorage();
+    $driver = new InMemoryStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     expect($driver->readFromMemory($identity))->toBeNull();
 });
 
 test('InMemoryStorage: writes and reads data correctly', function () {
-    $driver = new InMemoryStorage();
+    $driver = new InMemoryStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $data = ['key' => 'value', 'nested' => ['foo' => 'bar']];
@@ -38,7 +38,7 @@ test('InMemoryStorage: writes and reads data correctly', function () {
 });
 
 test('InMemoryStorage: removes data correctly', function () {
-    $driver = new InMemoryStorage();
+    $driver = new InMemoryStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $driver->writeToMemory($identity, ['test' => 'data']);
@@ -51,7 +51,7 @@ test('InMemoryStorage: removes data correctly', function () {
 });
 
 test('InMemoryStorage: isolates data by identity', function () {
-    $driver = new InMemoryStorage();
+    $driver = new InMemoryStorage;
     $identity1 = createDriverTestIdentity('agent1', 'chat1');
     $identity2 = createDriverTestIdentity('agent2', 'chat2');
 
@@ -72,7 +72,7 @@ test('CacheStorage: reads null when no data exists', function () {
         ->with('agent_chat')
         ->andReturn(null);
 
-    $driver = new CacheStorage();
+    $driver = new CacheStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     expect($driver->readFromMemory($identity))->toBeNull();
@@ -90,7 +90,7 @@ test('CacheStorage: writes and reads data correctly', function () {
         ->with('agent_chat')
         ->andReturn($data);
 
-    $driver = new CacheStorage();
+    $driver = new CacheStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->writeToMemory($identity, $data);
@@ -104,7 +104,7 @@ test('CacheStorage: removes data correctly', function () {
         ->once()
         ->with('agent_chat');
 
-    $driver = new CacheStorage();
+    $driver = new CacheStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->removeFromMemory($identity);
@@ -114,11 +114,11 @@ test('CacheStorage: removes data correctly', function () {
 test('CacheStorage: uses specified store', function () {
     $data = ['test' => 'data'];
     $mockStore = Mockery::mock();
-    
+
     Cache::shouldReceive('store')
         ->with('redis')
         ->andReturn($mockStore);
-    
+
     $mockStore->shouldReceive('put')
         ->once()
         ->with('agent_chat', $data);
@@ -133,11 +133,11 @@ test('CacheStorage: uses specified store', function () {
 test('CacheStorage: reads from specified store', function () {
     $data = ['test' => 'data'];
     $mockStore = Mockery::mock();
-    
+
     Cache::shouldReceive('store')
         ->with('file')
         ->andReturn($mockStore);
-    
+
     $mockStore->shouldReceive('get')
         ->once()
         ->with('agent_chat')
@@ -151,11 +151,11 @@ test('CacheStorage: reads from specified store', function () {
 
 test('CacheStorage: removes from specified store', function () {
     $mockStore = Mockery::mock();
-    
+
     Cache::shouldReceive('store')
         ->with('redis')
         ->andReturn($mockStore);
-    
+
     $mockStore->shouldReceive('forget')
         ->once()
         ->with('agent_chat');
@@ -177,7 +177,7 @@ test('SessionStorage: reads null when no data exists', function () {
         ->with('agent_chat')
         ->andReturn(null);
 
-    $driver = new SessionStorage();
+    $driver = new SessionStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     expect($driver->readFromMemory($identity))->toBeNull();
@@ -195,7 +195,7 @@ test('SessionStorage: writes and reads data correctly', function () {
         ->with('agent_chat')
         ->andReturn($data);
 
-    $driver = new SessionStorage();
+    $driver = new SessionStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->writeToMemory($identity, $data);
@@ -209,7 +209,7 @@ test('SessionStorage: removes data correctly', function () {
         ->once()
         ->with('agent_chat');
 
-    $driver = new SessionStorage();
+    $driver = new SessionStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->removeFromMemory($identity);
@@ -222,7 +222,7 @@ test('SessionStorage: returns null for non-array data', function () {
         ->with('agent_chat')
         ->andReturn('not an array');
 
-    $driver = new SessionStorage();
+    $driver = new SessionStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     expect($driver->readFromMemory($identity))->toBeNull();
@@ -236,13 +236,13 @@ test('FileStorage: reads null when file does not exist', function () {
     Storage::shouldReceive('disk')
         ->with('local')
         ->andReturnSelf();
-    
+
     Storage::shouldReceive('exists')
         ->once()
         ->with('laragent_storage/agent_chat.json')
         ->andReturn(false);
 
-    $driver = new FileStorage();
+    $driver = new FileStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     expect($driver->readFromMemory($identity))->toBeNull();
@@ -273,7 +273,7 @@ test('FileStorage: writes and reads data correctly', function () {
         ->with('laragent_storage/agent_chat.json')
         ->andReturn($jsonData);
 
-    $driver = new FileStorage();
+    $driver = new FileStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->writeToMemory($identity, $data);
@@ -296,7 +296,7 @@ test('FileStorage: removes data correctly', function () {
         ->once()
         ->with('laragent_storage/agent_chat.json');
 
-    $driver = new FileStorage();
+    $driver = new FileStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->removeFromMemory($identity);
@@ -346,7 +346,7 @@ test('FileStorage: creates folder if not exists', function () {
         ->once()
         ->with('laragent_storage/agent_chat.json', $jsonData);
 
-    $driver = new FileStorage();
+    $driver = new FileStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->writeToMemory($identity, $data);
@@ -370,7 +370,7 @@ test('FileStorage: sanitizes file names', function () {
         ->once()
         ->with('laragent_storage/agent_with_special_chars_chat_123.json', $jsonData);
 
-    $driver = new FileStorage();
+    $driver = new FileStorage;
     $identity = createDriverTestIdentity('agent/with:special*chars', 'chat@123');
 
     $result = $driver->writeToMemory($identity, $data);
@@ -391,7 +391,7 @@ test('FileStorage: handles invalid JSON gracefully', function () {
         ->with('laragent_storage/agent_chat.json')
         ->andReturn('invalid json {');
 
-    $driver = new FileStorage();
+    $driver = new FileStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     expect($driver->readFromMemory($identity))->toBeNull();
@@ -407,7 +407,7 @@ test('FileStorage: remove returns true when file does not exist', function () {
         ->with('laragent_storage/agent_chat.json')
         ->andReturn(false);
 
-    $driver = new FileStorage();
+    $driver = new FileStorage;
     $identity = createDriverTestIdentity('agent', 'chat');
 
     $result = $driver->removeFromMemory($identity);

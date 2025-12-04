@@ -21,8 +21,8 @@ class FileStorage extends StorageDriver
     /**
      * Create a new FileDriver instance
      *
-     * @param string|null $disk The storage disk to use (null for default)
-     * @param string $folder The folder path to store files
+     * @param  string|null  $disk  The storage disk to use (null for default)
+     * @param  string  $folder  The folder path to store files
      */
     public function __construct(?string $disk = null, string $folder = 'laragent_storage')
     {
@@ -32,15 +32,12 @@ class FileStorage extends StorageDriver
 
     /**
      * Read data from file storage
-     *
-     * @param SessionIdentity $identity
-     * @return array|null
      */
     public function readFromMemory(SessionIdentity $identity): ?array
     {
         $filePath = $this->getFullPath($identity);
 
-        if (!Storage::disk($this->disk)->exists($filePath)) {
+        if (! Storage::disk($this->disk)->exists($filePath)) {
             return null;
         }
 
@@ -56,10 +53,6 @@ class FileStorage extends StorageDriver
 
     /**
      * Write data to file storage
-     *
-     * @param SessionIdentity $identity
-     * @param array $data
-     * @return bool
      */
     public function writeToMemory(SessionIdentity $identity, array $data): bool
     {
@@ -77,9 +70,6 @@ class FileStorage extends StorageDriver
 
     /**
      * Remove data from file storage
-     *
-     * @param SessionIdentity $identity
-     * @return bool
      */
     public function removeFromMemory(SessionIdentity $identity): bool
     {
@@ -98,22 +88,16 @@ class FileStorage extends StorageDriver
 
     /**
      * Get the full path for a file
-     *
-     * @param SessionIdentity $identity
-     * @return string
      */
     protected function getFullPath(SessionIdentity $identity): string
     {
         $safeName = $this->getSafeName($identity->getKey());
 
-        return $this->folder . '/' . $safeName . '.json';
+        return $this->folder.'/'.$safeName.'.json';
     }
 
     /**
      * Sanitize a key to be safe for file names
-     *
-     * @param string $key
-     * @return string
      */
     protected function getSafeName(string $key): string
     {
@@ -122,12 +106,10 @@ class FileStorage extends StorageDriver
 
     /**
      * Ensure the storage folder exists
-     *
-     * @return void
      */
     protected function ensureFolderExists(): void
     {
-        if (!Storage::disk($this->disk)->exists($this->folder)) {
+        if (! Storage::disk($this->disk)->exists($this->folder)) {
             Storage::disk($this->disk)->makeDirectory($this->folder);
         }
     }

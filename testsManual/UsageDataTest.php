@@ -2,10 +2,10 @@
 
 /**
  * Usage Data Tests for All Providers
- * 
+ *
  * Tests that all LLM providers correctly return usage/token data
  * from both regular and streamed responses.
- * 
+ *
  * To run these tests, you need to configure API keys for each provider
  * in their respective api-key.php files.
  */
@@ -16,8 +16,8 @@ use LarAgent\Drivers\Gemini\GeminiDriver;
 use LarAgent\Drivers\Groq\GroqDriver;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
 use LarAgent\Drivers\OpenAi\OpenRouter;
-use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Tests\TestCase;
+use LarAgent\Usage\DataModels\Usage;
 
 uses(TestCase::class);
 
@@ -28,7 +28,9 @@ uses(TestCase::class);
 class OpenAiUsageTestAgent extends Agent
 {
     protected $provider = 'openai';
+
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -45,7 +47,9 @@ class OpenAiUsageTestAgent extends Agent
 class ClaudeUsageTestAgent extends Agent
 {
     protected $provider = 'claude';
+
     protected $model = 'claude-3-5-haiku-latest';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -62,7 +66,9 @@ class ClaudeUsageTestAgent extends Agent
 class GeminiUsageTestAgent extends Agent
 {
     protected $provider = 'gemini';
+
     protected $model = 'gemini-2.0-flash-lite';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -79,7 +85,9 @@ class GeminiUsageTestAgent extends Agent
 class GroqUsageTestAgent extends Agent
 {
     protected $provider = 'groq';
+
     protected $model = 'llama-3.3-70b-versatile';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -96,7 +104,9 @@ class GroqUsageTestAgent extends Agent
 class OpenRouterUsageTestAgent extends Agent
 {
     protected $provider = 'openrouter';
+
     protected $model = 'x-ai/grok-4.1-fast:free';
+
     protected $history = 'in_memory';
 
     public function instructions()
@@ -116,8 +126,8 @@ class OpenRouterUsageTestAgent extends Agent
 
 describe('OpenAI Usage Data', function () {
     beforeEach(function () {
-        $apiKey = include __DIR__ . '/../openai-api-key.php';
-        
+        $apiKey = include __DIR__.'/../openai-api-key.php';
+
         config()->set('laragent.providers.openai', [
             'label' => 'openai',
             'model' => 'gpt-4o-mini',
@@ -128,45 +138,45 @@ describe('OpenAI Usage Data', function () {
 
     it('returns usage data from regular response', function () {
         $agent = OpenAiUsageTestAgent::for('openai_usage_test');
-        
+
         $response = $agent->respond('Say "Hello"');
-        
+
         // Get usage from the agent's last message
         $lastMessage = $agent->lastMessage();
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nOpenAI Usage (regular): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nOpenAI Usage (regular): ".json_encode($usage->toArray())."\n";
     });
 
     it('returns usage data from streamed response', function () {
         $agent = OpenAiUsageTestAgent::for('openai_usage_streamed_test');
-        
+
         $stream = $agent->respondStreamed('Say "Hello"');
-        
+
         // Consume the stream
         $lastMessage = null;
         foreach ($stream as $message) {
             $lastMessage = $message;
         }
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nOpenAI Usage (streamed): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nOpenAI Usage (streamed): ".json_encode($usage->toArray())."\n";
     });
 });
 
@@ -176,8 +186,8 @@ describe('OpenAI Usage Data', function () {
 
 describe('Claude Usage Data', function () {
     beforeEach(function () {
-        $apiKey = include __DIR__ . '/anthropic-api-key.php';
-        
+        $apiKey = include __DIR__.'/anthropic-api-key.php';
+
         config()->set('laragent.providers.claude', [
             'label' => 'claude',
             'model' => 'claude-3-5-haiku-latest',
@@ -188,45 +198,45 @@ describe('Claude Usage Data', function () {
 
     it('returns usage data from regular response', function () {
         $agent = ClaudeUsageTestAgent::for('claude_usage_test');
-        
+
         $response = $agent->respond('Say "Hello"');
-        
+
         // Get usage from the agent's last message
         $lastMessage = $agent->lastMessage();
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nClaude Usage (regular): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nClaude Usage (regular): ".json_encode($usage->toArray())."\n";
     });
 
     it('returns usage data from streamed response', function () {
         $agent = ClaudeUsageTestAgent::for('claude_usage_streamed_test');
-        
+
         $stream = $agent->respondStreamed('Say "Hello"');
-        
+
         // Consume the stream
         $lastMessage = null;
         foreach ($stream as $message) {
             $lastMessage = $message;
         }
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nClaude Usage (streamed): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nClaude Usage (streamed): ".json_encode($usage->toArray())."\n";
     });
 });
 
@@ -236,8 +246,8 @@ describe('Claude Usage Data', function () {
 
 describe('Gemini Usage Data', function () {
     beforeEach(function () {
-        $apiKey = include __DIR__ . '/gemini-api-key.php';
-        
+        $apiKey = include __DIR__.'/gemini-api-key.php';
+
         config()->set('laragent.providers.gemini', [
             'label' => 'gemini',
             'model' => 'gemini-2.0-flash-lite',
@@ -249,45 +259,45 @@ describe('Gemini Usage Data', function () {
 
     it('returns usage data from regular response', function () {
         $agent = GeminiUsageTestAgent::for('gemini_usage_test');
-        
+
         $response = $agent->respond('Say "Hello"');
-        
+
         // Get usage from the agent's last message
         $lastMessage = $agent->lastMessage();
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nGemini Usage (regular): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nGemini Usage (regular): ".json_encode($usage->toArray())."\n";
     });
 
     it('returns usage data from streamed response', function () {
         $agent = GeminiUsageTestAgent::for('gemini_usage_streamed_test');
-        
+
         $stream = $agent->respondStreamed('Say "Hello"');
-        
+
         // Consume the stream
         $lastMessage = null;
         foreach ($stream as $message) {
             $lastMessage = $message;
         }
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nGemini Usage (streamed): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nGemini Usage (streamed): ".json_encode($usage->toArray())."\n";
     });
 });
 
@@ -297,8 +307,8 @@ describe('Gemini Usage Data', function () {
 
 describe('Groq Usage Data', function () {
     beforeEach(function () {
-        $apiKey = include __DIR__ . '/groq-api-key.php';
-        
+        $apiKey = include __DIR__.'/groq-api-key.php';
+
         config()->set('laragent.providers.groq', [
             'label' => 'groq',
             'model' => 'llama-3.3-70b-versatile',
@@ -309,45 +319,45 @@ describe('Groq Usage Data', function () {
 
     it('returns usage data from regular response', function () {
         $agent = GroqUsageTestAgent::for('groq_usage_test');
-        
+
         $response = $agent->respond('Say "Hello"');
-        
+
         // Get usage from the agent's last message
         $lastMessage = $agent->lastMessage();
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nGroq Usage (regular): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nGroq Usage (regular): ".json_encode($usage->toArray())."\n";
     });
 
     it('returns usage data from streamed response', function () {
         $agent = GroqUsageTestAgent::for('groq_usage_streamed_test');
-        
+
         $stream = $agent->respondStreamed('Say "Hello"');
-        
+
         // Consume the stream
         $lastMessage = null;
         foreach ($stream as $message) {
             $lastMessage = $message;
         }
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nGroq Usage (streamed): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nGroq Usage (streamed): ".json_encode($usage->toArray())."\n";
     });
 });
 
@@ -357,8 +367,8 @@ describe('Groq Usage Data', function () {
 
 describe('OpenRouter Usage Data', function () {
     beforeEach(function () {
-        $apiKey = include __DIR__ . '/openrouter-api-key.php';
-        
+        $apiKey = include __DIR__.'/openrouter-api-key.php';
+
         config()->set('laragent.providers.openrouter', [
             'label' => 'openrouter',
             'model' => 'deepseek/deepseek-chat-v3.1:free',
@@ -371,44 +381,44 @@ describe('OpenRouter Usage Data', function () {
 
     it('returns usage data from regular response', function () {
         $agent = OpenRouterUsageTestAgent::for('openrouter_usage_test');
-        
+
         $response = $agent->respond('Say "Hello"');
-        
+
         // Get usage from the agent's last message
         $lastMessage = $agent->lastMessage();
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nOpenRouter Usage (regular): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nOpenRouter Usage (regular): ".json_encode($usage->toArray())."\n";
     });
 
     it('returns usage data from streamed response', function () {
         $agent = OpenRouterUsageTestAgent::for('openrouter_usage_streamed_test');
-        
+
         $stream = $agent->respondStreamed('Say "Hello"');
-        
+
         // Consume the stream
         $lastMessage = null;
         foreach ($stream as $message) {
             $lastMessage = $message;
         }
-        
+
         expect($lastMessage)->not->toBeNull();
-        
+
         $usage = $lastMessage->getUsage();
-        
+
         expect($usage)->toBeInstanceOf(Usage::class);
         expect($usage->promptTokens)->toBeGreaterThan(0);
         expect($usage->completionTokens)->toBeGreaterThan(0);
         expect($usage->totalTokens)->toBe($usage->promptTokens + $usage->completionTokens);
-        
-        echo "\nOpenRouter Usage (streamed): " . json_encode($usage->toArray()) . "\n";
+
+        echo "\nOpenRouter Usage (streamed): ".json_encode($usage->toArray())."\n";
     });
 });

@@ -2,15 +2,12 @@
 
 namespace LarAgent\Messages;
 
-use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Core\Contracts\DataModel as DataModelContract;
-use LarAgent\Core\Enums\Role;
-use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Attributes\Desc;
-use LarAgent\Messages\DataModels\ToolCallArray;
-use LarAgent\Messages\DataModels\Content\TextContent;
-use LarAgent\ToolCall;
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Enums\Role;
 use LarAgent\Messages\DataModels\MessageContent;
+use LarAgent\Messages\DataModels\ToolCallArray;
 
 class ToolCallMessage extends AssistantMessage implements MessageInterface
 {
@@ -28,7 +25,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
     {
         parent::__construct('', $metadata);
         $this->content = null; // ToolCallMessage has no text content
-        
+
         if ($toolCalls instanceof ToolCallArray) {
             $this->toolCalls = $toolCalls;
         } else {
@@ -41,7 +38,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
      */
     public static function matchesArray(array $data): bool
     {
-        return !empty($data['tool_calls']);
+        return ! empty($data['tool_calls']);
     }
 
     public static function fromArray(array $data): static
@@ -50,7 +47,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
         $metadata = $data['metadata'] ?? [];
 
         $instance = new static($toolCalls, $metadata);
-        
+
         // Handle message_uuid if provided
         if (isset($data['message_uuid'])) {
             $instance->message_uuid = $data['message_uuid'];
@@ -60,7 +57,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
         if (isset($data['message_created'])) {
             $instance->message_created = $data['message_created'];
         }
-        
+
         // Handle any extras
         // $knownKeys = ['role', 'tool_calls', 'metadata', 'message_uuid', 'extras', 'content'];
         // foreach ($data as $key => $value) {
@@ -68,7 +65,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
         //         $instance->extras[$key] = $value;
         //     }
         // }
-        
+
         if (isset($data['extras'])) {
             $instance->extras = array_merge($instance->extras, $data['extras']);
         }
@@ -95,7 +92,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
             'message_created' => $this->message_created,
         ];
 
-        if (!empty($this->extras)) {
+        if (! empty($this->extras)) {
             $result['extras'] = $this->extras;
         }
 

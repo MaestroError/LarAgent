@@ -7,20 +7,20 @@ use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\DataModels\SessionIdentityArray;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Core\Traits\SafeEventDispatch;
-use LarAgent\Events\IdentityStorage\IdentityStorageLoaded;
-use LarAgent\Events\IdentityStorage\IdentityStorageSaving;
-use LarAgent\Events\IdentityStorage\IdentityStorageSaved;
-use LarAgent\Events\IdentityStorage\IdentityAdding;
 use LarAgent\Events\IdentityStorage\IdentityAdded;
+use LarAgent\Events\IdentityStorage\IdentityAdding;
+use LarAgent\Events\IdentityStorage\IdentityStorageLoaded;
+use LarAgent\Events\IdentityStorage\IdentityStorageSaved;
+use LarAgent\Events\IdentityStorage\IdentityStorageSaving;
 
 /**
  * A specialized storage that tracks all storage identities registered within a context.
- * 
+ *
  * This enables:
  * - Listing all storages related to an agent
  * - Cleanup operations
  * - Key discovery
- * 
+ *
  * The IdentityStorage uses its own identity derived from the agent name + "context" scope,
  * separate from the session identity used by other storages.
  */
@@ -37,19 +37,17 @@ class IdentityStorage extends Storage
     /**
      * Check if an identity should be tracked.
      * Identities with reserved prefixes are excluded from tracking.
-     *
-     * @param SessionIdentityContract $identity
-     * @return bool
      */
     protected function shouldTrack(SessionIdentityContract $identity): bool
     {
         $chatName = $identity->getChatName();
-        return $chatName === null || !str_starts_with($chatName, self::TEMP_SESSION_PREFIX);
+
+        return $chatName === null || ! str_starts_with($chatName, self::TEMP_SESSION_PREFIX);
     }
 
     /**
      * Get the DataModelArray class name for identities
-     * 
+     *
      * @return string The fully qualified class name
      */
     protected function getDataModelClass(): string
@@ -59,7 +57,7 @@ class IdentityStorage extends Storage
 
     /**
      * Get the storage prefix/scope for isolation.
-     * 
+     *
      * @return string The storage prefix
      */
     public static function getStoragePrefix(): string
@@ -71,13 +69,12 @@ class IdentityStorage extends Storage
      * Add a storage identity to track.
      * Identities with reserved session prefixes (e.g., '_temp') are not tracked.
      *
-     * @param SessionIdentityContract $identity The storage identity to track
-     * @return void
+     * @param  SessionIdentityContract  $identity  The storage identity to track
      */
     public function addIdentity(SessionIdentityContract $identity): void
     {
         // Skip tracking for reserved/temporary sessions
-        if (!$this->shouldTrack($identity)) {
+        if (! $this->shouldTrack($identity)) {
             return;
         }
 
@@ -85,9 +82,9 @@ class IdentityStorage extends Storage
         $this->dispatchEvent(new IdentityAdding($this, $identity));
 
         $this->ensureLoaded();
-        
+
         /** @var SessionIdentityArray $items */
-        if (!$this->items->hasKey($identity->getKey())) {
+        if (! $this->items->hasKey($identity->getKey())) {
             $this->items->add($identity);
             $this->dirty = true;
 
@@ -99,13 +96,12 @@ class IdentityStorage extends Storage
     /**
      * Remove a storage identity from tracking by its key.
      *
-     * @param string $key The storage key to remove
-     * @return void
+     * @param  string  $key  The storage key to remove
      */
     public function removeByKey(string $key): void
     {
         $this->ensureLoaded();
-        
+
         /** @var SessionIdentityArray $items */
         if ($this->items->hasKey($key)) {
             $this->items->removeByKey($key);
@@ -116,8 +112,7 @@ class IdentityStorage extends Storage
     /**
      * Check if a storage key is being tracked.
      *
-     * @param string $key The storage key to check
-     * @return bool
+     * @param  string  $key  The storage key to check
      */
     public function hasKey(string $key): bool
     {
@@ -127,8 +122,7 @@ class IdentityStorage extends Storage
     /**
      * Get a tracked identity by its key.
      *
-     * @param string $key The storage key
-     * @return SessionIdentityContract|null
+     * @param  string  $key  The storage key
      */
     public function getByKey(string $key): ?SessionIdentityContract
     {
@@ -148,7 +142,7 @@ class IdentityStorage extends Storage
     /**
      * Get tracked storage keys filtered by prefix.
      *
-     * @param string $prefix The prefix to filter by (e.g., 'chatHistory')
+     * @param  string  $prefix  The prefix to filter by (e.g., 'chatHistory')
      * @return array<string>
      */
     public function getKeysByPrefix(string $prefix): array
@@ -159,8 +153,7 @@ class IdentityStorage extends Storage
     /**
      * Get tracked identities filtered by scope/prefix.
      *
-     * @param string $scope The scope to filter by (e.g., 'chatHistory')
-     * @return SessionIdentityArray
+     * @param  string  $scope  The scope to filter by (e.g., 'chatHistory')
      */
     public function getIdentitiesByScope(string $scope): SessionIdentityArray
     {
@@ -172,8 +165,7 @@ class IdentityStorage extends Storage
     /**
      * Get tracked identities filtered by user ID.
      *
-     * @param string $userId The user ID to filter by
-     * @return SessionIdentityArray
+     * @param  string  $userId  The user ID to filter by
      */
     public function getIdentitiesByUser(string $userId): SessionIdentityArray
     {
@@ -184,8 +176,6 @@ class IdentityStorage extends Storage
 
     /**
      * Get all tracked identities.
-     *
-     * @return SessionIdentityArray
      */
     public function getIdentities(): SessionIdentityArray
     {
@@ -195,12 +185,10 @@ class IdentityStorage extends Storage
     /**
      * Save identities to storage (only if changed).
      * Dispatches events before and after saving.
-     *
-     * @return void
      */
     public function save(): void
     {
-        if (!$this->dirty) {
+        if (! $this->dirty) {
             return;
         }
 
@@ -217,8 +205,6 @@ class IdentityStorage extends Storage
     /**
      * Load identities from storage.
      * Dispatches event after loading.
-     *
-     * @return void
      */
     protected function load(): void
     {

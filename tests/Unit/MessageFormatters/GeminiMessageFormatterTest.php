@@ -2,18 +2,12 @@
 
 use LarAgent\Drivers\Gemini\GeminiMessageFormatter;
 use LarAgent\Message;
-use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\DeveloperMessage;
-use LarAgent\Messages\SystemMessage;
-use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Messages\ToolResultMessage;
-use LarAgent\Messages\UserMessage;
 use LarAgent\Tool;
 use LarAgent\ToolCall;
 
 describe('GeminiMessageFormatter', function () {
     beforeEach(function () {
-        $this->formatter = new GeminiMessageFormatter();
+        $this->formatter = new GeminiMessageFormatter;
     });
 
     // ========== formatMessage Tests ==========

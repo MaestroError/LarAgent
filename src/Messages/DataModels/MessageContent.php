@@ -3,10 +3,10 @@
 namespace LarAgent\Messages\DataModels;
 
 use LarAgent\Core\Abstractions\DataModelArray;
-use LarAgent\Messages\DataModels\Content\TextContent;
-use LarAgent\Messages\DataModels\Content\ImageContent;
-use LarAgent\Messages\DataModels\Content\AudioContent;
 use LarAgent\Core\Enums\MessageContentType;
+use LarAgent\Messages\DataModels\Content\AudioContent;
+use LarAgent\Messages\DataModels\Content\ImageContent;
+use LarAgent\Messages\DataModels\Content\TextContent;
 
 class MessageContent extends DataModelArray
 {
@@ -26,8 +26,6 @@ class MessageContent extends DataModelArray
 
     /**
      * Convert MessageContent to string by extracting text from TextContent items.
-     *
-     * @return string
      */
     public function __toString(): string
     {
@@ -37,6 +35,7 @@ class MessageContent extends DataModelArray
                 $texts[] = (string) $item;
             }
         }
+
         return implode("\n", $texts);
     }
 }

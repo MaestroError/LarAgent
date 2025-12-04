@@ -2,18 +2,12 @@
 
 use LarAgent\Drivers\OpenAi\OpenAiMessageFormatter;
 use LarAgent\Message;
-use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\DeveloperMessage;
-use LarAgent\Messages\SystemMessage;
-use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Messages\ToolResultMessage;
-use LarAgent\Messages\UserMessage;
 use LarAgent\Tool;
 use LarAgent\ToolCall;
 
 describe('OpenAiMessageFormatter', function () {
     beforeEach(function () {
-        $this->formatter = new OpenAiMessageFormatter();
+        $this->formatter = new OpenAiMessageFormatter;
     });
 
     // ========== formatMessage Tests ==========

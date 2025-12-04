@@ -8,9 +8,8 @@ use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
-use LarAgent\Messages\DataModels\MessageArray;
+use LarAgent\Usage\DataModels\Usage;
 
 class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
 {
@@ -40,8 +39,8 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
 
     public function sendMessage(array $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
     {
-        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
-            ? $overrideSettings->toArray() 
+        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig
+            ? $overrideSettings->toArray()
             : $overrideSettings;
 
         if (empty($this->mockResponses)) {
@@ -59,23 +58,23 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
             $toolCalls[] = new ToolCall($toolCallId, $responseData['toolName'], $responseData['arguments']);
 
             $message = new ToolCallMessage($toolCalls);
-            
+
             // Set usage if provided in metadata
             if (isset($responseData['metaData']['usage'])) {
                 $message->setUsage(Usage::fromArray($responseData['metaData']['usage']));
             }
-            
+
             return $message;
         }
 
         if ($finishReason === 'stop') {
             $message = new AssistantMessage($responseData['content']);
-            
+
             // Set usage if provided in metadata
             if (isset($responseData['metaData']['usage'])) {
                 $message->setUsage(Usage::fromArray($responseData['metaData']['usage']));
             }
-            
+
             return $message;
         }
 
@@ -95,8 +94,8 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
      */
     public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
-        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
-            ? $overrideSettings->toArray() 
+        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig
+            ? $overrideSettings->toArray()
             : $overrideSettings;
 
         if (empty($this->mockResponses)) {
@@ -114,7 +113,7 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
             $toolCalls[] = new ToolCall($toolCallId, $responseData['toolName'], $responseData['arguments']);
 
             $toolCallMessage = new ToolCallMessage($toolCalls);
-            
+
             // Set usage if provided in metadata
             if (isset($responseData['metaData']['usage'])) {
                 $toolCallMessage->setUsage(Usage::fromArray($responseData['metaData']['usage']));
@@ -128,7 +127,7 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
             yield $toolCallMessage;
         } elseif ($finishReason === 'stop') {
             $message = new AssistantMessage($responseData['content']);
-            
+
             // Set usage if provided in metadata
             if (isset($responseData['metaData']['usage'])) {
                 $message->setUsage(Usage::fromArray($responseData['metaData']['usage']));

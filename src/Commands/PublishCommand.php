@@ -60,18 +60,19 @@ class PublishCommand extends Command
     /**
      * Publish a migration file.
      *
-     * @param string $migrationFile The migration filename
-     * @param string $name Human-readable name for output
+     * @param  string  $migrationFile  The migration filename
+     * @param  string  $name  Human-readable name for output
      * @return int Exit code
      */
     protected function publishMigration(string $migrationFile, string $name): int
     {
-        $sourcePath = __DIR__ . '/../Context/Database/migrations/' . $migrationFile;
+        $sourcePath = __DIR__.'/../Context/Database/migrations/'.$migrationFile;
         $timestamp = date('Y_m_d_His');
         $destinationPath = database_path("migrations/{$timestamp}_{$migrationFile}");
 
-        if (!file_exists($sourcePath)) {
+        if (! file_exists($sourcePath)) {
             $this->error("Source migration file not found: {$migrationFile}");
+
             return 1;
         }
 
@@ -82,7 +83,7 @@ class PublishCommand extends Command
         }
 
         // Ensure migrations directory exists
-        if (!is_dir(database_path('migrations'))) {
+        if (! is_dir(database_path('migrations'))) {
             mkdir(database_path('migrations'), 0755, true);
         }
 
@@ -90,7 +91,7 @@ class PublishCommand extends Command
         copy($sourcePath, $destinationPath);
 
         $this->info("{$name} migration published successfully!");
-        $this->line('Location: ' . $destinationPath);
+        $this->line('Location: '.$destinationPath);
         $this->newLine();
         $this->info('Run "php artisan migrate" to create the table.');
 

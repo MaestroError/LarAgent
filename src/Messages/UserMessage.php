@@ -2,16 +2,14 @@
 
 namespace LarAgent\Messages;
 
+use LarAgent\Attributes\Desc;
+use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Core\Enums\Role;
-use LarAgent\Attributes\ExcludeFromSchema;
-use LarAgent\Attributes\Desc;
-use LarAgent\Messages\DataModels\MessageContent;
-use LarAgent\Messages\DataModels\Content\TextContent;
-use LarAgent\Messages\DataModels\Content\ImageContent;
 use LarAgent\Messages\DataModels\Content\AudioContent;
+use LarAgent\Messages\DataModels\Content\ImageContent;
+use LarAgent\Messages\DataModels\MessageContent;
 use LarAgent\Messages\Traits\IsUserSent;
 
 class UserMessage extends Message implements MessageInterface
@@ -23,7 +21,6 @@ class UserMessage extends Message implements MessageInterface
 
     #[Desc('The content of the message as an array of content parts (text, image, audio)')]
     public ?MessageContent $content;
-
 
     public function withImage(string $imageUrl): self
     {

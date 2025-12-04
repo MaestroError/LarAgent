@@ -1,8 +1,8 @@
 <?php
 
+use LarAgent\Context\SessionIdentity;
 use LarAgent\History\InMemoryChatHistory;
 use LarAgent\Messages\UserMessage;
-use LarAgent\Context\SessionIdentity;
 
 it('can add and retrieve messages', function () {
     $chatHistory = new InMemoryChatHistory(new SessionIdentity('test-history'));
@@ -84,4 +84,3 @@ it('handles empty memory gracefully', function () {
 
     expect($chatHistory->getMessages())->toBeEmpty();
 });
-

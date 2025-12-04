@@ -57,8 +57,7 @@ class LaragentSessionIdentity extends Model
     /**
      * Scope to get items for a specific session.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
-     * @param string $sessionKey
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeForSession($query, string $sessionKey)
@@ -69,7 +68,7 @@ class LaragentSessionIdentity extends Model
     /**
      * Scope to order by position.
      *
-     * @param \Illuminate\Database\Eloquent\Builder $query
+     * @param  \Illuminate\Database\Eloquent\Builder  $query
      * @return \Illuminate\Database\Eloquent\Builder
      */
     public function scopeOrdered($query)

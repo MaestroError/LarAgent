@@ -377,7 +377,7 @@ class LarAgent
     {
         $this->driver = $driver;
         $this->chatHistory = $chatHistory;
-        $this->driverConfig = new DriverConfig();
+        $this->driverConfig = new DriverConfig;
     }
 
     public static function setup(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory, DriverConfig|array $configs = []): self
@@ -699,7 +699,7 @@ class LarAgent
     {
         // Clone the driverConfig and conditionally nullify tool-related settings if no tools
         $config = clone $this->driverConfig;
-        
+
         if (empty($this->tools)) {
             $config->parallelToolCalls = null;
             $config->toolChoice = null;
@@ -758,6 +758,7 @@ class LarAgent
 
         // Create tool result message directly - formatter will handle driver-specific conversion
         $content = is_string($result) ? $result : json_encode($result);
+
         return new ToolResultMessage($content, $toolCall->getId(), $toolCall->getToolName());
     }
 

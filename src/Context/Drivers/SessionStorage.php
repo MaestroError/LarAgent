@@ -10,9 +10,6 @@ class SessionStorage extends StorageDriver
 {
     /**
      * Read data from session
-     *
-     * @param SessionIdentity $identity
-     * @return array|null
      */
     public function readFromMemory(SessionIdentity $identity): ?array
     {
@@ -28,10 +25,6 @@ class SessionStorage extends StorageDriver
 
     /**
      * Write data to session
-     *
-     * @param SessionIdentity $identity
-     * @param array $data
-     * @return bool
      */
     public function writeToMemory(SessionIdentity $identity, array $data): bool
     {
@@ -43,9 +36,6 @@ class SessionStorage extends StorageDriver
 
     /**
      * Remove data from session
-     *
-     * @param SessionIdentity $identity
-     * @return bool
      */
     public function removeFromMemory(SessionIdentity $identity): bool
     {

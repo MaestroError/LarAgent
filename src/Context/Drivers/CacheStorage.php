@@ -16,7 +16,7 @@ class CacheStorage extends StorageDriver
     /**
      * Create a new CacheDriver instance
      *
-     * @param string|null $store The cache store to use (null for default)
+     * @param  string|null  $store  The cache store to use (null for default)
      */
     public function __construct(?string $store = null)
     {
@@ -25,9 +25,6 @@ class CacheStorage extends StorageDriver
 
     /**
      * Read data from cache
-     *
-     * @param SessionIdentity $identity
-     * @return array|null
      */
     public function readFromMemory(SessionIdentity $identity): ?array
     {
@@ -42,10 +39,6 @@ class CacheStorage extends StorageDriver
 
     /**
      * Write data to cache
-     *
-     * @param SessionIdentity $identity
-     * @param array $data
-     * @return bool
      */
     public function writeToMemory(SessionIdentity $identity, array $data): bool
     {
@@ -62,9 +55,6 @@ class CacheStorage extends StorageDriver
 
     /**
      * Remove data from cache
-     *
-     * @param SessionIdentity $identity
-     * @return bool
      */
     public function removeFromMemory(SessionIdentity $identity): bool
     {

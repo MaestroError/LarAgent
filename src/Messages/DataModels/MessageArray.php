@@ -3,12 +3,12 @@
 namespace LarAgent\Messages\DataModels;
 
 use LarAgent\Core\Abstractions\DataModelArray;
-use LarAgent\Messages\UserMessage;
 use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\DeveloperMessage;
+use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
+use LarAgent\Messages\UserMessage;
 
 class MessageArray extends DataModelArray
 {

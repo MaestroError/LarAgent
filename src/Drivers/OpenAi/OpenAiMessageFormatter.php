@@ -2,22 +2,19 @@
 
 namespace LarAgent\Drivers\OpenAi;
 
-use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
-use LarAgent\Messages\SystemMessage;
-use LarAgent\Messages\DeveloperMessage;
-use LarAgent\Messages\UserMessage;
-use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
+use LarAgent\Messages\UserMessage;
 use LarAgent\ToolCall;
 
 /**
  * OpenAI Message Formatter
- * 
- * This formatter handles conversion between LarAgent message objects and 
- * OpenAI-compatible array format. Since OpenAI format is the canonical 
+ *
+ * This formatter handles conversion between LarAgent message objects and
+ * OpenAI-compatible array format. Since OpenAI format is the canonical
  * internal format, most operations are pass-through.
  */
 class OpenAiMessageFormatter implements MessageFormatter
@@ -58,6 +55,7 @@ class OpenAiMessageFormatter implements MessageFormatter
         foreach ($messages as $message) {
             $formatted[] = $this->formatMessage($message);
         }
+
         return $formatted;
     }
 
@@ -70,6 +68,7 @@ class OpenAiMessageFormatter implements MessageFormatter
         foreach ($tools as $tool) {
             $formatted[] = $this->formatTool($tool);
         }
+
         return $formatted;
     }
 
@@ -81,7 +80,7 @@ class OpenAiMessageFormatter implements MessageFormatter
     public function extractUsage(array $response): array
     {
         $usage = $response['usage'] ?? [];
-        
+
         return [
             'prompt_tokens' => $usage['prompt_tokens'] ?? 0,
             'completion_tokens' => $usage['completion_tokens'] ?? 0,
@@ -96,9 +95,9 @@ class OpenAiMessageFormatter implements MessageFormatter
     public function extractToolCalls(array $response): array
     {
         $toolCalls = [];
-        
+
         $responseToolCalls = $response['choices'][0]['message']['tool_calls'] ?? [];
-        
+
         foreach ($responseToolCalls as $toolCall) {
             $toolCalls[] = new ToolCall(
                 $toolCall['id'],
@@ -106,7 +105,7 @@ class OpenAiMessageFormatter implements MessageFormatter
                 $toolCall['function']['arguments']
             );
         }
-        
+
         return $toolCalls;
     }
 
@@ -125,7 +124,7 @@ class OpenAiMessageFormatter implements MessageFormatter
     public function extractFinishReason(array $response): string
     {
         $reason = $response['choices'][0]['finish_reason'] ?? 'stop';
-        
+
         // OpenAI uses these values directly, no normalization needed
         return $reason;
     }
@@ -138,7 +137,7 @@ class OpenAiMessageFormatter implements MessageFormatter
     protected function formatUserMessage(UserMessage $message): array
     {
         $content = $message->getContent();
-        
+
         // Handle null content
         if ($content === null) {
             return [
@@ -159,7 +158,7 @@ class OpenAiMessageFormatter implements MessageFormatter
     protected function formatToolCallMessage(ToolCallMessage $message): array
     {
         $toolCallsArray = [];
-        
+
         foreach ($message->getToolCalls() as $toolCall) {
             $toolCallsArray[] = [
                 'id' => $toolCall->getId(),
@@ -170,7 +169,7 @@ class OpenAiMessageFormatter implements MessageFormatter
                 ],
             ];
         }
-        
+
         return [
             'role' => 'assistant',
             'content' => null,
@@ -202,15 +201,15 @@ class OpenAiMessageFormatter implements MessageFormatter
                 'description' => $tool->getDescription(),
             ],
         ];
-        
-        if (!empty($tool->getProperties())) {
+
+        if (! empty($tool->getProperties())) {
             $toolSchema['function']['parameters'] = [
                 'type' => 'object',
                 'properties' => $tool->getProperties(),
                 'required' => $tool->getRequired(),
             ];
         }
-        
+
         return $toolSchema;
     }
 }

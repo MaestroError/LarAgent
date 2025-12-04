@@ -11,13 +11,13 @@ trait IsUserSent
     public function __construct(string|MessageContent $content, array $metadata = [])
     {
         parent::__construct();
-        
+
         if (is_string($content)) {
             $this->content = new MessageContent([new TextContent($content)]);
         } else {
             $this->content = $content;
         }
-        
+
         $this->metadata = $metadata;
     }
 
@@ -28,7 +28,7 @@ trait IsUserSent
 
     public function setContent(?DataModelContract $content): void
     {
-        if ($content !== null && !($content instanceof MessageContent)) {
+        if ($content !== null && ! ($content instanceof MessageContent)) {
             throw new \InvalidArgumentException('SystemMessage content must be TextContent or null');
         }
         $this->content = $content;
@@ -47,7 +47,7 @@ trait IsUserSent
             'message_created' => $this->message_created,
         ];
 
-        if (!empty($this->extras)) {
+        if (! empty($this->extras)) {
             $result['extras'] = $this->extras;
         }
 
@@ -63,7 +63,7 @@ trait IsUserSent
             $instance = new static('');
             $instance->content = new MessageContent($content);
             $instance->metadata = $metadata;
-            
+
             // Handle message_uuid if provided
             if (isset($data['message_uuid'])) {
                 $instance->message_uuid = $data['message_uuid'];
@@ -73,12 +73,12 @@ trait IsUserSent
             if (isset($data['message_created'])) {
                 $instance->message_created = $data['message_created'];
             }
-            
+
             return $instance;
         }
 
         $instance = new static($content, $metadata);
-        
+
         // Handle message_uuid if provided
         if (isset($data['message_uuid'])) {
             $instance->message_uuid = $data['message_uuid'];
@@ -88,7 +88,7 @@ trait IsUserSent
         if (isset($data['message_created'])) {
             $instance->message_created = $data['message_created'];
         }
-        
+
         return $instance;
     }
 }

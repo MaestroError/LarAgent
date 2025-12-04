@@ -2,10 +2,10 @@
 
 namespace LarAgent;
 
+use LarAgent\Attributes\Desc;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\DataModels\ToolCallFunction;
-use LarAgent\Attributes\Desc;
 
 class ToolCall extends DataModel implements ToolCallInterface
 {
@@ -26,17 +26,14 @@ class ToolCall extends DataModel implements ToolCallInterface
         // Validate that $arguments is valid JSON
         json_decode($arguments);
         if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \InvalidArgumentException("ToolCall arguments must be a valid JSON string. Error: " . json_last_error_msg());
+            throw new \InvalidArgumentException('ToolCall arguments must be a valid JSON string. Error: '.json_last_error_msg());
         }
-        
+
         $this->function = new ToolCallFunction($toolName, $arguments);
     }
 
     /**
      * Create a ToolCall instance from an array.
-     *
-     * @param array $data
-     * @return static
      */
     public static function fromArray(array $data): static
     {
@@ -52,8 +49,6 @@ class ToolCall extends DataModel implements ToolCallInterface
 
     /**
      * Convert the ToolCall to an array.
-     *
-     * @return array
      */
     public function toArray(): array
     {

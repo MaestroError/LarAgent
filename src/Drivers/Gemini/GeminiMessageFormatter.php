@@ -2,21 +2,21 @@
 
 namespace LarAgent\Drivers\Gemini;
 
-use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
-use LarAgent\Messages\SystemMessage;
-use LarAgent\Messages\DeveloperMessage;
-use LarAgent\Messages\UserMessage;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DeveloperMessage;
+use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
+use LarAgent\Messages\UserMessage;
 use LarAgent\ToolCall;
 
 /**
  * Gemini Message Formatter
- * 
- * This formatter handles conversion between LarAgent message objects and 
+ *
+ * This formatter handles conversion between LarAgent message objects and
  * Gemini-native API format with these key differences from OpenAI:
  * - Uses 'model' role instead of 'assistant'
  * - Content is in 'parts' array format
@@ -77,12 +77,13 @@ class GeminiMessageFormatter implements MessageFormatter
             if ($message instanceof SystemMessage || $message instanceof DeveloperMessage) {
                 continue;
             }
-            
+
             $formattedMessage = $this->formatMessage($message);
-            if (!empty($formattedMessage)) {
+            if (! empty($formattedMessage)) {
                 $formatted[] = $formattedMessage;
             }
         }
+
         return $formatted;
     }
 
@@ -96,7 +97,7 @@ class GeminiMessageFormatter implements MessageFormatter
         foreach ($tools as $tool) {
             $functionDeclarations[] = $this->formatTool($tool);
         }
-        
+
         // Gemini expects tools wrapped in an array with functionDeclarations
         return [
             [
@@ -114,7 +115,7 @@ class GeminiMessageFormatter implements MessageFormatter
      */
     public function extractUsage(array $response): array
     {
-        if (!isset($response['usageMetadata'])) {
+        if (! isset($response['usageMetadata'])) {
             return [
                 'prompt_tokens' => 0,
                 'completion_tokens' => 0,
@@ -140,12 +141,12 @@ class GeminiMessageFormatter implements MessageFormatter
     public function extractToolCalls(array $response): array
     {
         $toolCalls = [];
-        
+
         if (isset($response['candidates'][0]['content']['parts'])) {
             foreach ($response['candidates'][0]['content']['parts'] as $part) {
                 if (isset($part['functionCall'])) {
                     $toolCalls[] = new ToolCall(
-                        'tool_call_' . uniqid(), // Gemini doesn't provide IDs
+                        'tool_call_'.uniqid(), // Gemini doesn't provide IDs
                         $part['functionCall']['name'] ?? '',
                         json_encode($part['functionCall']['args'] ?? [])
                     );
@@ -172,7 +173,7 @@ class GeminiMessageFormatter implements MessageFormatter
     public function extractFinishReason(array $response): string
     {
         $reason = $response['candidates'][0]['finishReason'] ?? 'STOP';
-        
+
         // Normalize Gemini's finish reasons to OpenAI-compatible format
         return match ($reason) {
             'STOP' => 'stop',
@@ -197,6 +198,7 @@ class GeminiMessageFormatter implements MessageFormatter
                 }
             }
         }
+
         return false;
     }
 
@@ -205,29 +207,29 @@ class GeminiMessageFormatter implements MessageFormatter
     /**
      * Extract system instructions from messages.
      * Gemini requires system instructions to be sent separately in 'systemInstruction' field.
-     * 
-     * @param MessageInterface[] $messages Array of LarAgent message objects
+     *
+     * @param  MessageInterface[]  $messages  Array of LarAgent message objects
      * @return array|null Gemini systemInstruction format, or null if no system messages
      */
     public function extractSystemInstruction(array $messages): ?array
     {
         $systemInstructions = [];
-        
+
         foreach ($messages as $message) {
             if ($message instanceof SystemMessage || $message instanceof DeveloperMessage) {
                 $content = $message->getContentAsString();
-                if (!empty($content)) {
+                if (! empty($content)) {
                     $systemInstructions[] = $content;
                 }
             }
         }
-        
+
         if (empty($systemInstructions)) {
             return null;
         }
-        
+
         $instructionText = implode("\n", $systemInstructions);
-        
+
         return [
             'parts' => [
                 ['text' => $instructionText],
@@ -256,7 +258,7 @@ class GeminiMessageFormatter implements MessageFormatter
     protected function formatUserMessage(UserMessage $message): array
     {
         $content = $message->getContent();
-        
+
         if ($content === null) {
             return [
                 'role' => 'user',
@@ -267,7 +269,7 @@ class GeminiMessageFormatter implements MessageFormatter
         // Get content parts as array
         $contentParts = $content->toArray();
         $parts = [];
-        
+
         foreach ($contentParts as $part) {
             if (isset($part['type'])) {
                 switch ($part['type']) {
@@ -299,7 +301,7 @@ class GeminiMessageFormatter implements MessageFormatter
                 $parts[] = ['text' => $part['text']];
             }
         }
-        
+
         if (empty($parts)) {
             $parts[] = ['text' => $message->getContentAsString()];
         }
@@ -330,7 +332,7 @@ class GeminiMessageFormatter implements MessageFormatter
     protected function formatToolCallMessage(ToolCallMessage $message): array
     {
         $parts = [];
-        
+
         foreach ($message->getToolCalls() as $toolCall) {
             $parts[] = [
                 'functionCall' => [
@@ -339,7 +341,7 @@ class GeminiMessageFormatter implements MessageFormatter
                 ],
             ];
         }
-        
+
         return [
             'role' => 'model',
             'parts' => $parts,
@@ -354,7 +356,7 @@ class GeminiMessageFormatter implements MessageFormatter
     {
         $toolName = $message->getToolName();
         $responseContent = $message->getContentAsString();
-        
+
         return [
             'role' => 'user',
             'parts' => [
@@ -382,7 +384,7 @@ class GeminiMessageFormatter implements MessageFormatter
             'description' => $tool->getDescription(),
         ];
 
-        if (!empty($tool->getProperties())) {
+        if (! empty($tool->getProperties())) {
             $toolSchema['parameters'] = [
                 'type' => 'object',
                 'properties' => $tool->getProperties(),

@@ -4,7 +4,6 @@ namespace LarAgent\Tests\LarAgent\Fakes;
 
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\ToolCallMessage;
 
 class FailingLlmDriver extends FakeLlmDriver

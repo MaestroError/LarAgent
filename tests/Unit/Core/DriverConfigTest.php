@@ -4,7 +4,7 @@ use LarAgent\Core\DTO\DriverConfig;
 
 describe('DriverConfig', function () {
     it('creates with default null values', function () {
-        $config = new DriverConfig();
+        $config = new DriverConfig;
 
         expect($config->model)->toBeNull()
             ->and($config->apiKey)->toBeNull()
@@ -148,7 +148,7 @@ describe('DriverConfig', function () {
     });
 
     it('sets known property with set()', function () {
-        $config = new DriverConfig();
+        $config = new DriverConfig;
         $config->set('model', 'gpt-4');
         $config->set('temperature', 0.5);
 
@@ -157,14 +157,14 @@ describe('DriverConfig', function () {
     });
 
     it('sets unknown property as extra with set()', function () {
-        $config = new DriverConfig();
+        $config = new DriverConfig;
         $config->set('customOption', 'value');
 
         expect($config->getExtra('customOption'))->toBe('value');
     });
 
     it('returns self from set() for chaining', function () {
-        $config = new DriverConfig();
+        $config = new DriverConfig;
         $result = $config->set('model', 'gpt-4');
 
         expect($result)->toBe($config);
@@ -187,7 +187,7 @@ describe('DriverConfig', function () {
     });
 
     it('returns default value from get() when property is null', function () {
-        $config = new DriverConfig();
+        $config = new DriverConfig;
 
         expect($config->get('model', 'default-model'))->toBe('default-model')
             ->and($config->get('customOption', 'default'))->toBe('default');

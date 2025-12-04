@@ -2,21 +2,21 @@
 
 namespace LarAgent\Drivers\Anthropic;
 
-use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
-use LarAgent\Messages\SystemMessage;
-use LarAgent\Messages\DeveloperMessage;
-use LarAgent\Messages\UserMessage;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DeveloperMessage;
+use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
+use LarAgent\Messages\UserMessage;
 use LarAgent\ToolCall;
 
 /**
  * Claude (Anthropic) Message Formatter
- * 
- * This formatter handles conversion between LarAgent message objects and 
+ *
+ * This formatter handles conversion between LarAgent message objects and
  * Claude/Anthropic API format with these key differences from OpenAI:
  * - System messages are sent as a separate 'system' field, not in messages array
  * - Content is always an array of content blocks
@@ -78,12 +78,13 @@ class ClaudeMessageFormatter implements MessageFormatter
             if ($message instanceof SystemMessage || $message instanceof DeveloperMessage) {
                 continue;
             }
-            
+
             $formattedMessage = $this->formatMessage($message);
-            if (!empty($formattedMessage)) {
+            if (! empty($formattedMessage)) {
                 $formatted[] = $formattedMessage;
             }
         }
+
         return $formatted;
     }
 
@@ -97,6 +98,7 @@ class ClaudeMessageFormatter implements MessageFormatter
         foreach ($tools as $tool) {
             $formatted[] = $this->formatTool($tool);
         }
+
         return $formatted;
     }
 
@@ -110,10 +112,10 @@ class ClaudeMessageFormatter implements MessageFormatter
     public function extractUsage(array $response): array
     {
         $usage = $response['usage'] ?? [];
-        
+
         $inputTokens = $usage['input_tokens'] ?? 0;
         $outputTokens = $usage['output_tokens'] ?? 0;
-        
+
         return [
             'prompt_tokens' => $inputTokens,
             'completion_tokens' => $outputTokens,
@@ -128,9 +130,9 @@ class ClaudeMessageFormatter implements MessageFormatter
     public function extractToolCalls(array $response): array
     {
         $toolCalls = [];
-        
+
         $content = $response['content'] ?? [];
-        
+
         foreach ($content as $block) {
             if (($block['type'] ?? '') === 'tool_use') {
                 $toolCalls[] = new ToolCall(
@@ -140,7 +142,7 @@ class ClaudeMessageFormatter implements MessageFormatter
                 );
             }
         }
-        
+
         return $toolCalls;
     }
 
@@ -151,13 +153,13 @@ class ClaudeMessageFormatter implements MessageFormatter
     public function extractContent(array $response): string
     {
         $content = $response['content'] ?? [];
-        
+
         foreach ($content as $block) {
             if (($block['type'] ?? '') === 'text') {
                 return $block['text'] ?? '';
             }
         }
-        
+
         return '';
     }
 
@@ -168,7 +170,7 @@ class ClaudeMessageFormatter implements MessageFormatter
     public function extractFinishReason(array $response): string
     {
         $reason = $response['stop_reason'] ?? 'end_turn';
-        
+
         // Normalize Claude's stop reasons to OpenAI-compatible format
         return match ($reason) {
             'end_turn' => 'stop',
@@ -185,13 +187,13 @@ class ClaudeMessageFormatter implements MessageFormatter
     public function hasToolCalls(array $response): bool
     {
         $content = $response['content'] ?? [];
-        
+
         foreach ($content as $block) {
             if (($block['type'] ?? '') === 'tool_use') {
                 return true;
             }
         }
-        
+
         return false;
     }
 
@@ -200,27 +202,27 @@ class ClaudeMessageFormatter implements MessageFormatter
     /**
      * Extract system instruction from messages.
      * Claude requires system prompt to be sent as a separate 'system' field (string).
-     * 
-     * @param MessageInterface[] $messages Array of LarAgent message objects
+     *
+     * @param  MessageInterface[]  $messages  Array of LarAgent message objects
      * @return string|null System prompt string, or null if no system messages
      */
     public function extractSystemInstruction(array $messages): ?string
     {
         $systemInstructions = [];
-        
+
         foreach ($messages as $message) {
             if ($message instanceof SystemMessage || $message instanceof DeveloperMessage) {
                 $content = $message->getContentAsString();
-                if (!empty($content)) {
+                if (! empty($content)) {
                     $systemInstructions[] = $content;
                 }
             }
         }
-        
+
         if (empty($systemInstructions)) {
             return null;
         }
-        
+
         return implode("\n", $systemInstructions);
     }
 
@@ -233,7 +235,7 @@ class ClaudeMessageFormatter implements MessageFormatter
     protected function formatUserMessage(UserMessage $message): array
     {
         $content = $message->getContent();
-        
+
         if ($content === null) {
             return [
                 'role' => 'user',
@@ -244,7 +246,7 @@ class ClaudeMessageFormatter implements MessageFormatter
         // Get content parts as array
         $contentParts = $content->toArray();
         $blocks = [];
-        
+
         foreach ($contentParts as $part) {
             if (isset($part['type'])) {
                 switch ($part['type']) {
@@ -285,7 +287,7 @@ class ClaudeMessageFormatter implements MessageFormatter
                 $blocks[] = ['type' => 'text', 'text' => $part['text']];
             }
         }
-        
+
         if (empty($blocks)) {
             $blocks[] = ['type' => 'text', 'text' => $message->getContentAsString()];
         }
@@ -317,7 +319,7 @@ class ClaudeMessageFormatter implements MessageFormatter
     protected function formatToolCallMessage(ToolCallMessage $message): array
     {
         $content = [];
-        
+
         foreach ($message->getToolCalls() as $toolCall) {
             $content[] = [
                 'type' => 'tool_use',
@@ -326,7 +328,7 @@ class ClaudeMessageFormatter implements MessageFormatter
                 'input' => json_decode($toolCall->getArguments(), true) ?? [],
             ];
         }
-        
+
         return [
             'role' => 'assistant',
             'content' => $content,
@@ -362,7 +364,7 @@ class ClaudeMessageFormatter implements MessageFormatter
             'description' => $tool->getDescription(),
         ];
 
-        if (!empty($tool->getProperties())) {
+        if (! empty($tool->getProperties())) {
             $toolSchema['input_schema'] = [
                 'type' => 'object',
                 'properties' => $tool->getProperties(),
@@ -372,7 +374,7 @@ class ClaudeMessageFormatter implements MessageFormatter
             // Claude requires input_schema even if empty
             $toolSchema['input_schema'] = [
                 'type' => 'object',
-                'properties' => (object)[],
+                'properties' => (object) [],
                 'required' => [],
             ];
         }

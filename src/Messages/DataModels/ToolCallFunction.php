@@ -2,8 +2,8 @@
 
 namespace LarAgent\Messages\DataModels;
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Core\Abstractions\DataModel;
 
 class ToolCallFunction extends DataModel
 {
@@ -21,9 +21,6 @@ class ToolCallFunction extends DataModel
 
     /**
      * Create a ToolCallFunction instance from an array.
-     *
-     * @param array $data
-     * @return static
      */
     public static function fromArray(array $data): static
     {
@@ -35,8 +32,6 @@ class ToolCallFunction extends DataModel
 
     /**
      * Convert the ToolCallFunction to an array.
-     *
-     * @return array
      */
     public function toArray(): array
     {

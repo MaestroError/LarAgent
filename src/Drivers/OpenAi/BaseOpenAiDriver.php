@@ -11,8 +11,8 @@ use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
+use LarAgent\Usage\DataModels\Usage;
 
 /**
  * Base class for OpenAI and OpenAI-compatible drivers
@@ -36,7 +36,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
      */
     protected function createFormatter(): MessageFormatter
     {
-        return new OpenAiMessageFormatter();
+        return new OpenAiMessageFormatter;
     }
 
     /**
@@ -72,7 +72,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         // Extract data using formatter
         $finishReason = $this->formatter->extractFinishReason($responseArray);
         $usageData = $this->formatter->extractUsage($responseArray);
-        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
+        $usage = ! empty($usageData) ? Usage::fromArray($usageData) : null;
 
         // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
         if (
@@ -84,6 +84,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             $message = new ToolCallMessage($toolCalls);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -104,6 +105,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             $message = new AssistantMessage($content);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -206,7 +208,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             // Create ToolCallMessage directly - formatter handles conversion when needed
             $toolCallMessage = new ToolCallMessage($toolCallObjects);
-            
+
             // Transfer usage from streamed message if available
             if ($streamedMessage->getUsage() !== null) {
                 $toolCallMessage->setUsage($streamedMessage->getUsage());

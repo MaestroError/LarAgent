@@ -6,8 +6,6 @@ interface Context
 {
     /**
      * Get the session identity for this context
-     *
-     * @return SessionIdentity
      */
     public function getIdentity(): SessionIdentity;
 
@@ -15,8 +13,7 @@ interface Context
      * Get a registered storage by prefix or class name
      * Uses storage's getStoragePrefix() as the registration key
      *
-     * @param string $prefixOrClass The storage prefix (e.g., 'chat_history') or fully qualified class name
-     * @return Storage|null
+     * @param  string  $prefixOrClass  The storage prefix (e.g., 'chat_history') or fully qualified class name
      */
     public function getStorage(string $prefixOrClass): ?Storage;
 
@@ -24,8 +21,7 @@ interface Context
      * Register a storage instance
      * Uses storage's getStoragePrefix() method as the registration key
      *
-     * @param Storage $storage The storage instance to register
-     * @return static
+     * @param  Storage  $storage  The storage instance to register
      */
     public function register(Storage $storage): static;
 
@@ -33,8 +29,7 @@ interface Context
      * Check if a storage is registered by prefix or class name
      * Accepts either a prefix string or a Storage class name
      *
-     * @param string $prefixOrClass The storage prefix or fully qualified class name
-     * @return bool
+     * @param  string  $prefixOrClass  The storage prefix or fully qualified class name
      */
     public function has(string $prefixOrClass): bool;
 
@@ -47,29 +42,21 @@ interface Context
 
     /**
      * Save all dirty storages
-     *
-     * @return void
      */
     public function save(): void;
 
     /**
      * Read/refresh all storages from their drivers
-     *
-     * @return void
      */
     public function read(): void;
 
     /**
      * Clear all storages (marks as dirty, sets to empty)
-     *
-     * @return void
      */
     public function clear(): void;
 
     /**
      * Remove all storages from their drivers
-     *
-     * @return void
      */
     public function remove(): void;
 

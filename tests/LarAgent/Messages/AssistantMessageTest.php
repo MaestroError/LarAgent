@@ -1,8 +1,8 @@
 <?php
 
 use LarAgent\Messages\AssistantMessage;
-use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Messages\DataModels\MessageContent;
+use LarAgent\Usage\DataModels\Usage;
 
 test('AssistantMessage: Creates with string content', function () {
     $message = new AssistantMessage('Hello');
@@ -68,7 +68,7 @@ test('AssistantMessage: Reconstructs usage from fromArray()', function () {
             'prompt_tokens' => 200,
             'completion_tokens' => 100,
             'total_tokens' => 300,
-        ]
+        ],
     ];
 
     $message = AssistantMessage::fromArray($data);
@@ -82,7 +82,7 @@ test('AssistantMessage: Reconstructs usage from fromArray()', function () {
 test('AssistantMessage: fromArray handles missing usage', function () {
     $data = [
         'role' => 'assistant',
-        'content' => 'Hello'
+        'content' => 'Hello',
     ];
 
     $message = AssistantMessage::fromArray($data);
@@ -123,7 +123,7 @@ test('AssistantMessage: matchesArray returns false for tool_calls', function () 
     $data = [
         'role' => 'assistant',
         'content' => null,
-        'tool_calls' => [['id' => '123', 'function' => ['name' => 'test', 'arguments' => '{}']]]
+        'tool_calls' => [['id' => '123', 'function' => ['name' => 'test', 'arguments' => '{}']]],
     ];
 
     expect(AssistantMessage::matchesArray($data))->toBeFalse();
@@ -134,8 +134,8 @@ test('AssistantMessage: Handles array content in fromArray', function () {
         'role' => 'assistant',
         'content' => [
             ['type' => 'text', 'text' => 'Hello'],
-            ['type' => 'text', 'text' => 'World']
-        ]
+            ['type' => 'text', 'text' => 'World'],
+        ],
     ];
 
     $message = AssistantMessage::fromArray($data);
@@ -146,7 +146,7 @@ test('AssistantMessage: Handles array content in fromArray', function () {
 test('AssistantMessage: Handles single TextContent format in fromArray', function () {
     $data = [
         'role' => 'assistant',
-        'content' => ['type' => 'text', 'text' => 'Single text']
+        'content' => ['type' => 'text', 'text' => 'Single text'],
     ];
 
     $message = AssistantMessage::fromArray($data);

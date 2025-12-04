@@ -4,8 +4,8 @@ namespace LarAgent\Events\IdentityStorage;
 
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
-use LarAgent\Context\Storages\IdentityStorage;
 use LarAgent\Context\DataModels\SessionIdentityArray;
+use LarAgent\Context\Storages\IdentityStorage;
 
 class IdentityStorageSaving
 {

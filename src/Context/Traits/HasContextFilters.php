@@ -9,7 +9,7 @@ use LarAgent\Context\Storages\ChatHistoryStorage;
 
 /**
  * Trait providing common filter and query methods for context managers.
- * 
+ *
  * Classes using this trait must implement:
  * - newInstance(): static
  * - getContext(): Context
@@ -19,7 +19,7 @@ trait HasContextFilters
 {
     /**
      * Array of filter callbacks to apply
-     * 
+     *
      * @var array<callable>
      */
     protected array $filters = [];
@@ -31,8 +31,7 @@ trait HasContextFilters
     /**
      * Filter by storage scope/type.
      *
-     * @param string $storageClass The storage class to filter by (e.g., ChatHistoryStorage::class)
-     * @return static
+     * @param  string  $storageClass  The storage class to filter by (e.g., ChatHistoryStorage::class)
      */
     public function forStorage(string $storageClass): static
     {
@@ -44,15 +43,15 @@ trait HasContextFilters
             $scope = $storageClass::getStoragePrefix();
         }
 
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getScope() === $scope;
+        $instance->filters[] = fn (SessionIdentityContract $identity) => $identity->getScope() === $scope;
+
         return $instance;
     }
 
     /**
      * Filter by user ID.
      *
-     * @param string|Authenticatable $user The user ID or Authenticatable instance to filter by
-     * @return static
+     * @param  string|Authenticatable  $user  The user ID or Authenticatable instance to filter by
      */
     public function forUser(string|Authenticatable $user): static
     {
@@ -61,46 +60,47 @@ trait HasContextFilters
             : $user;
 
         $instance = $this->newInstance();
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getUserId() === $userId;
+        $instance->filters[] = fn (SessionIdentityContract $identity) => $identity->getUserId() === $userId;
+
         return $instance;
     }
 
     /**
      * Filter by chat name.
      *
-     * @param string $chatName The chat name to filter by
-     * @return static
+     * @param  string  $chatName  The chat name to filter by
      */
     public function forChat(string $chatName): static
     {
         $instance = $this->newInstance();
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getChatName() === $chatName;
+        $instance->filters[] = fn (SessionIdentityContract $identity) => $identity->getChatName() === $chatName;
+
         return $instance;
     }
 
     /**
      * Filter by group.
      *
-     * @param string $group The group to filter by
-     * @return static
+     * @param  string  $group  The group to filter by
      */
     public function forGroup(string $group): static
     {
         $instance = $this->newInstance();
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getGroup() === $group;
+        $instance->filters[] = fn (SessionIdentityContract $identity) => $identity->getGroup() === $group;
+
         return $instance;
     }
 
     /**
      * Add a custom filter callback.
      *
-     * @param callable $callback Receives SessionIdentityContract, returns bool
-     * @return static
+     * @param  callable  $callback  Receives SessionIdentityContract, returns bool
      */
     public function filter(callable $callback): static
     {
         $instance = $this->newInstance();
         $instance->filters[] = $callback;
+
         return $instance;
     }
 
@@ -110,8 +110,6 @@ trait HasContextFilters
 
     /**
      * Get identities matching all applied filters.
-     *
-     * @return SessionIdentityArray
      */
     public function getIdentities(): SessionIdentityArray
     {
@@ -127,8 +125,6 @@ trait HasContextFilters
 
     /**
      * Get chat history identities (filtered by ChatHistoryStorage scope).
-     *
-     * @return SessionIdentityArray
      */
     public function getChatIdentities(): SessionIdentityArray
     {
@@ -141,8 +137,6 @@ trait HasContextFilters
 
     /**
      * Get count of matching identities.
-     *
-     * @return int
      */
     public function count(): int
     {
@@ -151,8 +145,6 @@ trait HasContextFilters
 
     /**
      * Check if any identities match the current filters.
-     *
-     * @return bool
      */
     public function exists(): bool
     {
@@ -161,8 +153,6 @@ trait HasContextFilters
 
     /**
      * Get the first matching identity.
-     *
-     * @return SessionIdentityContract|null
      */
     public function first(): ?SessionIdentityContract
     {

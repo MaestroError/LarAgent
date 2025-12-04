@@ -29,7 +29,7 @@ class LaragentMessageFactory extends Factory
             'position' => 0,
             'role' => 'user',
             'content' => $this->faker->sentence(),
-            'message_uuid' => 'msg_' . bin2hex(random_bytes(12)),
+            'message_uuid' => 'msg_'.bin2hex(random_bytes(12)),
             'message_created' => now()->toIso8601String(),
         ];
     }
@@ -57,7 +57,7 @@ class LaragentMessageFactory extends Factory
     /**
      * Create a user message.
      */
-    public function userMessage(string $content = null): static
+    public function userMessage(?string $content = null): static
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'user',
@@ -68,7 +68,7 @@ class LaragentMessageFactory extends Factory
     /**
      * Create an assistant message.
      */
-    public function assistantMessage(string $content = null): static
+    public function assistantMessage(?string $content = null): static
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'assistant',
@@ -79,7 +79,7 @@ class LaragentMessageFactory extends Factory
     /**
      * Create a system message.
      */
-    public function systemMessage(string $content = null): static
+    public function systemMessage(?string $content = null): static
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'system',
@@ -90,14 +90,14 @@ class LaragentMessageFactory extends Factory
     /**
      * Create a tool call message.
      */
-    public function toolCallMessage(array $toolCalls = null): static
+    public function toolCallMessage(?array $toolCalls = null): static
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'assistant',
             'content' => null,
             'tool_calls' => $toolCalls ?? [
                 [
-                    'id' => 'call_' . bin2hex(random_bytes(12)),
+                    'id' => 'call_'.bin2hex(random_bytes(12)),
                     'type' => 'function',
                     'function' => [
                         'name' => 'get_weather',
@@ -111,19 +111,19 @@ class LaragentMessageFactory extends Factory
     /**
      * Create a tool result message.
      */
-    public function toolResultMessage(string $toolCallId = null, string $content = null): static
+    public function toolResultMessage(?string $toolCallId = null, ?string $content = null): static
     {
         return $this->state(fn (array $attributes) => [
             'role' => 'tool',
             'content' => $content ?? json_encode(['temperature' => '72°F']),
-            'tool_call_id' => $toolCallId ?? 'call_' . bin2hex(random_bytes(12)),
+            'tool_call_id' => $toolCallId ?? 'call_'.bin2hex(random_bytes(12)),
         ]);
     }
 
     /**
      * Add usage statistics.
      */
-    public function withUsage(array $usage = null): static
+    public function withUsage(?array $usage = null): static
     {
         return $this->state(fn (array $attributes) => [
             'usage' => $usage ?? [

@@ -1,17 +1,15 @@
 <?php
 
-use LarAgent\Messages\DataModels\MessageContent;
-use LarAgent\Messages\DataModels\Content\TextContent;
-use LarAgent\Messages\DataModels\Content\ImageContent;
 use LarAgent\Messages\DataModels\Content\AudioContent;
-use LarAgent\Core\Enums\MessageContentType;
-
+use LarAgent\Messages\DataModels\Content\ImageContent;
 use LarAgent\Messages\DataModels\Content\Parts\ImageUrl;
 use LarAgent\Messages\DataModels\Content\Parts\InputAudio;
+use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
 
 test('MessageContent: Handles text content', function () {
     $data = [
-        ['type' => 'text', 'text' => 'Hello World']
+        ['type' => 'text', 'text' => 'Hello World'],
     ];
 
     $content = new MessageContent($data);
@@ -25,8 +23,8 @@ test('MessageContent: Handles image content', function () {
     $data = [
         [
             'type' => 'image_url',
-            'image_url' => ['url' => 'http://example.com/image.png']
-        ]
+            'image_url' => ['url' => 'http://example.com/image.png'],
+        ],
     ];
 
     $content = new MessageContent($data);
@@ -41,8 +39,8 @@ test('MessageContent: Handles audio content', function () {
     $data = [
         [
             'type' => 'input_audio',
-            'input_audio' => ['data' => 'base64...', 'format' => 'mp3']
-        ]
+            'input_audio' => ['data' => 'base64...', 'format' => 'mp3'],
+        ],
     ];
 
     $content = new MessageContent($data);
@@ -58,8 +56,8 @@ test('MessageContent: Handles mixed content', function () {
         ['type' => 'text', 'text' => 'Look at this:'],
         [
             'type' => 'image_url',
-            'image_url' => ['url' => 'http://example.com/image.png']
-        ]
+            'image_url' => ['url' => 'http://example.com/image.png'],
+        ],
     ];
 
     $content = new MessageContent($data);
@@ -71,9 +69,9 @@ test('MessageContent: Handles mixed content', function () {
 
 test('MessageContent: Throws exception for invalid type', function () {
     $data = [
-        ['type' => 'unknown', 'data' => '???']
+        ['type' => 'unknown', 'data' => '???'],
     ];
 
-    expect(fn() => new MessageContent($data))
+    expect(fn () => new MessageContent($data))
         ->toThrow(InvalidArgumentException::class);
 });

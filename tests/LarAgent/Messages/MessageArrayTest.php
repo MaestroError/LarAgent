@@ -1,17 +1,16 @@
 <?php
 
-use LarAgent\Messages\DataModels\MessageArray;
-use LarAgent\Usage\DataModels\Usage;
-use LarAgent\Messages\UserMessage;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
-use LarAgent\ToolCall;
+use LarAgent\Messages\UserMessage;
+use LarAgent\Usage\DataModels\Usage;
 
 test('MessageArray: Reconstructs UserMessage from array', function () {
     $data = [
-        ['role' => 'user', 'content' => 'Hello']
+        ['role' => 'user', 'content' => 'Hello'],
     ];
 
     $messageArray = MessageArray::fromArray($data);
@@ -23,7 +22,7 @@ test('MessageArray: Reconstructs UserMessage from array', function () {
 
 test('MessageArray: Reconstructs SystemMessage from array', function () {
     $data = [
-        ['role' => 'system', 'content' => 'You are a helpful assistant']
+        ['role' => 'system', 'content' => 'You are a helpful assistant'],
     ];
 
     $messageArray = MessageArray::fromArray($data);
@@ -35,7 +34,7 @@ test('MessageArray: Reconstructs SystemMessage from array', function () {
 
 test('MessageArray: Reconstructs AssistantMessage from array', function () {
     $data = [
-        ['role' => 'assistant', 'content' => 'Hello! How can I help you?']
+        ['role' => 'assistant', 'content' => 'Hello! How can I help you?'],
     ];
 
     $messageArray = MessageArray::fromArray($data);
@@ -56,11 +55,11 @@ test('MessageArray: Reconstructs ToolCallMessage from array', function () {
                     'type' => 'function',
                     'function' => [
                         'name' => 'get_weather',
-                        'arguments' => '{"location": "London"}'
-                    ]
-                ]
-            ]
-        ]
+                        'arguments' => '{"location": "London"}',
+                    ],
+                ],
+            ],
+        ],
     ];
 
     $messageArray = MessageArray::fromArray($data);
@@ -80,10 +79,10 @@ test('MessageArray: Distinguishes AssistantMessage from ToolCallMessage', functi
                 [
                     'id' => 'call_456',
                     'type' => 'function',
-                    'function' => ['name' => 'search', 'arguments' => '{}']
-                ]
-            ]
-        ]
+                    'function' => ['name' => 'search', 'arguments' => '{}'],
+                ],
+            ],
+        ],
     ];
 
     $messageArray = MessageArray::fromArray($data);
@@ -99,8 +98,8 @@ test('MessageArray: Reconstructs ToolResultMessage from array', function () {
         [
             'role' => 'tool',
             'content' => '{"temperature": 20}',
-            'tool_call_id' => 'call_123'
-        ]
+            'tool_call_id' => 'call_123',
+        ],
     ];
 
     $messageArray = MessageArray::fromArray($data);
@@ -121,16 +120,16 @@ test('MessageArray: Mixed message types round-trip correctly', function () {
                 [
                     'id' => 'call_789',
                     'type' => 'function',
-                    'function' => ['name' => 'calculate', 'arguments' => '{"x": 5}']
-                ]
-            ]
+                    'function' => ['name' => 'calculate', 'arguments' => '{"x": 5}'],
+                ],
+            ],
         ],
         [
             'role' => 'tool',
             'content' => '10',
-            'tool_call_id' => 'call_789'
+            'tool_call_id' => 'call_789',
         ],
-        ['role' => 'assistant', 'content' => 'The result is 10']
+        ['role' => 'assistant', 'content' => 'The result is 10'],
     ];
 
     $messageArray = MessageArray::fromArray($data);
@@ -169,7 +168,7 @@ test('MessageArray: AssistantMessage with usage round-trips correctly', function
 });
 
 test('MessageArray: Can add message objects directly', function () {
-    $messageArray = new MessageArray();
+    $messageArray = new MessageArray;
 
     $messageArray->add(new UserMessage('Hello'));
     $messageArray->add(new AssistantMessage('Hi!'));

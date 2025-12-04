@@ -5,6 +5,8 @@ namespace LarAgent;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Str;
 use LarAgent\Attributes\Tool as ToolAttribute;
+use LarAgent\Context\Storages\ChatHistoryStorage;
+use LarAgent\Context\Traits\HasContext;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
@@ -17,8 +19,6 @@ use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
 use Redberry\MCPClient\MCPClient;
-use LarAgent\Context\Traits\HasContext;
-use LarAgent\Context\Storages\ChatHistoryStorage;
 
 /**
  * Class Agent
@@ -165,50 +165,50 @@ class Agent
     /** @var array|null */
     protected $audio = null;
 
-    /** 
+    /**
      * Force read history from storage drivers
      * On agent initialization
-     * 
-     * @var bool 
+     *
+     * @var bool
      */
     protected $forceReadHistory = false;
 
-    /** 
+    /**
      * Force save history to storage drivers
      * After each agent response
-     * 
-     * @var bool 
+     *
+     * @var bool
      */
     protected $forceSaveHistory = false;
 
-    /** 
+    /**
      * Force read context from storage drivers
      * On agent initialization
-     * 
-     * @var bool 
+     *
+     * @var bool
      */
     protected $forceReadContext = false;
 
     public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
         $this->usesUserId = $usesUserId;
-        
+
         // Set group before identity is built (if provided)
         if ($group !== null) {
             $this->group = $group;
         }
-        
+
         $this->setupProviderData();
         $this->setName();
         $this->setChatSessionId($key, $this->name());
 
         $defaultStorageDrivers = $this->defaultStorageDrivers();
         $this->setupContext($defaultStorageDrivers);
-        
+
         if ($this->forceReadContext) {
             $this->readContext();
         }
-        
+
         $this->setupChatHistory();
 
         if ($this->forceReadHistory) {
@@ -216,7 +216,7 @@ class Agent
         }
 
         $this->initMcpClient();
-        
+
         $this->callEvent('onInitialize');
     }
 
@@ -264,12 +264,12 @@ class Agent
     public static function fromIdentity(\LarAgent\Context\Contracts\SessionIdentity $identity): static
     {
         $group = $identity->getGroup();
-        
+
         // Determine if this was a user-based or chat-based identity
         if ($identity->getUserId() !== null) {
             return new static($identity->getUserId(), usesUserId: true, group: $group);
         }
-        
+
         return new static($identity->getChatName() ?? 'default', usesUserId: false, group: $group);
     }
 
@@ -927,6 +927,7 @@ class Agent
     public function setChatHistory(ChatHistoryInterface $chatHistory): static
     {
         $this->context()->register($chatHistory);
+
         return $this;
     }
 
@@ -957,8 +958,6 @@ class Agent
      * Save the context manually.
      * Useful for explicitly saving mid-request.
      * Events are dispatched safely (skipped if app is shutting down).
-     *
-     * @return static
      */
     public function saveContext(): static
     {
@@ -974,23 +973,25 @@ class Agent
         return $this;
     }
 
-    protected function historyStorageDrivers(): string|array 
+    protected function historyStorageDrivers(): string|array
     {
         if (is_string($this->history)) {
             return $this->builtInHistories[$this->history] ?? $this->history;
         }
-        if (!isset($this->history)) {
+        if (! isset($this->history)) {
             return $this->defaultStorageDrivers();
         }
+
         return $this->history;
     }
 
     protected function defaultStorageDrivers(): array
     {
-        if (!isset($this->storage)) {
+        if (! isset($this->storage)) {
             // Ultimate fallback to InMemoryStorage
             return [\LarAgent\Context\Drivers\InMemoryStorage::class];
         }
+
         return $this->storage;
     }
 
@@ -1360,7 +1361,7 @@ class Agent
             $this->storage = $provider['storage'] ?? config('laragent.default_storage');
         }
         $this->providerName = $provider['name'] ?? '';
-        
+
         // Extract provider settings into agent properties
         $this->setupDriverConfigs($provider);
 

@@ -13,8 +13,8 @@
 require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Drivers\Gemini\GeminiDriver;
-use LarAgent\Tool;
 use LarAgent\Message;
+use LarAgent\Tool;
 
 // Load API key
 $apiKey = include __DIR__.'/gemini-api-key.php';

@@ -13,7 +13,7 @@ use LarAgent\Facades\Context as ContextFacade;
 // Helper to generate unique agent names for test isolation
 function uniqueAgentName(string $prefix = 'TestAgent'): string
 {
-    return $prefix . '_' . uniqid();
+    return $prefix.'_'.uniqid();
 }
 
 // ==========================================
@@ -210,7 +210,7 @@ describe('NamedContextManager → Filters', function () {
         $manager->context()->getIdentityStorage()->addIdentity($identity2);
         $manager->context()->getIdentityStorage()->save();
 
-        $filtered = $manager->filter(fn($identity) => str_starts_with($identity->getChatName(), 'chat-a'))->getIdentities();
+        $filtered = $manager->filter(fn ($identity) => str_starts_with($identity->getChatName(), 'chat-a'))->getIdentities();
 
         expect($filtered->count())->toBe(1);
         expect($filtered->first()->getChatName())->toBe('chat-a-1');
@@ -279,7 +279,7 @@ describe('NamedContextManager → Filters', function () {
         $manager->context()->getIdentityStorage()->save();
 
         $filtered = $manager->forUser('user-1');
-        
+
         // Original manager should still return all identities
         expect($manager->getIdentities()->count())->toBe(2);
         expect($filtered->getIdentities()->count())->toBe(1);
@@ -612,7 +612,7 @@ describe('NamedContextManager → Iteration Methods', function () {
         $manager = NamedContextManager::named($agentName)
             ->withDrivers([InMemoryStorage::class]);
 
-        $result = $manager->each(fn($identity) => null);
+        $result = $manager->each(fn ($identity) => null);
 
         expect($result)->toBeInstanceOf(NamedContextManager::class);
     });
@@ -637,7 +637,7 @@ describe('NamedContextManager → Iteration Methods', function () {
         $manager->context()->getIdentityStorage()->addIdentity($identity2);
         $manager->context()->getIdentityStorage()->save();
 
-        $chatNames = $manager->map(fn($identity) => $identity->getChatName());
+        $chatNames = $manager->map(fn ($identity) => $identity->getChatName());
 
         expect($chatNames)->toHaveCount(2);
         expect($chatNames)->toContain('chat-1');
@@ -676,7 +676,7 @@ describe('NamedContextManager → Terminal Actions', function () {
         $count = $manager->clearAllChats();
 
         expect($count)->toBe(1);
-        
+
         // Note: We can't verify the clear because InMemoryStorage is instance-based
         // The clearAllChats creates a new ChatHistoryStorage instance which won't
         // share the same in-memory data. This would work correctly with persistent
@@ -837,7 +837,7 @@ describe('NamedContextManager → Edge Cases', function () {
     test('multiple agents → are isolated', function () {
         $agentName1 = uniqueAgentName('Agent1');
         $agentName2 = uniqueAgentName('Agent2');
-        
+
         $manager1 = NamedContextManager::named($agentName1)
             ->withDrivers([InMemoryStorage::class]);
         $manager2 = NamedContextManager::named($agentName2)
@@ -863,7 +863,7 @@ describe('NamedContextManager → Edge Cases', function () {
         // Each manager should only see its own identities
         expect($manager1->getIdentities()->count())->toBe(1);
         expect($manager1->first()->getAgentName())->toBe($agentName1);
-        
+
         expect($manager2->getIdentities()->count())->toBe(1);
         expect($manager2->first()->getAgentName())->toBe($agentName2);
     });

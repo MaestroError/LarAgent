@@ -2,8 +2,8 @@
 
 namespace LarAgent\Messages\DataModels\Content\Parts;
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Core\Abstractions\DataModel;
 
 class InputAudio extends DataModel
 {
@@ -23,13 +23,14 @@ class InputAudio extends DataModel
 
     public static function fromArray(array $attributes): static
     {
-        $instance = new static();
+        $instance = new static;
         if (isset($attributes['data'])) {
             $instance->data = $attributes['data'];
         }
         if (isset($attributes['format'])) {
             $instance->format = $attributes['format'];
         }
+
         return $instance;
     }
 }

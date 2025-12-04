@@ -2,8 +2,8 @@
 
 namespace LarAgent\Context;
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
+use LarAgent\Core\Abstractions\DataModel;
 
 class SessionIdentity extends DataModel implements SessionIdentityContract
 {
@@ -32,10 +32,10 @@ class SessionIdentity extends DataModel implements SessionIdentityContract
     {
         return new self(
             agentName: $attributes['agentName'] ?? '',
-            chatName: !empty($attributes['chatName']) ? $attributes['chatName'] : null,
-            userId: !empty($attributes['userId']) ? $attributes['userId'] : null,
-            group: !empty($attributes['group']) ? $attributes['group'] : null,
-            scope: !empty($attributes['scope']) ? $attributes['scope'] : null
+            chatName: ! empty($attributes['chatName']) ? $attributes['chatName'] : null,
+            userId: ! empty($attributes['userId']) ? $attributes['userId'] : null,
+            group: ! empty($attributes['group']) ? $attributes['group'] : null,
+            scope: ! empty($attributes['scope']) ? $attributes['scope'] : null
         );
     }
 
@@ -53,7 +53,6 @@ class SessionIdentity extends DataModel implements SessionIdentityContract
             'key' => $this->getKey(),
         ];
     }
-    
 
     /**
      * Build the storage key from identity components
@@ -86,8 +85,6 @@ class SessionIdentity extends DataModel implements SessionIdentityContract
 
     /**
      * Get the current scope
-     *
-     * @return string|null
      */
     public function getScope(): ?string
     {
@@ -98,7 +95,7 @@ class SessionIdentity extends DataModel implements SessionIdentityContract
      * Create a new identity with a scope appended to the key.
      * This allows different storage types to have isolated keys.
      *
-     * @param string $scope The scope to append (e.g., 'chat_history', 'state', 'memory')
+     * @param  string  $scope  The scope to append (e.g., 'chat_history', 'state', 'memory')
      * @return static A new identity instance with the scoped key
      */
     public function withScope(string $scope): static

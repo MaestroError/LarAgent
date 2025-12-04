@@ -2,8 +2,8 @@
 
 namespace LarAgent\Context\DataModels;
 
-use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
+use LarAgent\Context\SessionIdentity;
 use LarAgent\Core\Abstractions\DataModelArray;
 
 /**
@@ -24,9 +24,6 @@ class SessionIdentityArray extends DataModelArray
 
     /**
      * Check if an identity with the given key exists.
-     *
-     * @param string $key
-     * @return bool
      */
     public function hasKey(string $key): bool
     {
@@ -35,9 +32,6 @@ class SessionIdentityArray extends DataModelArray
 
     /**
      * Get an identity by its key.
-     *
-     * @param string $key
-     * @return SessionIdentityContract|null
      */
     public function getByKey(string $key): ?SessionIdentityContract
     {
@@ -46,9 +40,6 @@ class SessionIdentityArray extends DataModelArray
 
     /**
      * Remove an identity by its key.
-     *
-     * @param string $key
-     * @return static
      */
     public function removeByKey(string $key): static
     {
@@ -62,6 +53,6 @@ class SessionIdentityArray extends DataModelArray
      */
     public function getKeys(): array
     {
-        return $this->map(fn(SessionIdentity $item) => $item->getKey());
+        return $this->map(fn (SessionIdentity $item) => $item->getKey());
     }
 }

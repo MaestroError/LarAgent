@@ -2,8 +2,6 @@
 
 namespace LarAgent\Core\DTO;
 
-use LarAgent\Core\DTO\DriverConfig;
-
 class AgentDTO
 {
     public function __construct(

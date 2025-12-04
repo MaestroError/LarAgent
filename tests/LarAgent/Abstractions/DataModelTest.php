@@ -1,7 +1,7 @@
 <?php
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Core\Abstractions\DataModel;
 
 // --- Fixtures ---
 
@@ -41,9 +41,10 @@ class TestMainModel extends DataModel
     public TestNestedModel $nested;
 }
 
-class TestMixedConstructorModel extends DataModel {
+class TestMixedConstructorModel extends DataModel
+{
     public string $derivedProperty;
-    
+
     public function __construct(
         public string $promotedProp,
         string $normalArg
@@ -62,7 +63,7 @@ test('DataModel: fill and toArray work with scalars', function () {
         'tags' => ['a', 'b'],
     ];
 
-    $model = new TestMainModel();
+    $model = new TestMainModel;
     $model->fill($data);
 
     expect($model->name)->toBe('John Doe');
@@ -83,7 +84,7 @@ test('DataModel: fill and toArray work with Enums', function () {
         'backedEnum' => 'value_2',
     ];
 
-    $model = new TestMainModel();
+    $model = new TestMainModel;
     $model->fill($data);
 
     expect($model->unitEnum)->toBe(TestUnitEnum::OptionA);
@@ -101,7 +102,7 @@ test('DataModel: fill and toArray work with Nested DataModel', function () {
         ],
     ];
 
-    $model = new TestMainModel();
+    $model = new TestMainModel;
     $model->fill($data);
 
     expect($model->nested)->toBeInstanceOf(TestNestedModel::class);
@@ -126,7 +127,7 @@ test('DataModel: fromArray static method works', function () {
 });
 
 test('DataModel: ArrayAccess works with fill logic', function () {
-    $model = new TestMainModel();
+    $model = new TestMainModel;
 
     // Offset Set
     $model['name'] = 'Alice';
@@ -150,11 +151,11 @@ test('DataModel: ArrayAccess works with fill logic', function () {
 });
 
 test('DataModel: toSchema generates correct OpenAPI schema', function () {
-    $model = new TestMainModel();
+    $model = new TestMainModel;
     $schema = $model->toSchema();
 
     expect($schema['type'])->toBe('object');
-    
+
     // Check required fields
     // name, age, unitEnum, backedEnum, nested are required (no default, not nullable)
     // isActive has default, tags has default (implied empty array? No, explicit default in class)
@@ -200,7 +201,7 @@ test('DataModel: fill ignores unknown properties', function () {
         'unknown_prop' => 'should be ignored',
     ];
 
-    $model = new TestMainModel();
+    $model = new TestMainModel;
     $model->fill($data);
 
     expect($model->name)->toBe('John');
@@ -227,7 +228,7 @@ test('DataModel: implements JsonSerializable', function () {
         'age' => 40,
     ];
 
-    $model = new TestMainModel();
+    $model = new TestMainModel;
     $model->fill($data);
 
     $json = json_encode($model);

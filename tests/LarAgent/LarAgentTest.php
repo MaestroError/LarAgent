@@ -1,13 +1,13 @@
 <?php
 
+use LarAgent\Context\SessionIdentity;
 use LarAgent\History\InMemoryChatHistory;
 use LarAgent\LarAgent;
 use LarAgent\Message;
 use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
-use LarAgent\Context\SessionIdentity;
-use LarAgent\Messages\DataModels\MessageContent;
 
 it('can setup LarAgent', function () {
     $driver = new FakeLlmDriver;
@@ -101,7 +101,7 @@ it('can run with tools', function () {
         ->withMessage($userMessage);
 
     $agent->afterResponse(function ($agent, $message) {
-        $message->setContent(new MessageContent(new TextContent($message->getContentAsString() . '. Checked at 2024-01-01')));
+        $message->setContent(new MessageContent(new TextContent($message->getContentAsString().'. Checked at 2024-01-01')));
     });
 
     $driver->addMockResponse('tool_calls', [

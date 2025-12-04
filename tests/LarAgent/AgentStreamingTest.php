@@ -3,7 +3,6 @@
 use LarAgent\Agent;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Message;
-use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
@@ -14,8 +13,8 @@ class StreamedFakeLlmDriver extends FakeLlmDriver
 {
     public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
-        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
-            ? $overrideSettings->toArray() 
+        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig
+            ? $overrideSettings->toArray()
             : $overrideSettings;
 
         if (empty($this->mockResponses)) {

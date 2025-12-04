@@ -1,21 +1,21 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use LarAgent\Context\Drivers\EloquentStorage;
 use LarAgent\Context\Models\LaragentSessionIdentity;
 use LarAgent\Context\SessionIdentity;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Run the migration for testing
-    $migration = include __DIR__ . '/../../../src/Context/Database/migrations/create_laragent_session_identities_table.php';
+    $migration = include __DIR__.'/../../../src/Context/Database/migrations/create_laragent_session_identities_table.php';
     $migration->up();
 });
 
 afterEach(function () {
     // Clean up
-    $migration = include __DIR__ . '/../../../src/Context/Database/migrations/create_laragent_session_identities_table.php';
+    $migration = include __DIR__.'/../../../src/Context/Database/migrations/create_laragent_session_identities_table.php';
     $migration->down();
 });
 
@@ -171,7 +171,7 @@ describe('EloquentStorage with SessionIdentity data', function () {
 describe('LaragentSessionIdentity model', function () {
 
     it('uses fill to populate fields', function () {
-        $model = new LaragentSessionIdentity();
+        $model = new LaragentSessionIdentity;
         $model->fill([
             'key' => 'test_key',
             'agent_name' => 'TestAgent',

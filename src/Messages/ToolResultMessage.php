@@ -2,12 +2,12 @@
 
 namespace LarAgent\Messages;
 
-use LarAgent\Core\Abstractions\Message;
-use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Core\Contracts\DataModel as DataModelContract;
-use LarAgent\Core\Enums\Role;
-use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Attributes\Desc;
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Core\Abstractions\Message;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Enums\Role;
 use LarAgent\Messages\DataModels\ToolResultContent;
 
 class ToolResultMessage extends Message implements MessageInterface
@@ -21,13 +21,13 @@ class ToolResultMessage extends Message implements MessageInterface
     public function __construct(ToolResultContent|string $content, string $toolCallId, string $toolName = '', array $metadata = [])
     {
         parent::__construct();
-        
+
         if ($content instanceof ToolResultContent) {
             $this->content = $content;
         } else {
             $this->content = new ToolResultContent($content, $toolCallId, $toolName);
         }
-        
+
         $this->metadata = $metadata;
     }
 
@@ -38,7 +38,7 @@ class ToolResultMessage extends Message implements MessageInterface
 
     public function setContent(?DataModelContract $content): void
     {
-        if ($content !== null && !($content instanceof ToolResultContent)) {
+        if ($content !== null && ! ($content instanceof ToolResultContent)) {
             throw new \InvalidArgumentException('ToolResultMessage content must be ToolResultContent or null');
         }
         $this->content = $content;
@@ -74,7 +74,7 @@ class ToolResultMessage extends Message implements MessageInterface
             'message_created' => $this->message_created,
         ];
 
-        if (!empty($this->extras)) {
+        if (! empty($this->extras)) {
             $result['extras'] = $this->extras;
         }
 
@@ -87,14 +87,14 @@ class ToolResultMessage extends Message implements MessageInterface
         $toolCallId = $data['tool_call_id'];
         $toolName = $data['tool_name'] ?? '';
         $metadata = $data['metadata'] ?? [];
-        
+
         // Handle array content (convert to string)
         if (is_array($content)) {
             $content = json_encode($content);
         }
-        
+
         $instance = new static($content, $toolCallId, $toolName, $metadata);
-        
+
         // Handle message_uuid if provided
         if (isset($data['message_uuid'])) {
             $instance->message_uuid = $data['message_uuid'];
@@ -104,7 +104,7 @@ class ToolResultMessage extends Message implements MessageInterface
         if (isset($data['message_created'])) {
             $instance->message_created = $data['message_created'];
         }
-        
+
         return $instance;
     }
 }

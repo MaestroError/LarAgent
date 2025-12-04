@@ -2,9 +2,9 @@
 
 namespace LarAgent\Messages\DataModels\Content;
 
+use LarAgent\Attributes\Desc;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Enums\MessageContentType;
-use LarAgent\Attributes\Desc;
 
 class TextContent extends DataModel
 {
@@ -39,6 +39,7 @@ class TextContent extends DataModel
         if (isset($attributes['type'])) {
             $instance->type = $attributes['type'];
         }
+
         return $instance;
     }
 }

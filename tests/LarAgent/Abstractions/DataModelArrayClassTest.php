@@ -3,37 +3,48 @@
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Abstractions\DataModelArray;
 
-class TestItem extends DataModel {
+class TestItem extends DataModel
+{
     public string $name;
 }
 
-class TestItemList extends DataModelArray {
-    public static function allowedModels(): array {
+class TestItemList extends DataModelArray
+{
+    public static function allowedModels(): array
+    {
         return [TestItem::class];
     }
 }
 
-class TextContent extends DataModel {
+class TextContent extends DataModel
+{
     public string $type = 'text';
+
     public string $text;
 }
 
-class ImageContent extends DataModel {
+class ImageContent extends DataModel
+{
     public string $type = 'image';
+
     public string $url;
 }
 
-class ContentList extends DataModelArray {
-    public static function allowedModels(): array {
+class ContentList extends DataModelArray
+{
+    public static function allowedModels(): array
+    {
         return [
             'text' => TextContent::class,
-            'image' => ImageContent::class
+            'image' => ImageContent::class,
         ];
     }
 }
 
-class TestContainer extends DataModel {
+class TestContainer extends DataModel
+{
     public TestItemList $items;
+
     public ContentList $contents;
 }
 
@@ -68,18 +79,18 @@ test('DataModelArray: Throws exception for invalid polymorphic type', function (
         ['type' => 'unknown', 'data' => '???'],
     ];
 
-    expect(fn() => new ContentList($data))
+    expect(fn () => new ContentList($data))
         ->toThrow(InvalidArgumentException::class);
 });
 
 test('DataModelArray: Integration with DataModel', function () {
     $data = [
         'items' => [
-            ['name' => 'Nested Item']
+            ['name' => 'Nested Item'],
         ],
         'contents' => [
-            ['type' => 'text', 'text' => 'Nested Text']
-        ]
+            ['type' => 'text', 'text' => 'Nested Text'],
+        ],
     ];
 
     $container = TestContainer::fromArray($data);
@@ -91,7 +102,7 @@ test('DataModelArray: Integration with DataModel', function () {
 });
 
 test('DataModelArray: Generates correct schema', function () {
-    $list = new ContentList();
+    $list = new ContentList;
     $schema = $list->toSchema();
 
     expect($schema['type'])->toBe('array');

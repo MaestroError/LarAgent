@@ -2,16 +2,16 @@
 
 namespace LarAgent\Core\Abstractions;
 
+use ArrayAccess;
+use ArrayIterator;
+use Countable;
+use InvalidArgumentException;
+use IteratorAggregate;
+use JsonSerializable;
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Core\Contracts\DataModelArray as DataModelArrayContract;
-use ArrayAccess;
-use IteratorAggregate;
-use Countable;
-use JsonSerializable;
-use ArrayIterator;
-use Traversable;
-use InvalidArgumentException;
 use ReflectionClass;
+use Traversable;
 
 abstract class DataModelArray implements DataModelArrayContract
 {
@@ -29,8 +29,6 @@ abstract class DataModelArray implements DataModelArrayContract
 
     /**
      * Return the discriminator field name for polymorphic arrays.
-     *
-     * @return string
      */
     public function discriminator(): string
     {
@@ -58,12 +56,13 @@ abstract class DataModelArray implements DataModelArrayContract
             if ($item instanceof DataModelContract) {
                 $this->validateAllowedModel($item);
                 $this->items[] = $item;
+
                 continue;
             }
 
-            if (!is_array($item)) {
+            if (! is_array($item)) {
                 print_r($item);
-                throw new InvalidArgumentException("Item must be an array or DataModel instance.");
+                throw new InvalidArgumentException('Item must be an array or DataModel instance.');
             }
 
             $targetClass = $this->resolveTargetClass($item, $allowedModels, $discriminator);
@@ -75,11 +74,6 @@ abstract class DataModelArray implements DataModelArrayContract
 
     /**
      * Resolve the target class for a given item based on discriminator.
-     *
-     * @param array $item
-     * @param array $allowedModels
-     * @param string $discriminator
-     * @return string
      */
     protected function resolveTargetClass(array $item, array $allowedModels, string $discriminator): string
     {
@@ -88,13 +82,13 @@ abstract class DataModelArray implements DataModelArrayContract
             return $allowedModels[0];
         }
 
-        if (!isset($item[$discriminator])) {
+        if (! isset($item[$discriminator])) {
             throw new InvalidArgumentException("Missing discriminator field '{$discriminator}'.");
         }
 
         $discriminatorValue = $item[$discriminator];
 
-        if (!isset($allowedModels[$discriminatorValue])) {
+        if (! isset($allowedModels[$discriminatorValue])) {
             throw new InvalidArgumentException("Unknown discriminator value: {$discriminatorValue}");
         }
 
@@ -115,10 +109,6 @@ abstract class DataModelArray implements DataModelArrayContract
 
     /**
      * Resolve target class from multiple candidates using matchesArray().
-     *
-     * @param array $candidates
-     * @param array $item
-     * @return string
      */
     protected function resolveFromCandidates(array $candidates, array $item): string
     {
@@ -135,8 +125,6 @@ abstract class DataModelArray implements DataModelArrayContract
     /**
      * Validate that an item is an instance of an allowed model.
      *
-     * @param DataModelContract $item
-     * @return void
      * @throws InvalidArgumentException
      */
     protected function validateAllowedModel(DataModelContract $item): void
@@ -154,8 +142,8 @@ abstract class DataModelArray implements DataModelArrayContract
             }
         }
 
-        if (!$isAllowed) {
-            throw new InvalidArgumentException("Item is not an instance of an allowed model.");
+        if (! $isAllowed) {
+            throw new InvalidArgumentException('Item is not an instance of an allowed model.');
         }
     }
 
@@ -163,7 +151,7 @@ abstract class DataModelArray implements DataModelArrayContract
     {
         // For DataModelArray, fromArray is essentially the same as constructing with the array
         // But we might receive the array directly as $attributes if it's a list,
-        // OR we might receive ['items' => [...]] if it was nested? 
+        // OR we might receive ['items' => [...]] if it was nested?
         // Usually castValue passes the raw array value.
         return new static($attributes);
     }
@@ -273,13 +261,11 @@ abstract class DataModelArray implements DataModelArrayContract
 
     /**
      * Add an item to the array.
-     *
-     * @param DataModelContract $item
-     * @return static
      */
     public function add(DataModelContract $item): static
     {
         $this->offsetSet(null, $item);
+
         return $this;
     }
 
@@ -287,8 +273,8 @@ abstract class DataModelArray implements DataModelArrayContract
      * Find an item's index by a key/value match.
      * Internal helper reused by other methods.
      *
-     * @param string $key The property key to match
-     * @param mixed $value The value to match
+     * @param  string  $key  The property key to match
+     * @param  mixed  $value  The value to match
      * @return int|null The index of the found item, or null
      */
     protected function findItem(string $key, mixed $value): ?int
@@ -298,19 +284,20 @@ abstract class DataModelArray implements DataModelArrayContract
                 return $index;
             }
         }
+
         return null;
     }
 
     /**
      * Get an item by a key/value match.
      *
-     * @param string $key The property key to match
-     * @param mixed $value The value to match
-     * @return DataModelContract|null
+     * @param  string  $key  The property key to match
+     * @param  mixed  $value  The value to match
      */
     public function getItem(string $key, mixed $value): ?DataModelContract
     {
         $index = $this->findItem($key, $value);
+
         return $index !== null ? $this->items[$index] : null;
     }
 
@@ -318,10 +305,9 @@ abstract class DataModelArray implements DataModelArrayContract
      * Set (replace) an item by a key/value match.
      * If no matching item found, adds the new item.
      *
-     * @param string $key The property key to match
-     * @param mixed $value The value to match
-     * @param DataModelContract $newItem The new item to set
-     * @return static
+     * @param  string  $key  The property key to match
+     * @param  mixed  $value  The value to match
+     * @param  DataModelContract  $newItem  The new item to set
      */
     public function setItem(string $key, mixed $value, DataModelContract $newItem): static
     {
@@ -340,9 +326,8 @@ abstract class DataModelArray implements DataModelArrayContract
     /**
      * Check if an item with the given key/value exists.
      *
-     * @param string $key The property key to match
-     * @param mixed $value The value to match
-     * @return bool
+     * @param  string  $key  The property key to match
+     * @param  mixed  $value  The value to match
      */
     public function hasItem(string $key, mixed $value): bool
     {
@@ -352,9 +337,8 @@ abstract class DataModelArray implements DataModelArrayContract
     /**
      * Remove an item by a key/value match.
      *
-     * @param string $key The property key to match
-     * @param mixed $value The value to match
-     * @return static
+     * @param  string  $key  The property key to match
+     * @param  mixed  $value  The value to match
      */
     public function removeItem(string $key, mixed $value): static
     {
@@ -362,15 +346,15 @@ abstract class DataModelArray implements DataModelArrayContract
         if ($index !== null) {
             array_splice($this->items, $index, 1);
         }
+
         return $this;
     }
 
     /**
      * Remove an item from the array.
      *
-     * @param mixed $itemOrKey The item to remove (value or index) or the key to check
-     * @param mixed $value The value to check if removing by key/value pair
-     * @return static
+     * @param  mixed  $itemOrKey  The item to remove (value or index) or the key to check
+     * @param  mixed  $value  The value to check if removing by key/value pair
      */
     public function remove(mixed $itemOrKey, mixed $value = null): static
     {
@@ -387,6 +371,7 @@ abstract class DataModelArray implements DataModelArrayContract
             if ($isList) {
                 $this->items = array_values($this->items);
             }
+
             return $this;
         }
 
@@ -399,6 +384,7 @@ abstract class DataModelArray implements DataModelArrayContract
                     $this->items = array_values($this->items);
                 }
             }
+
             return $this;
         }
 
@@ -411,40 +397,36 @@ abstract class DataModelArray implements DataModelArrayContract
                 $this->items = array_values($this->items);
             }
         }
-        
+
         return $this;
     }
 
     /**
      * Get the first item.
-     *
-     * @return DataModelContract|null
      */
     public function first(): ?DataModelContract
     {
         if (empty($this->items)) {
             return null;
         }
+
         return reset($this->items);
     }
 
     /**
      * Get the last item.
-     *
-     * @return DataModelContract|null
      */
     public function last(): ?DataModelContract
     {
         if (empty($this->items)) {
             return null;
         }
+
         return end($this->items);
     }
 
     /**
      * Check if the array is empty.
-     *
-     * @return bool
      */
     public function isEmpty(): bool
     {
@@ -463,20 +445,16 @@ abstract class DataModelArray implements DataModelArrayContract
 
     /**
      * Clear all items.
-     *
-     * @return static
      */
     public function clear(): static
     {
         $this->items = [];
+
         return $this;
     }
 
     /**
      * Filter items using a callback.
-     *
-     * @param callable $callback
-     * @return static
      */
     public function filter(callable $callback): static
     {
@@ -485,16 +463,13 @@ abstract class DataModelArray implements DataModelArrayContract
         if (array_is_list($this->items)) {
             $newItems = array_values($newItems);
         }
-        
+
         // Create new instance with filtered items
         return new static($newItems);
     }
 
     /**
      * Map items using a callback.
-     *
-     * @param callable $callback
-     * @return array
      */
     public function map(callable $callback): array
     {

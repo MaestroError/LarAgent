@@ -4,7 +4,6 @@ use Illuminate\Http\Request;
 use LarAgent\Agent;
 use LarAgent\API\Completions;
 use LarAgent\Core\DTO\DriverConfig;
-use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
@@ -14,8 +13,8 @@ class ApiStreamedDriver extends FakeLlmDriver
 {
     public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
-        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
-            ? $overrideSettings->toArray() 
+        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig
+            ? $overrideSettings->toArray()
             : $overrideSettings;
         if (empty($this->mockResponses)) {
             throw new \Exception('No mock responses are defined.');

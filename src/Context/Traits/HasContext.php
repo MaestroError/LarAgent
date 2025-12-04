@@ -2,42 +2,32 @@
 
 namespace LarAgent\Context\Traits;
 
-use LarAgent\Context\SessionIdentity;
-use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\Context;
-use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
+use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
+use LarAgent\Context\SessionIdentity;
 
 trait HasContext
 {
-
     protected Context $context;
 
     protected SessionIdentityContract $sessionIdentity;
 
     protected bool $usesUserId = false;
 
-
-    /** @var string */
     protected string $chatSessionId;
-    
+
     /**
      * Chat key associated with this agent
-     *
-     * @var string|null
      */
     protected ?string $userId;
 
     /**
      * Chat key associated with this agent
-     *
-     * @var string
      */
     protected string $chatKey;
 
     /**
      * Name of agent using the context
-     *
-     * @var string
      */
     protected string $agentName;
 
@@ -59,10 +49,11 @@ trait HasContext
 
         return $this;
     }
-    
+
     protected function buildSessionId(): string
     {
         $this->sessionIdentity = $this->buildIdentity();
+
         return $this->sessionIdentity->getKey();
     }
 
@@ -87,6 +78,7 @@ trait HasContext
     public function usesUserId(): static
     {
         $this->usesUserId = true;
+
         return $this;
     }
 

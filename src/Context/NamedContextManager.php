@@ -6,7 +6,6 @@ use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\DataModels\SessionIdentityArray;
 use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\Storages\ChatHistoryStorage;
-use LarAgent\Context\Storages\IdentityStorage;
 use LarAgent\Context\Traits\HasContextFilters;
 
 /**
@@ -26,6 +25,7 @@ use LarAgent\Context\Traits\HasContextFilters;
 class NamedContextManager
 {
     use HasContextFilters;
+
     /**
      * The agent name to work with
      */
@@ -33,8 +33,6 @@ class NamedContextManager
 
     /**
      * Driver configuration for storages
-     * 
-     * @var array
      */
     protected array $driversConfig = [];
 
@@ -47,35 +45,33 @@ class NamedContextManager
      * Create a new NamedContextManager for the given agent name.
      * Entry point for fluent API.
      *
-     * @param string $agentName The agent name (without namespace)
-     * @return static
+     * @param  string  $agentName  The agent name (without namespace)
      */
     public static function named(string $agentName): static
     {
-        $instance = new static();
+        $instance = new static;
         $instance->agentName = $agentName;
+
         return $instance;
     }
 
     /**
      * Set custom driver configuration.
      *
-     * @param array $driversConfig Array of driver classes
-     * @return static
+     * @param  array  $driversConfig  Array of driver classes
      */
     public function withDrivers(array $driversConfig): static
     {
         $instance = $this->newInstance();
         $instance->driversConfig = $driversConfig;
         $instance->context = null; // Reset context to use new drivers
+
         return $instance;
     }
 
     /**
      * Get the context instance.
      * Creates a lightweight context using just the agent name.
-     *
-     * @return Context
      */
     protected function getContext(): Context
     {
@@ -83,47 +79,45 @@ class NamedContextManager
             $identity = new SessionIdentity(
                 agentName: $this->agentName
             );
-            
-            $drivers = !empty($this->driversConfig) 
-                ? $this->driversConfig 
+
+            $drivers = ! empty($this->driversConfig)
+                ? $this->driversConfig
                 : $this->defaultDrivers();
-            
+
             $this->context = new Context($identity, $drivers);
             $this->context->getIdentityStorage()->read();
         }
+
         return $this->context;
     }
 
     /**
      * Get default drivers configuration.
      * Override this method to customize default drivers.
-     *
-     * @return array
      */
     protected function defaultDrivers(): array
     {
         // Try to get from config, fallback to InMemoryStorage
         $configValue = function_exists('config') ? config('laragent.history') : null;
-        
+
         if ($configValue !== null) {
             return is_array($configValue) ? $configValue : [$configValue];
         }
-        
+
         return [InMemoryStorage::class];
     }
 
     /**
      * Clone the current instance for chainable immutability.
-     *
-     * @return static
      */
     protected function newInstance(): static
     {
-        $instance = new static();
+        $instance = new static;
         $instance->agentName = $this->agentName;
         $instance->driversConfig = $this->driversConfig;
         $instance->context = $this->context;
         $instance->filters = $this->filters;
+
         return $instance;
     }
 
@@ -133,8 +127,6 @@ class NamedContextManager
 
     /**
      * Get all identities (before filtering).
-     *
-     * @return SessionIdentityArray
      */
     protected function getAllIdentities(): SessionIdentityArray
     {
@@ -163,8 +155,6 @@ class NamedContextManager
 
     /**
      * Check if no identities match current filters.
-     *
-     * @return bool
      */
     public function isEmpty(): bool
     {
@@ -173,8 +163,6 @@ class NamedContextManager
 
     /**
      * Get the last identity matching filters, or null.
-     *
-     * @return SessionIdentityContract|null
      */
     public function last(): ?SessionIdentityContract
     {
@@ -189,22 +177,21 @@ class NamedContextManager
      * Iterate over matching identities with a callback.
      * The callback receives the identity.
      *
-     * @param callable $callback Function(SessionIdentityContract $identity)
-     * @return static
+     * @param  callable  $callback  Function(SessionIdentityContract $identity)
      */
     public function each(callable $callback): static
     {
         foreach ($this->getIdentities() as $identity) {
             $callback($identity);
         }
+
         return $this;
     }
 
     /**
      * Map over matching identities and return results.
      *
-     * @param callable $callback Function(SessionIdentityContract $identity): mixed
-     * @return array
+     * @param  callable  $callback  Function(SessionIdentityContract $identity): mixed
      */
     public function map(callable $callback): array
     {
@@ -212,6 +199,7 @@ class NamedContextManager
         foreach ($this->getIdentities() as $identity) {
             $results[] = $callback($identity);
         }
+
         return $results;
     }
 
@@ -278,7 +266,7 @@ class NamedContextManager
             // Get the storage class from identity scope
             $scope = $identity->getScope();
             $storageClass = $this->resolveStorageClass($scope);
-            
+
             if ($storageClass) {
                 $storage = new $storageClass($identity, $this->getDriversConfig());
                 $storage->clear();
@@ -304,7 +292,7 @@ class NamedContextManager
             // Get the storage class from identity scope
             $scope = $identity->getScope();
             $storageClass = $this->resolveStorageClass($scope);
-            
+
             if ($storageClass) {
                 $storage = new $storageClass($identity, $this->getDriversConfig());
                 $storage->remove();
@@ -325,8 +313,6 @@ class NamedContextManager
 
     /**
      * Get the agent name.
-     *
-     * @return string
      */
     public function getAgentName(): string
     {
@@ -335,20 +321,16 @@ class NamedContextManager
 
     /**
      * Get the drivers configuration.
-     *
-     * @return array
      */
     public function getDriversConfig(): array
     {
-        return !empty($this->driversConfig) 
-            ? $this->driversConfig 
+        return ! empty($this->driversConfig)
+            ? $this->driversConfig
             : $this->defaultDrivers();
     }
 
     /**
      * Get the underlying Context instance.
-     *
-     * @return Context
      */
     public function context(): Context
     {
@@ -358,7 +340,7 @@ class NamedContextManager
     /**
      * Resolve storage class from scope/prefix.
      *
-     * @param string $scope The storage scope/prefix
+     * @param  string  $scope  The storage scope/prefix
      * @return string|null The storage class name or null
      */
     protected function resolveStorageClass(string $scope): ?string

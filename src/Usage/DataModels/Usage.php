@@ -2,8 +2,8 @@
 
 namespace LarAgent\Usage\DataModels;
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Core\Abstractions\DataModel;
 
 class Usage extends DataModel
 {

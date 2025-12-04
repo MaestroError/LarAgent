@@ -10,7 +10,7 @@ beforeEach(function () {
         '*_create_laragent_session_identities_table.php',
     ];
     foreach ($patterns as $pattern) {
-        $migrations = glob(database_path('migrations/' . $pattern));
+        $migrations = glob(database_path('migrations/'.$pattern));
         foreach ($migrations as $migration) {
             unlink($migration);
         }
@@ -25,7 +25,7 @@ afterEach(function () {
         '*_create_laragent_session_identities_table.php',
     ];
     foreach ($patterns as $pattern) {
-        $migrations = glob(database_path('migrations/' . $pattern));
+        $migrations = glob(database_path('migrations/'.$pattern));
         foreach ($migrations as $migration) {
             unlink($migration);
         }

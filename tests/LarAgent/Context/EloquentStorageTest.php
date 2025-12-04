@@ -1,28 +1,28 @@
 <?php
 
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use LarAgent\Context\Drivers\EloquentStorage;
 use LarAgent\Context\Models\LaragentMessage;
 use LarAgent\Context\SessionIdentity;
-use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     // Run the migration for testing
-    $migration = include __DIR__ . '/../../../src/Context/Database/migrations/create_laragent_messages_table.php';
+    $migration = include __DIR__.'/../../../src/Context/Database/migrations/create_laragent_messages_table.php';
     $migration->up();
 });
 
 afterEach(function () {
     // Clean up
-    $migration = include __DIR__ . '/../../../src/Context/Database/migrations/create_laragent_messages_table.php';
+    $migration = include __DIR__.'/../../../src/Context/Database/migrations/create_laragent_messages_table.php';
     $migration->down();
 });
 
 describe('EloquentStorage', function () {
 
     it('can write and read items', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'test_chat');
 
         $items = [
@@ -42,7 +42,7 @@ describe('EloquentStorage', function () {
     });
 
     it('preserves item order', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'test_chat');
 
         $items = [
@@ -60,7 +60,7 @@ describe('EloquentStorage', function () {
     });
 
     it('replaces all items on write', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'test_chat');
 
         // Write initial items
@@ -80,7 +80,7 @@ describe('EloquentStorage', function () {
     });
 
     it('removes all items', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'test_chat');
 
         $storage->writeToMemory($identity, [
@@ -95,7 +95,7 @@ describe('EloquentStorage', function () {
     });
 
     it('returns null for non-existent session', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'non_existent');
 
         $readItems = $storage->readFromMemory($identity);
@@ -103,7 +103,7 @@ describe('EloquentStorage', function () {
     });
 
     it('isolates data between sessions', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity1 = new SessionIdentity('TestAgent', 'chat_1');
         $identity2 = new SessionIdentity('TestAgent', 'chat_2');
 
@@ -125,7 +125,7 @@ describe('EloquentStorage', function () {
     });
 
     it('handles empty array', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'test_chat');
 
         // Write initial data
@@ -141,7 +141,7 @@ describe('EloquentStorage', function () {
     });
 
     it('preserves all message fields', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'test_chat');
 
         $items = [
@@ -169,7 +169,7 @@ describe('EloquentStorage', function () {
     });
 
     it('preserves tool call fields', function () {
-        $storage = new EloquentStorage();
+        $storage = new EloquentStorage;
         $identity = new SessionIdentity('TestAgent', 'test_chat');
 
         $toolCalls = [
@@ -205,7 +205,7 @@ describe('EloquentStorage', function () {
 describe('LaragentMessage model', function () {
 
     it('uses fill to populate fields', function () {
-        $model = new LaragentMessage();
+        $model = new LaragentMessage;
         $model->fill([
             'role' => 'user',
             'content' => 'Test content',

@@ -2,16 +2,15 @@
 
 namespace LarAgent;
 
-use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
+use LarAgent\Messages\DataModels\ToolResultContent;
 use LarAgent\Messages\DeveloperMessage;
 use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
 use LarAgent\Messages\UserMessage;
-use LarAgent\Messages\DataModels\ToolResultContent;
-use LarAgent\Messages\DataModels\MessageContent;
-use LarAgent\Messages\DataModels\Content\TextContent;
 
 /**
  * Factory class for creating message instances.

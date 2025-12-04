@@ -20,7 +20,7 @@ return [
      */
     'default_history_storage' => [
         \LarAgent\Context\Drivers\CacheStorage::class, // Primary
-        \LarAgent\Context\Drivers\FileStorage::class
+        \LarAgent\Context\Drivers\FileStorage::class,
     ],
 
     /**

@@ -2,15 +2,15 @@
 
 namespace LarAgent\Messages;
 
-use LarAgent\Core\Abstractions\Message;
-use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Core\Contracts\DataModel as DataModelContract;
-use LarAgent\Core\Enums\Role;
-use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Attributes\Desc;
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Core\Abstractions\Message;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Enums\Role;
 use LarAgent\Messages\DataModels\Content\TextContent;
-use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Messages\DataModels\MessageContent;
+use LarAgent\Usage\DataModels\Usage;
 
 class AssistantMessage extends Message implements MessageInterface
 {
@@ -30,13 +30,13 @@ class AssistantMessage extends Message implements MessageInterface
     public function __construct(string|MessageContent $content = '', array $metadata = [])
     {
         parent::__construct();
-        
+
         if (is_string($content)) {
             $this->content = new MessageContent([new TextContent($content)]);
         } else {
             $this->content = $content;
         }
-        
+
         $this->metadata = $metadata;
     }
 
@@ -47,7 +47,7 @@ class AssistantMessage extends Message implements MessageInterface
 
     public function setContent(?DataModelContract $content): void
     {
-        if ($content !== null && !($content instanceof MessageContent)) {
+        if ($content !== null && ! ($content instanceof MessageContent)) {
             throw new \InvalidArgumentException('AssistantMessage content must be MessageContent or null');
         }
         $this->content = $content;
@@ -64,8 +64,7 @@ class AssistantMessage extends Message implements MessageInterface
     /**
      * Set the usage information for this message.
      * Accepts either a Usage DataModel or an array (for backward compatibility).
-     * 
-     * @param Usage|array|null $usage
+     *
      * @return $this
      */
     public function setUsage(Usage|array|null $usage): static
@@ -111,7 +110,7 @@ class AssistantMessage extends Message implements MessageInterface
             $result['content'] = '';
         }
 
-        if (!empty($this->extras)) {
+        if (! empty($this->extras)) {
             $result['extras'] = $this->extras;
         }
 
@@ -126,7 +125,7 @@ class AssistantMessage extends Message implements MessageInterface
     public static function fromArray(array $data): static
     {
         $content = $data['content'] ?? '';
-        
+
         // Handle array content (from API responses or serialization)
         if (is_array($content)) {
             // Check if it's a single TextContent object format: {'type': 'text', 'text': '...'}
@@ -143,11 +142,11 @@ class AssistantMessage extends Message implements MessageInterface
                 $content = implode("\n", $textParts);
             }
         }
-        
+
         $metadata = $data['metadata'] ?? [];
-        
+
         $instance = new static($content, $metadata);
-        
+
         // Handle message_uuid if provided
         if (isset($data['message_uuid'])) {
             $instance->message_uuid = $data['message_uuid'];
@@ -157,12 +156,12 @@ class AssistantMessage extends Message implements MessageInterface
         if (isset($data['message_created'])) {
             $instance->message_created = $data['message_created'];
         }
-        
+
         // Reconstruct usage from array data
         if (isset($data['usage']) && is_array($data['usage'])) {
             $instance->usage = Usage::fromArray($data['usage']);
         }
-        
+
         return $instance;
     }
 }

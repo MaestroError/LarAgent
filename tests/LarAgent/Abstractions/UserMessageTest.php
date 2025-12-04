@@ -1,11 +1,7 @@
 <?php
 
 use LarAgent\Core\Enums\Role;
-use LarAgent\Message;
 use LarAgent\Messages\UserMessage;
-use LarAgent\Messages\DataModels\MessageContent;
-use LarAgent\Messages\DataModels\Content\TextContent;
-use LarAgent\Messages\DataModels\Content\ImageContent;
 
 it('creates a user message with content and metadata', function () {
     $message = new UserMessage('What is the weather in Boston?', ['key' => 'value']);
@@ -65,7 +61,7 @@ it('handles empty content gracefully', function () {
 
 it('has unique id', function () {
     $message = new UserMessage('Hello');
-    
+
     expect($message->getId())->toStartWith('msg_')
         ->and(strlen($message->getId()))->toBe(28); // 'msg_' + 24 hex chars
 });

@@ -8,12 +8,11 @@ use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Drivers\OpenAi\OpenAiMessageFormatter;
-use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
+use LarAgent\Usage\DataModels\Usage;
 use LucianoTonet\GroqPHP\Groq;
 
 class GroqDriver extends LlmDriver implements LlmDriverInterface
@@ -45,7 +44,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
      */
     protected function createFormatter(): MessageFormatter
     {
-        return new OpenAiMessageFormatter();
+        return new OpenAiMessageFormatter;
     }
 
     /**
@@ -70,13 +69,14 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         // Use formatter for extraction
         $finishReason = $this->formatter->extractFinishReason($response);
         $usageData = $this->formatter->extractUsage($response);
-        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
+        $usage = ! empty($usageData) ? Usage::fromArray($usageData) : null;
 
         if ($finishReason === 'tool_calls') {
             $toolCalls = $this->formatter->extractToolCalls($response);
 
             $message = new ToolCallMessage($toolCalls);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -85,6 +85,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
             $message = new AssistantMessage($content);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -151,7 +152,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
             }, array_values($toolCallsSummary));
 
             $toolMsg = new ToolCallMessage($toolCallObjects);
-            
+
             // Transfer usage from streamed message if available
             if ($stream->getUsage() !== null) {
                 $toolMsg->setUsage($stream->getUsage());

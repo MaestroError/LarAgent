@@ -1,44 +1,48 @@
 <?php
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__.'/../vendor/autoload.php';
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Core\Abstractions\DataModel;
 
 // --- Definitions ---
 
-enum UserRole: string {
+enum UserRole: string
+{
     case ADMIN = 'admin';
     case EDITOR = 'editor';
     case VIEWER = 'viewer';
 }
 
-enum NotificationType {
+enum NotificationType
+{
     case EMAIL;
     case SMS;
     case PUSH;
 }
 
-class Address extends DataModel {
+class Address extends DataModel
+{
     public function __construct(
-        #[Desc("The street address")]
+        #[Desc('The street address')]
         public string $street,
 
-        #[Desc("The city name")]
+        #[Desc('The city name')]
         public string $city,
 
-        #[Desc("The postal code")]
+        #[Desc('The postal code')]
         public ?string $zipCode = null // Optional
     ) {}
 }
 
-class UserPreferences extends DataModel {
+class UserPreferences extends DataModel
+{
     private string $apiKey;
 
-    #[Desc("Receive marketing emails")]
+    #[Desc('Receive marketing emails')]
     public bool $marketingEmails = false;
 
-    #[Desc("Preferred notification types")]
+    #[Desc('Preferred notification types')]
     public array $notifications = []; // Array of NotificationType names or values
 
     public function __construct(
@@ -53,8 +57,9 @@ class UserPreferences extends DataModel {
     }
 }
 
-class UserProfile extends DataModel {
-    #[Desc("The unique identifier for the user")]
+class UserProfile extends DataModel
+{
+    #[Desc('The unique identifier for the user')]
     public int $id;
 
     #[Desc("The user's full name")]
@@ -66,10 +71,10 @@ class UserProfile extends DataModel {
     #[Desc("The user's physical address")]
     public Address $address;
 
-    #[Desc("User settings and preferences")]
+    #[Desc('User settings and preferences')]
     public UserPreferences $preferences;
 
-    #[Desc("List of tags associated with the user")]
+    #[Desc('List of tags associated with the user')]
     public array $tags = [];
 }
 
@@ -103,13 +108,13 @@ echo "\n";
 try {
     $user = UserProfile::fromArray($inputData);
     echo "2. Model Created Successfully!\n";
-    echo "   Name: " . $user->name . "\n";
-    echo "   Role: " . $user->role->value . "\n";
-    echo "   City: " . $user->address->city . "\n";
-    echo "   Marketing: " . ($user->preferences->marketingEmails ? 'Yes' : 'No') . "\n";
-    echo "   Private API Key: " . $user->preferences->getApiKey() . "\n";
+    echo '   Name: '.$user->name."\n";
+    echo '   Role: '.$user->role->value."\n";
+    echo '   City: '.$user->address->city."\n";
+    echo '   Marketing: '.($user->preferences->marketingEmails ? 'Yes' : 'No')."\n";
+    echo '   Private API Key: '.$user->preferences->getApiKey()."\n";
 } catch (\Throwable $e) {
-    echo "ERROR: " . $e->getMessage() . "\n";
+    echo 'ERROR: '.$e->getMessage()."\n";
     exit(1);
 }
 echo "\n";
@@ -123,7 +128,7 @@ echo "\n";
 // 4. Generate Schema
 $schema = $user->toSchema();
 echo "4. Generated OpenAPI Schema (toSchema):\n";
-echo json_encode($schema, JSON_PRETTY_PRINT) . "\n";
+echo json_encode($schema, JSON_PRETTY_PRINT)."\n";
 
 // Validation check
 if ($schema['properties']['name']['description'] === "The user's full name") {
@@ -138,7 +143,7 @@ if (isset($schema['properties']['role']['enum'])) {
     echo "[FAIL] Schema missing enums.\n";
 }
 
-if (!empty($schema['required'])) {
+if (! empty($schema['required'])) {
     echo "[PASS] Schema contains required fields.\n";
 } else {
     echo "[FAIL] Schema missing required fields.\n";
@@ -147,7 +152,7 @@ if (!empty($schema['required'])) {
 // 5. ArrayAccess Check
 echo "5. ArrayAccess Check:\n";
 $user['name'] = 'Alice in Wonderland';
-echo "   Updated Name via ArrayAccess: " . $user['name'] . "\n";
+echo '   Updated Name via ArrayAccess: '.$user['name']."\n";
 
 if (isset($user['role'])) {
     echo "   [PASS] isset works via ArrayAccess\n";

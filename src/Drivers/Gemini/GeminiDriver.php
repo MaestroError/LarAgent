@@ -10,7 +10,6 @@ use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Usage\DataModels\Usage;
@@ -58,7 +57,7 @@ class GeminiDriver extends LlmDriver
      */
     protected function createFormatter(): MessageFormatter
     {
-        return new GeminiMessageFormatter();
+        return new GeminiMessageFormatter;
     }
 
     /**
@@ -100,7 +99,7 @@ class GeminiDriver extends LlmDriver
     protected function handleResponse(array $responseData): AssistantMessage
     {
         $usageData = $this->formatter->extractUsage($responseData);
-        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
+        $usage = ! empty($usageData) ? Usage::fromArray($usageData) : null;
 
         // Use formatter's hasToolCalls since Gemini returns 'STOP' even with tool calls
         if ($this->formatter->hasToolCalls($responseData)) {
@@ -108,6 +107,7 @@ class GeminiDriver extends LlmDriver
 
             $message = new ToolCallMessage($toolCalls);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -118,6 +118,7 @@ class GeminiDriver extends LlmDriver
 
             $message = new AssistantMessage($content);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -238,7 +239,7 @@ class GeminiDriver extends LlmDriver
             // Set usage information if available (use formatter)
             if ($lastResponseData) {
                 $usageData = $this->formatter->extractUsage($lastResponseData);
-                if (!empty($usageData)) {
+                if (! empty($usageData)) {
                     $streamedMessage->setUsage(Usage::fromArray($usageData));
                 }
             }
@@ -248,7 +249,7 @@ class GeminiDriver extends LlmDriver
                 $toolCallObjects = array_values($toolCallsSummary);
 
                 $toolCallMessage = new ToolCallMessage($toolCallObjects);
-                
+
                 // Transfer usage from streamed message if available
                 if ($streamedMessage->getUsage() !== null) {
                     $toolCallMessage->setUsage($streamedMessage->getUsage());
@@ -288,7 +289,7 @@ class GeminiDriver extends LlmDriver
 
         // Use formatter to convert Message objects to Gemini format
         $contents = $this->formatter->formatMessages($messages);
-        
+
         // Extract system instructions separately (Gemini-specific)
         $systemInstruction = $this->formatter->extractSystemInstruction($messages);
 
@@ -301,7 +302,7 @@ class GeminiDriver extends LlmDriver
 
         // Generation config with known properties
         $generationConfig = [];
-        
+
         if ($config->has('temperature')) {
             $generationConfig['temperature'] = $config->temperature;
         }
@@ -311,7 +312,7 @@ class GeminiDriver extends LlmDriver
         if ($config->has('topP')) {
             $generationConfig['topP'] = $config->topP;
         }
-        
+
         // Gemini-specific extras (top_k, etc.)
         if ($config->getExtra('top_k') !== null) {
             $generationConfig['topK'] = $config->getExtra('top_k');

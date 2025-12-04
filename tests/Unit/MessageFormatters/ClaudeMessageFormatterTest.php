@@ -2,18 +2,12 @@
 
 use LarAgent\Drivers\Anthropic\ClaudeMessageFormatter;
 use LarAgent\Message;
-use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\DeveloperMessage;
-use LarAgent\Messages\SystemMessage;
-use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Messages\ToolResultMessage;
-use LarAgent\Messages\UserMessage;
 use LarAgent\Tool;
 use LarAgent\ToolCall;
 
 describe('ClaudeMessageFormatter', function () {
     beforeEach(function () {
-        $this->formatter = new ClaudeMessageFormatter();
+        $this->formatter = new ClaudeMessageFormatter;
     });
 
     // ========== formatMessage Tests ==========

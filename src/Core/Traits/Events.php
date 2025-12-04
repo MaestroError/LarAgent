@@ -116,12 +116,11 @@ trait Events
      * Safely dispatch an agent event, handling cases where the Laravel app may not be available.
      * This prevents errors during shutdown when the container is being destroyed.
      *
-     * @param object $event The event to dispatch
-     * @return void
+     * @param  object  $event  The event to dispatch
      */
     protected function dispatchAgentEvent(object $event): void
     {
-        if (!class_exists('Illuminate\Support\Facades\Event')) {
+        if (! class_exists('Illuminate\Support\Facades\Event')) {
             return;
         }
 
@@ -130,7 +129,7 @@ trait Events
             if ($app === null) {
                 return;
             }
-            
+
             $events = $app->make('events');
             if ($events !== null) {
                 $events->dispatch($event);

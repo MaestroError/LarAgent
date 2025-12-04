@@ -10,11 +10,10 @@ use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
-use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
-use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
+use LarAgent\Usage\DataModels\Usage;
 
 class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 {
@@ -42,7 +41,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
      */
     protected function createFormatter(): MessageFormatter
     {
-        return new ClaudeMessageFormatter();
+        return new ClaudeMessageFormatter;
     }
 
     /**
@@ -82,13 +81,14 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         // Use formatter extraction methods
         $finishReason = $this->formatter->extractFinishReason($responseArray);
         $usageData = $this->formatter->extractUsage($responseArray);
-        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
+        $usage = ! empty($usageData) ? Usage::fromArray($usageData) : null;
 
         if ($finishReason === 'tool_calls') {
             $toolCalls = $this->formatter->extractToolCalls($responseArray);
 
             $message = new ToolCallMessage($toolCalls);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -97,6 +97,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
             $message = new AssistantMessage($content);
             $message->setUsage($usage);
+
             return $message;
         }
 
@@ -291,7 +292,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
         // Use formatter to extract system instruction
         $systemPrompt = $this->formatter->extractSystemInstruction($messages);
-        
+
         // Use formatter to convert Message objects to Claude format
         $chatMessages = $this->formatter->formatMessages($messages);
 

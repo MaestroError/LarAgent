@@ -27,7 +27,7 @@ class EloquentStorage extends StorageDriver
     /**
      * Create a new Eloquent storage driver instance.
      *
-     * @param string|null $model The Eloquent model class to use for storage
+     * @param  string|null  $model  The Eloquent model class to use for storage
      */
     public function __construct(?string $model = null)
     {
@@ -38,7 +38,6 @@ class EloquentStorage extends StorageDriver
      * Read all items from the database for this session.
      * Returns items ordered by position to maintain array order.
      *
-     * @param SessionIdentity $identity
      * @return array|null Returns null if no records found, array of items otherwise
      */
     public function readFromMemory(SessionIdentity $identity): ?array
@@ -66,8 +65,7 @@ class EloquentStorage extends StorageDriver
      * Write items to the database using a transaction.
      * Deletes all existing items for this session and bulk inserts the new items.
      *
-     * @param SessionIdentity $identity
-     * @param array $data Array of items to store
+     * @param  array  $data  Array of items to store
      * @return bool True if written successfully, false if writing failed
      */
     public function writeToMemory(SessionIdentity $identity, array $data): bool
@@ -86,11 +84,11 @@ class EloquentStorage extends StorageDriver
                 $now = now();
 
                 // Get all fillable columns from model to ensure consistent record structure
-                $model = new $this->model();
+                $model = new $this->model;
                 $fillableColumns = $model->getFillable();
 
                 foreach ($data as $position => $item) {
-                    $model = new $this->model();
+                    $model = new $this->model;
                     $model->fill($item);
                     $model->{$this->keyColumn} = $identity->getKey();
                     $model->{$this->positionColumn} = $position;
@@ -100,7 +98,7 @@ class EloquentStorage extends StorageDriver
                     // Get attributes and ensure all fillable columns are present
                     $record = $model->getAttributes();
                     foreach ($fillableColumns as $column) {
-                        if (!array_key_exists($column, $record)) {
+                        if (! array_key_exists($column, $record)) {
                             $record[$column] = null;
                         }
                     }
@@ -121,7 +119,6 @@ class EloquentStorage extends StorageDriver
     /**
      * Remove all items from the database for this session.
      *
-     * @param SessionIdentity $identity
      * @return bool True if removed successfully, false if removal failed
      */
     public function removeFromMemory(SessionIdentity $identity): bool
@@ -137,25 +134,21 @@ class EloquentStorage extends StorageDriver
 
     /**
      * Set a custom key column name.
-     *
-     * @param string $column
-     * @return static
      */
     public function setKeyColumn(string $column): static
     {
         $this->keyColumn = $column;
+
         return $this;
     }
 
     /**
      * Set a custom position column name.
-     *
-     * @param string $column
-     * @return static
      */
     public function setPositionColumn(string $column): static
     {
         $this->positionColumn = $column;
+
         return $this;
     }
 }

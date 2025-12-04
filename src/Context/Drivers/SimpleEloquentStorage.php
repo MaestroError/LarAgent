@@ -10,15 +10,13 @@ class SimpleEloquentStorage extends StorageDriver
 {
     /**
      * The Eloquent model class name.
-     *
-     * @var string
      */
     protected string $model;
 
     /**
      * Create a new Simple Eloquent storage driver instance.
      *
-     * @param string|null $model The Eloquent model class to use for storage (defaults to LaragentStorage)
+     * @param  string|null  $model  The Eloquent model class to use for storage (defaults to LaragentStorage)
      */
     public function __construct(?string $model = null)
     {
@@ -28,14 +26,13 @@ class SimpleEloquentStorage extends StorageDriver
     /**
      * Read data from the database using Eloquent.
      *
-     * @param SessionIdentity $identity
      * @return array|null Returns null if no record found, data array otherwise
      */
     public function readFromMemory(SessionIdentity $identity): ?array
     {
         $record = $this->model::where('key', $identity->getKey())->first();
 
-        if (!$record) {
+        if (! $record) {
             return null;
         }
 
@@ -45,8 +42,6 @@ class SimpleEloquentStorage extends StorageDriver
     /**
      * Write data to the database using Eloquent.
      *
-     * @param SessionIdentity $identity
-     * @param array $data
      * @return bool True if written successfully, false if writing failed
      */
     public function writeToMemory(SessionIdentity $identity, array $data): bool
@@ -66,7 +61,6 @@ class SimpleEloquentStorage extends StorageDriver
     /**
      * Remove data from the database.
      *
-     * @param SessionIdentity $identity
      * @return bool True if removed successfully, false if removal failed
      */
     public function removeFromMemory(SessionIdentity $identity): bool

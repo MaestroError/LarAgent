@@ -2,16 +2,16 @@
 
 namespace LarAgent\Context;
 
-use LarAgent\Context\Contracts\StorageManager as StorageManagerContract;
-use LarAgent\Context\Contracts\StorageDriver;
-use LarAgent\Context\Contracts\SessionIdentity;
-use InvalidArgumentException;
 use Exception;
+use InvalidArgumentException;
+use LarAgent\Context\Contracts\SessionIdentity;
+use LarAgent\Context\Contracts\StorageDriver;
+use LarAgent\Context\Contracts\StorageManager as StorageManagerContract;
 
 class StorageManager implements StorageManagerContract
 {
     protected StorageDriver $primaryDriver;
-    
+
     /**
      * @var StorageDriver[]
      */
@@ -20,7 +20,7 @@ class StorageManager implements StorageManagerContract
     public function __construct(array $drivers)
     {
         if (empty($drivers)) {
-            throw new InvalidArgumentException("At least one storage driver must be provided.");
+            throw new InvalidArgumentException('At least one storage driver must be provided.');
         }
 
         // Resolve all drivers
@@ -28,7 +28,7 @@ class StorageManager implements StorageManagerContract
 
         // First one is primary
         $this->primaryDriver = array_shift($resolvedDrivers);
-        
+
         // Rest are secondary
         $this->secondaryDrivers = $resolvedDrivers;
     }
@@ -36,14 +36,14 @@ class StorageManager implements StorageManagerContract
     protected function resolveDriver(string|StorageDriver $driver): StorageDriver
     {
         if (is_string($driver)) {
-            if (!class_exists($driver)) {
+            if (! class_exists($driver)) {
                 throw new InvalidArgumentException("Storage class {$driver} does not exist.");
             }
-            $driver = new $driver();
+            $driver = new $driver;
         }
 
-        if (!$driver instanceof StorageDriver) {
-            throw new InvalidArgumentException("Driver must implement " . StorageDriver::class . " interface.");
+        if (! $driver instanceof StorageDriver) {
+            throw new InvalidArgumentException('Driver must implement '.StorageDriver::class.' interface.');
         }
 
         return $driver;
@@ -74,7 +74,7 @@ class StorageManager implements StorageManagerContract
         }
 
         // If we get here, all drivers failed or returned null
-        throw new Exception("Failed to read from any storage driver.");
+        throw new Exception('Failed to read from any storage driver.');
     }
 
     public function save(SessionIdentity $identity, array $data): void

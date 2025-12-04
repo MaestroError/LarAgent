@@ -7,18 +7,18 @@ use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\Contracts\Storage as StorageContract;
 use LarAgent\Context\Storages\IdentityStorage;
 use LarAgent\Core\Traits\SafeEventDispatch;
-use LarAgent\Events\Context\ContextCreated;
-use LarAgent\Events\Context\ContextSaving;
-use LarAgent\Events\Context\ContextSaved;
-use LarAgent\Events\Context\ContextClearing;
 use LarAgent\Events\Context\ContextCleared;
-use LarAgent\Events\Context\ContextReading;
+use LarAgent\Events\Context\ContextClearing;
+use LarAgent\Events\Context\ContextCreated;
 use LarAgent\Events\Context\ContextRead;
+use LarAgent\Events\Context\ContextReading;
+use LarAgent\Events\Context\ContextSaved;
+use LarAgent\Events\Context\ContextSaving;
 use LarAgent\Events\Context\StorageRegistered;
 
 /**
  * Context serves as a central orchestration layer that manages multiple storage instances for an Agent.
- * 
+ *
  * It acts as:
  * 1. A registration place for different storages
  * 2. A unified API for bulk operations (save, clear, read)
@@ -28,6 +28,7 @@ use LarAgent\Events\Context\StorageRegistered;
 class Context implements ContextContract
 {
     use SafeEventDispatch;
+
     /**
      * Base identity for this context
      */
@@ -40,7 +41,7 @@ class Context implements ContextContract
 
     /**
      * Registered storage instances indexed by prefix
-     * 
+     *
      * @var array<string, StorageContract>
      */
     protected array $storages = [];
@@ -58,8 +59,8 @@ class Context implements ContextContract
     /**
      * Create a new Context instance
      *
-     * @param SessionIdentityContract $identity The base identity for this context
-     * @param array $driversConfig Configuration for storage drivers
+     * @param  SessionIdentityContract  $identity  The base identity for this context
+     * @param  array  $driversConfig  Configuration for storage drivers
      */
     public function __construct(
         SessionIdentityContract $identity,
@@ -67,10 +68,10 @@ class Context implements ContextContract
     ) {
         $this->identity = $identity;
         $this->driversConfig = $driversConfig;
-        
+
         // Build the context identity for IdentityStorage
         $this->contextIdentity = $this->buildContextIdentity($identity);
-        
+
         // Initialize identity storage to track all registered storages
         $this->identityStorage = $this->buildIdentityStorage();
 
@@ -83,8 +84,7 @@ class Context implements ContextContract
      * Uses only agent name to ensure all sessions of the same agent share the same identity storage.
      * Override this method to customize context identity generation.
      *
-     * @param SessionIdentityContract $identity The base session identity
-     * @return SessionIdentityContract
+     * @param  SessionIdentityContract  $identity  The base session identity
      */
     protected function buildContextIdentity(SessionIdentityContract $identity): SessionIdentityContract
     {
@@ -96,8 +96,6 @@ class Context implements ContextContract
     /**
      * Build the IdentityStorage instance.
      * Override this method to customize identity storage creation.
-     *
-     * @return IdentityStorage
      */
     protected function buildIdentityStorage(): IdentityStorage
     {
@@ -106,8 +104,6 @@ class Context implements ContextContract
 
     /**
      * Get the context identity used for IdentityStorage.
-     *
-     * @return SessionIdentityContract
      */
     public function getContextIdentity(): SessionIdentityContract
     {
@@ -116,8 +112,6 @@ class Context implements ContextContract
 
     /**
      * Get the session identity for this context
-     *
-     * @return SessionIdentityContract
      */
     public function getIdentity(): SessionIdentityContract
     {
@@ -129,8 +123,7 @@ class Context implements ContextContract
      * Uses storage's getStoragePrefix() as the registration key.
      * Automatically tracks the storage identity in identity storage.
      *
-     * @param StorageContract $storage The storage instance to register
-     * @return static
+     * @param  StorageContract  $storage  The storage instance to register
      */
     public function register(StorageContract $storage): static
     {
@@ -140,7 +133,7 @@ class Context implements ContextContract
 
         // Dispatch StorageRegistered event
         $this->dispatchEvent(new StorageRegistered($this, $prefix, $storage));
-        
+
         return $this;
     }
 
@@ -148,17 +141,17 @@ class Context implements ContextContract
      * Create and register a storage from class name.
      * Registration key is derived from storage's getStoragePrefix().
      *
-     * @param string $storageClass The fully qualified storage class name
-     * @param array $driversConfig Optional custom driver configuration (uses default if empty)
+     * @param  string  $storageClass  The fully qualified storage class name
+     * @param  array  $driversConfig  Optional custom driver configuration (uses default if empty)
      * @return StorageContract The created storage instance
      */
     public function make(string $storageClass, array $driversConfig = []): StorageContract
     {
-        $config = !empty($driversConfig) ? $driversConfig : $this->driversConfig;
-        
+        $config = ! empty($driversConfig) ? $driversConfig : $this->driversConfig;
+
         $storage = new $storageClass($this->identity, $config);
         $this->register($storage);
-        
+
         return $storage;
     }
 
@@ -166,24 +159,24 @@ class Context implements ContextContract
      * Get a registered storage by prefix or class name.
      * Uses storage's getStoragePrefix() as the registration key.
      *
-     * @param string $prefixOrClass The storage prefix (e.g., 'chat_history') or fully qualified class name
-     * @return StorageContract|null
+     * @param  string  $prefixOrClass  The storage prefix (e.g., 'chat_history') or fully qualified class name
      */
     public function getStorage(string $prefixOrClass): ?StorageContract
     {
         $prefix = $this->resolvePrefix($prefixOrClass);
+
         return $this->storages[$prefix] ?? null;
     }
 
     /**
      * Check if a storage is registered by prefix or class name.
      *
-     * @param string $prefixOrClass The storage prefix or fully qualified class name
-     * @return bool
+     * @param  string  $prefixOrClass  The storage prefix or fully qualified class name
      */
     public function has(string $prefixOrClass): bool
     {
         $prefix = $this->resolvePrefix($prefixOrClass);
+
         return isset($this->storages[$prefix]);
     }
 
@@ -199,8 +192,6 @@ class Context implements ContextContract
 
     /**
      * Save all dirty storages and the identity storage.
-     *
-     * @return void
      */
     public function save(): void
     {
@@ -218,8 +209,6 @@ class Context implements ContextContract
 
     /**
      * Read/refresh all storages from their drivers.
-     *
-     * @return void
      */
     public function read(): void
     {
@@ -236,8 +225,6 @@ class Context implements ContextContract
 
     /**
      * Clear all storages (marks as dirty, sets to empty).
-     *
-     * @return void
      */
     public function clear(): void
     {
@@ -254,8 +241,6 @@ class Context implements ContextContract
 
     /**
      * Remove all storages from their drivers and clear identity storage.
-     *
-     * @return void
      */
     public function remove(): void
     {
@@ -279,7 +264,7 @@ class Context implements ContextContract
     /**
      * Get storage keys tracked by this context, filtered by prefix.
      *
-     * @param string $prefix The storage prefix to filter by (e.g., 'chatHistory')
+     * @param  string  $prefix  The storage prefix to filter by (e.g., 'chatHistory')
      * @return array<string>
      */
     public function getTrackedKeysByPrefix(string $prefix): array
@@ -290,8 +275,7 @@ class Context implements ContextContract
     /**
      * Get tracked identities filtered by scope.
      *
-     * @param string $scope The scope to filter by (e.g., 'chatHistory')
-     * @return \LarAgent\Context\DataModels\SessionIdentityArray
+     * @param  string  $scope  The scope to filter by (e.g., 'chatHistory')
      */
     public function getTrackedIdentitiesByScope(string $scope): \LarAgent\Context\DataModels\SessionIdentityArray
     {
@@ -300,8 +284,6 @@ class Context implements ContextContract
 
     /**
      * Get the identity storage instance.
-     *
-     * @return IdentityStorage
      */
     public function getIdentityStorage(): IdentityStorage
     {
@@ -315,8 +297,6 @@ class Context implements ContextContract
 
     /**
      * Get the drivers configuration.
-     *
-     * @return array
      */
     public function getDriversConfig(): array
     {
@@ -326,15 +306,13 @@ class Context implements ContextContract
     /**
      * Resolve prefix from string or class name.
      * If the string is a valid Storage class, calls its static getStoragePrefix().
-     *
-     * @param string $prefixOrClass
-     * @return string
      */
     protected function resolvePrefix(string $prefixOrClass): string
     {
         if (class_exists($prefixOrClass) && is_subclass_of($prefixOrClass, StorageContract::class)) {
             return $prefixOrClass::getStoragePrefix();
         }
+
         return $prefixOrClass;
     }
 
@@ -342,8 +320,7 @@ class Context implements ContextContract
      * Magic getter for direct storage access.
      * Allows: $context->chat_history instead of $context->getStorage('chat_history')
      *
-     * @param string $prefix The storage prefix
-     * @return StorageContract|null
+     * @param  string  $prefix  The storage prefix
      */
     public function __get(string $prefix): ?StorageContract
     {

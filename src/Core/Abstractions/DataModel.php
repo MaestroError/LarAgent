@@ -2,28 +2,25 @@
 
 namespace LarAgent\Core\Abstractions;
 
-use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use ArrayAccess;
+use BackedEnum;
+use JsonSerializable;
 use LarAgent\Attributes\Desc;
 use LarAgent\Attributes\ExcludeFromSchema;
-use ArrayAccess;
-use JsonSerializable;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use ReflectionClass;
-use ReflectionProperty;
-use ReflectionNamedType;
 use ReflectionEnum;
-use UnitEnum;
-use BackedEnum;
-
+use ReflectionNamedType;
+use ReflectionProperty;
 use ReflectionType;
+use UnitEnum;
 
-abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializable
+abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializable
 {
     protected static array $reflectionCache = [];
 
     /**
      * Convert the model to an array.
-     *
-     * @return array
      */
     public function toArray(): array
     {
@@ -33,11 +30,11 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
         foreach ($config['properties'] as $name => $propConfig) {
             /** @var ReflectionProperty $reflection */
             $reflection = $propConfig['reflection'];
-            
-            if (!$reflection->isInitialized($this)) {
+
+            if (! $reflection->isInitialized($this)) {
                 continue;
             }
-            
+
             $value = $this->{$name};
 
             if ($value instanceof DataModelContract) {
@@ -58,8 +55,6 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
 
     /**
      * Generate the OpenAPI schema for the model.
-     *
-     * @return array
      */
     public function toSchema(): array
     {
@@ -68,8 +63,6 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
 
     /**
      * Generate the OpenAPI schema for the model statically.
-     *
-     * @return array
      */
     public static function generateSchema(): array
     {
@@ -95,9 +88,9 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
         // Also remove excluded properties from required
         $schema['required'] = array_values(array_filter(
             $schema['required'],
-            fn($name) => !($config['properties'][$name]['excludeFromSchema'] ?? false)
+            fn ($name) => ! ($config['properties'][$name]['excludeFromSchema'] ?? false)
         ));
-        
+
         if (empty($schema['required'])) {
             unset($schema['required']);
         }
@@ -107,21 +100,18 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
 
     /**
      * Fill the model with an array of attributes.
-     *
-     * @param array $attributes
-     * @return static
      */
     public function fill(array $attributes): static
     {
         $config = static::getCachedConfig();
-        
+
         foreach ($attributes as $key => $value) {
-            if (!isset($config['properties'][$key])) {
+            if (! isset($config['properties'][$key])) {
                 continue;
             }
 
             $propConfig = $config['properties'][$key];
-            
+
             // Skip if property is readonly and already initialized
             /** @var ReflectionProperty $reflection */
             $reflection = $propConfig['reflection'];
@@ -130,7 +120,7 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
             }
 
             $value = static::castValue($value, $propConfig['type']);
-            
+
             $this->{$key} = $value;
         }
 
@@ -139,9 +129,6 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
 
     /**
      * Create a new instance from an array of attributes.
-     *
-     * @param array $attributes
-     * @return static
      */
     public static function fromArray(array $attributes): static
     {
@@ -166,19 +153,21 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
             }
             $instance = new static(...$args);
             $instance->fill($attributes);
+
             return $instance;
         }
 
-        $instance = new static();
+        $instance = new static;
         $instance->fill($attributes);
+
         return $instance;
     }
 
     protected static function castValue(mixed $value, ?ReflectionType $type): mixed
     {
-        if ($type instanceof ReflectionNamedType && !$type->isBuiltin()) {
+        if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
             $typeName = $type->getName();
-            
+
             if (is_subclass_of($typeName, DataModelContract::class) && is_array($value)) {
                 return $typeName::fromArray($value);
             } elseif (enum_exists($typeName)) {
@@ -195,6 +184,7 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
                 }
             }
         }
+
         return $value;
     }
 
@@ -207,7 +197,7 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
 
         $reflection = new ReflectionClass($class);
         $properties = $reflection->getProperties(ReflectionProperty::IS_PUBLIC);
-        
+
         $config = [
             'properties' => [],
             'required' => [],
@@ -217,14 +207,14 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
         foreach ($properties as $property) {
             $name = $property->getName();
             $type = $property->getType();
-            
+
             // Determine if required
-            if ($type && !$type->allowsNull() && !$property->hasDefaultValue()) {
+            if ($type && ! $type->allowsNull() && ! $property->hasDefaultValue()) {
                 $config['required'][] = $name;
             }
 
             $descAttributes = $property->getAttributes(Desc::class);
-            $description = !empty($descAttributes) ? $descAttributes[0]->newInstance()->description : null;
+            $description = ! empty($descAttributes) ? $descAttributes[0]->newInstance()->description : null;
 
             $excludeAttributes = $property->getAttributes(ExcludeFromSchema::class);
 
@@ -232,7 +222,7 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
                 'reflection' => $property,
                 'type' => $type,
                 'description' => $description,
-                'excludeFromSchema' => !empty($excludeAttributes),
+                'excludeFromSchema' => ! empty($excludeAttributes),
             ];
         }
 
@@ -251,6 +241,7 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
         }
 
         static::$reflectionCache[$class] = $config;
+
         return $config;
     }
 
@@ -267,7 +258,7 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
 
     protected static function getTypeSchemaFromType(?ReflectionType $type): array
     {
-        if (!$type) {
+        if (! $type) {
             return ['type' => 'string'];
         }
 
@@ -290,6 +281,7 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
                 }
                 try {
                     $instance = (new ReflectionClass($typeName))->newInstanceWithoutConstructor();
+
                     return $instance->toSchema();
                 } catch (\Throwable $e) {
                     return ['type' => 'object'];
@@ -301,13 +293,13 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
                 $cases = $reflectionEnum->getCases();
                 $values = [];
                 $schemaType = 'string';
-                
+
                 if ($reflectionEnum->isBacked()) {
                     $backingType = $reflectionEnum->getBackingType()->getName();
                     $schemaType = $backingType === 'int' ? 'integer' : 'string';
-                    $values = array_map(fn($case) => $case->getBackingValue(), $cases);
+                    $values = array_map(fn ($case) => $case->getBackingValue(), $cases);
                 } else {
-                    $values = array_map(fn($case) => $case->getName(), $cases);
+                    $values = array_map(fn ($case) => $case->getName(), $cases);
                 }
 
                 return [
@@ -343,9 +335,6 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
      *
      * Note: Unsetting a typed property without default value will leave it uninitialized.
      * Accessing it afterwards will throw an Error. The property still exists but isset() returns false.
-     *
-     * @param mixed $offset
-     * @return void
      */
     public function offsetUnset(mixed $offset): void
     {
@@ -354,8 +343,6 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
 
     /**
      * Serialize the object to a value that can be natively JSON encoded.
-     *
-     * @return mixed
      */
     public function jsonSerialize(): mixed
     {

@@ -4,9 +4,9 @@ use Illuminate\Contracts\Auth\Authenticatable;
 use LarAgent\Agent;
 use LarAgent\Message;
 use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
-use LarAgent\Messages\DataModels\MessageContent;
 
 // Test agent
 class TestAgent extends Agent
@@ -58,7 +58,7 @@ class TestAgent extends Agent
         if ($this->n > 1) {
             return;
         } else {
-            $message->setContent(new MessageContent(new TextContent($message->getContentAsString() . '. Edited via event')));
+            $message->setContent(new MessageContent(new TextContent($message->getContentAsString().'. Edited via event')));
         }
     }
 
@@ -777,22 +777,22 @@ it('uses InMemoryStorage as fallback when no storage configured', function () {
     // Clear the config temporarily
     $originalConfig = config('laragent.default_storage');
     config(['laragent.default_storage' => null]);
-    
+
     // Create agent without storage configured - should not infinite loop
     $agent = TestAgentNoStorage::for('test_storage_fallback');
-    
+
     // The agent should have been created successfully
     expect($agent)->toBeInstanceOf(Agent::class);
-    
+
     // Restore config
     config(['laragent.default_storage' => $originalConfig]);
 });
 
 it('uses config default_storage when agent storage not set', function () {
     $configDrivers = config('laragent.default_storage');
-    
+
     $agent = TestAgentNoStorage::for('test_config_storage');
-    
+
     // Should work without errors
     expect($agent)->toBeInstanceOf(Agent::class);
     expect($agent->chatHistory())->not->toBeNull();

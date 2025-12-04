@@ -3,7 +3,7 @@
 use LarAgent\Usage\DataModels\Usage;
 
 test('Usage: Creates from constructor with defaults', function () {
-    $usage = new Usage();
+    $usage = new Usage;
 
     expect($usage->promptTokens)->toBe(0);
     expect($usage->completionTokens)->toBe(0);

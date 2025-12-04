@@ -16,7 +16,9 @@ use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 class FacadeTestAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $driver = FakeLlmDriver::class;
+
     protected $storage = [InMemoryStorage::class];
 
     public function instructions()
@@ -33,7 +35,7 @@ class FacadeTestAgent extends Agent
 // Helper to generate unique agent names for test isolation
 function facadeUniqueAgentName(string $prefix = 'FacadeTest'): string
 {
-    return $prefix . '_' . uniqid();
+    return $prefix.'_'.uniqid();
 }
 
 // ==========================================
@@ -78,7 +80,7 @@ describe('Context Facade → Access Methods', function () {
 describe('Context Facade → of() Method', function () {
 
     test('of() → can count identities', function () {
-        $agent = FacadeTestAgent::for('facade_test_' . uniqid());
+        $agent = FacadeTestAgent::for('facade_test_'.uniqid());
         $agent->context()->save();
 
         $count = ContextFacade::of(FacadeTestAgent::class)->count();
@@ -95,7 +97,7 @@ describe('Context Facade → of() Method', function () {
     });
 
     test('of() → can iterate over identities', function () {
-        $agent = FacadeTestAgent::for('facade_iterate_' . uniqid());
+        $agent = FacadeTestAgent::for('facade_iterate_'.uniqid());
         $agent->context()->save();
 
         $iterated = false;
@@ -108,7 +110,7 @@ describe('Context Facade → of() Method', function () {
     });
 
     test('of() → can clear all chats', function () {
-        $key = 'facade_clear_' . uniqid();
+        $key = 'facade_clear_'.uniqid();
         $agent = FacadeTestAgent::for($key);
         $agent->context()->save();
 
@@ -300,15 +302,15 @@ describe('Context Facade → Comparison of() vs named()', function () {
 describe('Context Facade → Integration', function () {
 
     test('of() → works with real agent workflow', function () {
-        $key = 'facade_workflow_' . uniqid();
-        
+        $key = 'facade_workflow_'.uniqid();
+
         // Create agent and generate some context
         $agent = FacadeTestAgent::for($key);
         $agent->context()->save();
 
         // Use facade to query
         $manager = ContextFacade::of(FacadeTestAgent::class);
-        
+
         // Should be able to get identities (even if empty)
         $identities = $manager->getIdentities();
         expect($identities)->toBeIterable();
@@ -316,7 +318,7 @@ describe('Context Facade → Integration', function () {
 
     test('named() → works with manual identity management', function () {
         $agentName = facadeUniqueAgentName();
-        
+
         // Create manager via facade
         $manager = ContextFacade::named($agentName)
             ->withDrivers([InMemoryStorage::class]);
@@ -340,7 +342,7 @@ describe('Context Facade → Integration', function () {
 
     test('named() → multiple filters work together', function () {
         $agentName = facadeUniqueAgentName();
-        
+
         $manager = ContextFacade::named($agentName)
             ->withDrivers([InMemoryStorage::class]);
 
@@ -395,9 +397,9 @@ describe('Context Facade → Edge Cases', function () {
         // Error only happens when trying to use it (getTempAgent())
         $manager = ContextFacade::of('NonExistentAgentClass');
         expect($manager)->toBeInstanceOf(ContextManager::class);
-        
+
         // Error happens when we try to actually use it
-        expect(fn() => $manager->count())
+        expect(fn () => $manager->count())
             ->toThrow(\Error::class);
     });
 
@@ -418,7 +420,7 @@ describe('Context Facade → Edge Cases', function () {
 
     test('chained methods → are immutable', function () {
         $agentName = facadeUniqueAgentName();
-        
+
         $manager = ContextFacade::named($agentName)
             ->withDrivers([InMemoryStorage::class]);
 

@@ -1,10 +1,10 @@
 <?php
 
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
-use LarAgent\Messages\DataModels\MessageArray;
 
 it('returns an assistant message', function () {
     $driver = new FakeLlmDriver;

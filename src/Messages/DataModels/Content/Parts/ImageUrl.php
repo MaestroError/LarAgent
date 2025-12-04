@@ -2,8 +2,8 @@
 
 namespace LarAgent\Messages\DataModels\Content\Parts;
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Core\Abstractions\DataModel;
 
 class ImageUrl extends DataModel
 {
@@ -26,13 +26,14 @@ class ImageUrl extends DataModel
 
     public static function fromArray(array $attributes): static
     {
-        $instance = new static();
+        $instance = new static;
         if (isset($attributes['url'])) {
             $instance->url = $attributes['url'];
         }
         if (isset($attributes['detail'])) {
             $instance->detail = $attributes['detail'];
         }
+
         return $instance;
     }
 }

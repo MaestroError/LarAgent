@@ -7,8 +7,6 @@ use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
 use LarAgent\Messages\UserMessage;
-use LarAgent\Messages\DataModels\ToolResultContent;
-use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
 
 it('creates a system message', function () {
@@ -90,9 +88,9 @@ it('message has unique id', function () {
 });
 
 it('message has creation timestamp', function () {
-    $before = new DateTimeImmutable();
+    $before = new DateTimeImmutable;
     $message = Message::user('Hello');
-    $after = new DateTimeImmutable();
+    $after = new DateTimeImmutable;
 
     // Check timestamp format (ISO 8601)
     expect($message->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/');
@@ -101,7 +99,7 @@ it('message has creation timestamp', function () {
     $createdAt = $message->getCreatedAtDateTime();
     $beforeWithTolerance = $before->modify('-1 second');
     $afterWithTolerance = $after->modify('+1 second');
-    
+
     expect($createdAt->getTimestamp())->toBeGreaterThanOrEqual($beforeWithTolerance->getTimestamp())
         ->and($createdAt->getTimestamp())->toBeLessThanOrEqual($afterWithTolerance->getTimestamp());
 });
@@ -109,11 +107,11 @@ it('message has creation timestamp', function () {
 it('message_created is preserved in toArray and fromArray', function () {
     $originalMessage = Message::assistant('Test message');
     $originalTimestamp = $originalMessage->getCreatedAt();
-    
+
     // Serialize and deserialize
     $array = $originalMessage->toArray();
     expect($array)->toHaveKey('message_created', $originalTimestamp);
-    
+
     $restoredMessage = AssistantMessage::fromArray($array);
     expect($restoredMessage->getCreatedAt())->toBe($originalTimestamp);
 });

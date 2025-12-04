@@ -2,10 +2,9 @@
 
 namespace LarAgent\Messages\DataModels\Content;
 
+use LarAgent\Attributes\Desc;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Enums\MessageContentType;
-use LarAgent\Attributes\Desc;
-
 use LarAgent\Messages\DataModels\Content\Parts\InputAudio;
 
 class AudioContent extends DataModel
@@ -26,15 +25,16 @@ class AudioContent extends DataModel
 
     public static function fromArray(array $attributes): static
     {
-        $instance = new static();
+        $instance = new static;
         if (isset($attributes['type'])) {
             $instance->type = $attributes['type'];
         }
         if (isset($attributes['input_audio'])) {
-            $instance->input_audio = is_array($attributes['input_audio']) 
-                ? InputAudio::fromArray($attributes['input_audio']) 
+            $instance->input_audio = is_array($attributes['input_audio'])
+                ? InputAudio::fromArray($attributes['input_audio'])
                 : $attributes['input_audio'];
         }
+
         return $instance;
     }
 }
