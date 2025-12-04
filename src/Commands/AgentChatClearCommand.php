@@ -3,6 +3,7 @@
 namespace LarAgent\Commands;
 
 use Illuminate\Console\Command;
+use LarAgent\Facades\Context;
 
 class AgentChatClearCommand extends Command
 {
@@ -25,19 +26,8 @@ class AgentChatClearCommand extends Command
             }
         }
 
-        // Create a temporary instance to get chat keys
-        $agent = $agentClass::for('temp');
-        $chatKeys = $agent->getChatKeys();
-
-        if (! empty($chatKeys)) {
-            // Clear each chat history
-            foreach ($chatKeys as $key) {
-                // Create new chat history with save_chat_keys disabled
-                $agent->setChatHistory($agent->createChatHistory($key));
-                // Clear messages
-                $agent->clear();
-            }
-        }
+        // Use Context facade to clear all chat histories for this agent
+        Context::of($agentClass)->clearAllChats();
 
         $this->info("Successfully cleared chat history for agent: {$agentName}");
 

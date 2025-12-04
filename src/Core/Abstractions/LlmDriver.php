@@ -5,18 +5,17 @@ namespace LarAgent\Core\Abstractions;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 
 abstract class LlmDriver implements LlmDriverInterface
 {
-    protected array $config = [];
-
     protected ?array $responseSchema = null;
 
     protected mixed $lastResponse = null;
 
     protected array $tools = [];
 
-    protected array $settings;
+    protected DriverConfig $driverConfig;
 
     public function registerTool(ToolInterface $tool): self
     {
@@ -48,18 +47,6 @@ abstract class LlmDriver implements LlmDriverInterface
         return $this->responseSchema;
     }
 
-    public function setConfig(array $config): self
-    {
-        $this->config = $config;
-
-        return $this;
-    }
-
-    public function getConfig(): array
-    {
-        return $this->config;
-    }
-
     public function getLastResponse(): ?array
     {
         return $this->lastResponse;
@@ -76,19 +63,32 @@ abstract class LlmDriver implements LlmDriverInterface
     }
 
     /**
-     * Get the provider data merged with the model defined settings.
-     * Some Model settings override provider settings.
+     * Get the settings as an array for backward compatibility.
+     * Prefer using getDriverConfig() for typed access.
      *
-     * @return array The settings.
+     * @return array The settings as array.
      */
     public function getSettings(): array
     {
-        return $this->settings;
+        return $this->driverConfig->toArray();
     }
 
-    public function __construct(array $settings = [])
+    /**
+     * Get the DriverConfig instance for typed access to configuration.
+     */
+    public function getDriverConfig(): DriverConfig
     {
-        $this->settings = $settings;
+        return $this->driverConfig;
+    }
+
+    /**
+     * Constructor accepts either DriverConfig or array for backward compatibility.
+     *
+     * @param  DriverConfig|array  $settings  Configuration for the driver
+     */
+    public function __construct(DriverConfig|array $settings = [])
+    {
+        $this->driverConfig = DriverConfig::wrap($settings);
     }
 
     /**

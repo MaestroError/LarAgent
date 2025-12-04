@@ -7,6 +7,8 @@ use LarAgent\Commands\AgentChatClearCommand;
 use LarAgent\Commands\AgentChatCommand;
 use LarAgent\Commands\AgentChatRemoveCommand;
 use LarAgent\Commands\MakeAgentCommand;
+use LarAgent\Commands\PublishCommand;
+use LarAgent\Context\ContextManager;
 use LarAgent\Commands\MakeAgentToolCommand;
 use LarAgent\Core\Contracts\ChatHistory;
 use LarAgent\Core\Contracts\LlmDriver;
@@ -31,6 +33,7 @@ class LarAgentServiceProvider extends PackageServiceProvider
                 AgentChatCommand::class,
                 AgentChatClearCommand::class,
                 AgentChatRemoveCommand::class,
+                PublishCommand::class,
             ]);
 
     }
@@ -51,6 +54,11 @@ class LarAgentServiceProvider extends PackageServiceProvider
             $defaultChatHistory = $app['config']->get('laragent.default_chat_history');
 
             return new $defaultChatHistory($name, []);
+        });
+
+        // Register ContextManager for facade
+        $this->app->bind(ContextManager::class, function ($app) {
+            return new ContextManager();
         });
     }
 }

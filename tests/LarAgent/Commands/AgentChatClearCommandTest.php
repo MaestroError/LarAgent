@@ -19,7 +19,7 @@ use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 class TestAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
-    protected $history = 'in_memory';
+    protected $history = 'session';
     protected $provider = 'default';
     protected $tools = [];
     protected $driver = FakeLlmDriver::class;
@@ -69,12 +69,15 @@ test('it fails when agent does not exist', function () {
 test('it can clear chat history for existing agent', function () {
     // Create some chat history first
     $agent = \App\AiAgents\TestAgent::for('test_key');
-    $agent->withModelInChatSessionId()->message('Hello')->respond();
+    $agent->message('Hello')->respond();
 
     // Verify chat history exists
     $chatKeys = $agent->getChatKeys();
     expect($chatKeys)->toHaveCount(1);
-    expect($chatKeys)->toContain('TestAgent_gpt-4o-mini_test_key');
+    expect($chatKeys)->toContain('chatHistory_TestAgent_test_key');
+
+    // Save context before agent goes out of scope
+    $agent->context()->save();
 
     // Clear the history
     $this->artisan('agent:chat:clear', ['agent' => 'TestAgent'])

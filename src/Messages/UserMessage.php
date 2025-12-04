@@ -4,20 +4,26 @@ namespace LarAgent\Messages;
 
 use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Core\Enums\Role;
+use LarAgent\Attributes\ExcludeFromSchema;
+use LarAgent\Attributes\Desc;
+use LarAgent\Messages\DataModels\MessageContent;
+use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\Content\ImageContent;
+use LarAgent\Messages\DataModels\Content\AudioContent;
+use LarAgent\Messages\Traits\IsUserSent;
 
 class UserMessage extends Message implements MessageInterface
 {
-    public function __construct(string $content, array $metadata = [])
-    {
-        $this->content = [
-            [
-                'type' => 'text',
-                'text' => $content,
-            ],
-        ];
-        parent::__construct(Role::USER->value, $this->content, $metadata);
-    }
+    use IsUserSent;
+
+    #[ExcludeFromSchema]
+    public string|Role $role = Role::USER;
+
+    #[Desc('The content of the message as an array of content parts (text, image, audio)')]
+    public ?MessageContent $content;
+
 
     public function withImage(string $imageUrl): self
     {
@@ -28,7 +34,7 @@ class UserMessage extends Message implements MessageInterface
             ],
         ];
 
-        $this->content[] = $imageArray;
+        $this->content->add(ImageContent::fromArray($imageArray));
 
         return $this;
     }
@@ -50,7 +56,7 @@ class UserMessage extends Message implements MessageInterface
             ],
         ];
 
-        $this->content[] = $audioArray;
+        $this->content->add(AudioContent::fromArray($audioArray));
 
         return $this;
     }

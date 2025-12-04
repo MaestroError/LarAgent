@@ -2,6 +2,8 @@
 
 namespace LarAgent\Core\DTO;
 
+use LarAgent\Core\DTO\DriverConfig;
+
 class AgentDTO
 {
     public function __construct(
@@ -11,7 +13,8 @@ class AgentDTO
         public readonly array $tools = [],
         public readonly ?string $instructions = null,
         public readonly ?array $responseSchema = [],
-        public readonly array $configuration = []
+        public readonly array $configuration = [],
+        public readonly ?DriverConfig $driverConfig = null
     ) {}
 
     /**
@@ -27,6 +30,7 @@ class AgentDTO
             'instructions' => $this->instructions,
             'responseSchema' => $this->responseSchema,
             'configuration' => $this->configuration,
+            'driverConfig' => $this->driverConfig?->toArray(),
         ];
     }
 }

@@ -16,6 +16,21 @@ return [
     'default_chat_history' => \LarAgent\History\InMemoryChatHistory::class,
 
     /**
+     * Default chat history storage drivers to use in Agents
+     */
+    'default_history_storage' => [
+        \LarAgent\Context\Drivers\CacheStorage::class, // Primary
+        \LarAgent\Context\Drivers\FileStorage::class
+    ],
+
+    /**
+     * Default storage drivers for context to use in Agents
+     */
+    'default_storage' => [
+        \LarAgent\Context\Drivers\CacheStorage::class, // Primary
+    ],
+
+    /**
      * Autodiscovery namespaces for Agent classes.
      * Used by `agent:chat` to locate agents.
      */

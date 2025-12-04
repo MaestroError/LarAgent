@@ -4,18 +4,26 @@ namespace LarAgent\Messages;
 
 use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
+use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
 
 class StreamedAssistantMessage extends AssistantMessage implements MessageInterface
 {
     protected bool $isComplete = false;
 
-    protected ?array $usage = null;
-
     protected ?string $lastChunk = null;
+
+    /**
+     * Internal string buffer for streaming content.
+     * Kept separate from $content (TextContent) until streaming completes.
+     */
+    protected string $contentBuffer = '';
 
     public function __construct(string $content = '', array $metadata = [])
     {
         parent::__construct($content, $metadata);
+        // Initialize buffer from content
+        $this->contentBuffer = $content;
     }
 
     /**
@@ -25,8 +33,10 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
      */
     public function appendContent(string $chunk): self
     {
-        $this->content .= $chunk;
+        $this->contentBuffer .= $chunk;
         $this->lastChunk = $chunk;
+        // Update the MessageContent with the new buffer
+        $this->content = new MessageContent([new TextContent($this->contentBuffer)]);
 
         return $this;
     }
@@ -47,25 +57,6 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
     public function isComplete(): bool
     {
         return $this->isComplete;
-    }
-
-    /**
-     * Set usage information (available only when stream is complete)
-     */
-    public function setUsage(?array $usage): self
-    {
-        $this->usage = $usage;
-        $this->metadata['usage'] = $usage;
-
-        return $this;
-    }
-
-    /**
-     * Get usage information
-     */
-    public function getUsage(): ?array
-    {
-        return $this->usage;
     }
 
     public function getLastChunk(): ?string

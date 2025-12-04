@@ -8,7 +8,7 @@ use Illuminate\Support\Str;
 use LarAgent\Agent;
 use LarAgent\API\Completion\CompletionRequestDTO;
 use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Message;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\PhantomTool;
@@ -45,9 +45,15 @@ class Completions
 
         if ($response instanceof MessageInterface) {
             $message = $response->toArrayWithMeta();
-            // Keep usage data separately
-            $usage = $message['metadata']['usage'] ?? null;
+            // Get usage from message directly (first-class property) or fall back to metadata (legacy)
+            $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
+            unset($message['usage']);
             unset($message['metadata']['usage']);
+
+            // Normalize content as string
+            if (isset($message['content']) && is_array($message['content'])) {
+                $message['content'] = $response->getContentAsString();
+            }
 
             $choices = [[
                 'index' => 0,
@@ -132,14 +138,14 @@ class Completions
         $messages = $this->completion->messages;
         if (! empty($messages)) {
             $last = array_pop($messages);
-            foreach ($messages as $message) {
-                $this->agent->addMessage(Message::fromArray($message));
+            $messageArray = new MessageArray($messages);
+            foreach ($messageArray->all() as $message) {
+                $this->agent->addMessage($message);
             }
 
-            $this->agent->message(Message::fromArray($last));
+            $lastArray = new MessageArray([$last]);
+            $this->agent->message($lastArray->all()[0]);
         }
-
-        $this->agent->withoutModelInChatSessionId();
 
         if ($this->completion->model) {
             $this->agent->withModel($this->completion->model);
@@ -263,9 +269,9 @@ class Completions
     {
         foreach ($stream as $chunk) {
             if ($chunk instanceof StreamedAssistantMessage) {
-                // Add usage data
+                // Get usage from message directly (first-class property) or fall back to metadata (legacy)
                 $message = $chunk->toArrayWithMeta();
-                $usage = $message['metadata']['usage'] ?? null;
+                $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
 
                 yield [
                     'id' => $this->agent->getChatSessionId(),
@@ -284,9 +290,9 @@ class Completions
                     'usage' => $usage,
                 ];
             } elseif ($chunk instanceof ToolCallMessage) {
-                // Add usage data
+                // Get usage from message directly (first-class property) or fall back to metadata (legacy)
                 $message = $chunk->toArrayWithMeta();
-                $usage = $message['metadata']['usage'] ?? null;
+                $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
                 yield [
                     'id' => $this->agent->getChatSessionId(),
                     'object' => 'chat.completion.chunk',

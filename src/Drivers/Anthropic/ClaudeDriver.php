@@ -5,11 +5,15 @@ namespace LarAgent\Drivers\Anthropic;
 use Anthropic;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\ToolCall;
 
 class ClaudeDriver extends LlmDriver implements LlmDriverInterface
@@ -18,14 +22,35 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
     protected string $default_url = 'api.anthropic.com/v1';
 
-    public function __construct(array $settings = [])
+    protected MessageFormatter $formatter;
+
+    public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
-        if ($settings['api_key']) {
-            $this->client = $this->buildClient($settings['api_key'], $settings['api_url'] ?? $this->default_url);
+        $apiKey = $this->getDriverConfig()->apiKey;
+        $apiUrl = $this->getDriverConfig()->apiUrl ?? $this->default_url;
+        if ($apiKey) {
+            $this->client = $this->buildClient($apiKey, $apiUrl);
         } else {
             throw new \Exception('API key is required to use the Claude driver.');
         }
+        $this->formatter = $this->createFormatter();
+    }
+
+    /**
+     * Create the message formatter for this driver.
+     */
+    protected function createFormatter(): MessageFormatter
+    {
+        return new ClaudeMessageFormatter();
+    }
+
+    /**
+     * Get the message formatter.
+     */
+    public function getFormatter(): MessageFormatter
+    {
+        return $this->formatter;
     }
 
     protected function buildClient(string $apiKey, string $baseUrl): mixed
@@ -40,62 +65,51 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         return $client;
     }
 
-    public function sendMessage(array $messages, array $options = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         $response = $this->client->messages()->create($payload);
         $this->lastResponse = $response;
 
-        $stopReason = $response->stop_reason;
-        $metaData = ['usage' => $response->usage->toArray()];
+        // Convert response object to array for formatter
+        $responseArray = $response->toArray();
 
-        if ($stopReason === 'tool_use') {
-            $toolCalls = [];
+        // Use formatter extraction methods
+        $finishReason = $this->formatter->extractFinishReason($responseArray);
+        $usageData = $this->formatter->extractUsage($responseArray);
+        $usage = !empty($usageData) ? Usage::fromArray($usageData) : null;
 
-            foreach ($response->content as $item) {
-                if (($item->type ?? null) === 'tool_use') {
-                    $toolCalls[] = new ToolCall(
-                        $item->id ?? '',
-                        $item->name ?? '',
-                        json_encode($item->input ?? [])
-                    );
-                }
-            }
+        if ($finishReason === 'tool_calls') {
+            $toolCalls = $this->formatter->extractToolCalls($responseArray);
 
-            $message = $this->toolCallsToMessage($toolCalls);
-
-            $toolCallMessage = new ToolCallMessage(
-                toolCalls: $toolCalls,
-                message: $message,
-                metadata: $metaData
-            );
-
-            return $toolCallMessage;
+            $message = new ToolCallMessage($toolCalls);
+            $message->setUsage($usage);
+            return $message;
         }
 
-        if ($stopReason === 'end_turn') {
-            $content = $response->content[0]->text;
+        if ($finishReason === 'stop') {
+            $content = $this->formatter->extractContent($responseArray);
 
-            $assistantMessage = new AssistantMessage($content, $metaData);
-
-            return $assistantMessage;
+            $message = new AssistantMessage($content);
+            $message->setUsage($usage);
+            return $message;
         }
 
-        throw new \Exception('Unexpected stop reason: '.$stopReason);
+        throw new \Exception('Unexpected stop reason: '.$response->stop_reason);
     }
 
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
         $payload['stream'] = true;
 
         $response = $this->client->messages()->createStreamed($payload);
@@ -124,7 +138,9 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     // create earliest usage timeline
                     $usageTimeline[] = ['event' => 'message_start', 'usage' => $messageStartUsage];
 
-                    $streamedMessage->setUsage($messageStartUsage);
+                    // Normalize usage through formatter
+                    $normalizedUsage = $this->formatter->extractUsage(['usage' => $messageStartUsage]);
+                    $streamedMessage->setUsage(Usage::fromArray($normalizedUsage));
                 }
 
                 continue;
@@ -223,15 +239,8 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $finalUsage = $chunk->usage?->toArray() ?? $finalUsage;
                     $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
 
-                    $message = $this->toolCallsToMessage($toolCalls);
-                    $toolCallMessage = new ToolCallMessage(
-                        toolCalls: $toolCalls,
-                        message: $message,
-                        metadata: [
-                            'usage' => $merged,
-                            'usage_timeline' => $usageTimeline,
-                        ]
-                    );
+                    $toolCallMessage = new ToolCallMessage($toolCalls);
+                    $toolCallMessage->setUsage(Usage::fromArray($merged));
 
                     if ($callback) {
                         $callback($toolCallMessage);
@@ -245,7 +254,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $finalUsage = $chunk->usage?->toArray() ?? $finalUsage;
                     // set the final usage on the streamed text message
                     $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
-                    $streamedMessage->setUsage($merged);
+                    $streamedMessage->setUsage(Usage::fromArray($merged));
                     break;
                 }
             }
@@ -258,7 +267,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         // Finalize the stream: attach merged usage, trigger callback,
         // mark the message as complete, and yield the final message.
         $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
-        $streamedMessage->setUsage($merged);
+        $streamedMessage->setUsage(Usage::fromArray($merged));
 
         if ($callback) {
             $callback($streamedMessage);
@@ -270,64 +279,48 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
     }
 
-    protected function preparePayload(array $messages, array $options = []): array
+    protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
         if ($this->structuredOutputEnabled()) {
             throw new \Exception('Anthropic/Claude driver does not support structured output through JSON schema.');
         }
 
-        $payload = [];
+        // Merge driver config with override settings
+        $overrideConfig = DriverConfig::wrap($overrideSettings);
+        $config = $this->getDriverConfig()->merge($overrideConfig);
 
-        if (empty($options['model'])) {
-            $options['model'] = $this->settings['model'] ?? 'claude-3-7-sonnet-latest';
-        }
+        // Use formatter to extract system instruction
+        $systemPrompt = $this->formatter->extractSystemInstruction($messages);
+        
+        // Use formatter to convert Message objects to Claude format
+        $chatMessages = $this->formatter->formatMessages($messages);
 
-        $payload['model'] = $options['model'];
-
-        $this->setConfig($options);
-
-        $systemPrompt = null;
-        $chatMessages = [];
-
-        foreach ($messages as $message) {
-            if ($message['role'] === 'system') {
-                $systemPrompt = $message['content'];
-            } else {
-                $messageContent = [];
-
-                foreach ($message['content'] as $item) {
-                    // Format each image URL into Claude's expected format
-                    if (isset($item['type'], $item['image_url']['url']) && $item['type'] === 'image_url') {
-                        $messageContent[] = $this->formatImagesForPayload([$item['image_url']['url']])[0];
-                    } else {
-                        $messageContent[] = $item;
-                    }
-                }
-
-                $chatMessages[] = [
-                    'role' => $message['role'],
-                    'content' => $messageContent,
-                ];
-
-            }
-        }
+        // Build payload with known properties
+        $payload = [
+            'model' => $config->model ?? 'claude-3-7-sonnet-latest',
+            'messages' => $chatMessages,
+            'max_tokens' => $config->maxCompletionTokens ?? 1024,
+        ];
 
         if ($systemPrompt) {
             $payload['system'] = $systemPrompt;
         }
 
-        $payload['messages'] = $chatMessages;
+        // Add optional known properties
+        if ($config->has('temperature')) {
+            $payload['temperature'] = $config->temperature;
+        }
+        if ($config->has('topP')) {
+            $payload['top_p'] = $config->topP;
+        }
 
-        $payload['max_tokens'] = $options['max_completion_tokens'] ?? $this->settings['max_completion_tokens'] ?? 1024;
-
-        if (isset($options['temperature'])) {
-            $payload['temperature'] = $options['temperature'];
+        // Add any extra/custom settings (Claude-specific options)
+        foreach ($config->getExtras() as $key => $value) {
+            $payload[$key] = $value;
         }
 
         if (! empty($this->tools)) {
-            foreach ($this->getRegisteredTools() as $tool) {
-                $payload['tools'][] = $this->formatToolForPayload($tool);
-            }
+            $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
         }
 
         return $payload;
@@ -346,6 +339,10 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
+    /**
+     * @deprecated Use ClaudeMessageFormatter::formatToolCallMessage() instead.
+     *             This method is maintained for backwards compatibility.
+     */
     public function toolCallsToMessage(array $toolCalls): array
     {
         $content = [];
@@ -365,6 +362,10 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
+    /**
+     * @deprecated Use ClaudeMessageFormatter::formatToolResultMessage() instead.
+     *             This method is maintained for backwards compatibility.
+     */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
     {
         return [
@@ -403,21 +404,22 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
         // Input tokens: the first snapshot already represents the full prompt
         // (final often omits it or repeats same value). Prefer first.
-        $input = $first['input_tokens'] ?? $final['input_tokens'] ?? null;
+        $input = $first['input_tokens'] ?? $final['input_tokens'] ?? 0;
 
         // Output tokens: final is the total at the end, not a delta.
         // Prefer final, else fall back to first.
-        $output = $final['output_tokens'] ?? $first['output_tokens'] ?? null;
+        $output = $final['output_tokens'] ?? $first['output_tokens'] ?? 0;
 
         // Sanity: if both exist and "first > final", pick the max to avoid weird regressions.
         if (isset($first['output_tokens'], $final['output_tokens'])) {
             $output = max($first['output_tokens'], $final['output_tokens']);
         }
 
+        // Return normalized keys for Usage DataModel
         return [
-            'input_tokens' => $input,
-            'output_tokens' => $output,
-            'total_tokens' => ($input ?? 0) + ($output ?? 0),
+            'prompt_tokens' => $input,
+            'completion_tokens' => $output,
+            'total_tokens' => $input + $output,
         ];
     }
 }

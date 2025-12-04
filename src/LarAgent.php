@@ -6,6 +6,7 @@ use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Hooks;
 use LarAgent\Messages\ToolCallMessage;
@@ -16,25 +17,11 @@ class LarAgent
     use Configs;
     use Hooks;
 
-    protected string $model = 'gpt-4o-mini';
+    protected DriverConfig $driverConfig;
 
     protected int $contextWindowSize = 50000;
 
-    protected int $maxCompletionTokens = 1000;
-
-    protected float $temperature = 1.0;
-
-    protected ?int $n = null;
-
-    protected ?float $topP = null;
-
-    protected ?float $frequencyPenalty = null;
-
-    protected ?float $presencePenalty = null;
-
     protected int $reinjectInstructionsPer = 0; // 0 Means never
-
-    protected ?bool $parallelToolCalls = true;
 
     protected bool $useDeveloperForInstructions = false;
 
@@ -50,18 +37,11 @@ class LarAgent
 
     protected array $tools = [];
 
-    /** @var string|array|null */
-    protected $toolChoice = null;
-
     /** @var bool Enable streaming mode */
     protected bool $streaming = false;
 
     /** @var callable|null Callback function for streaming */
     protected $streamCallback = null;
-
-    protected array $modalities = [];
-
-    protected ?array $audio = null;
 
     protected bool $returnMessage = false;
 
@@ -69,21 +49,19 @@ class LarAgent
 
     public function getModel(): string
     {
-        return $this->model;
+        return $this->driverConfig->model ?? 'gpt-4o-mini';
     }
 
     public function setModel(string $model): self
     {
-        $this->model = $model;
+        $this->driverConfig->set('model', $model);
 
         return $this;
     }
 
     public function useModel(string $model): self
     {
-        $this->model = $model;
-
-        return $this;
+        return $this->setModel($model);
     }
 
     public function getContextWindowSize(): int
@@ -105,74 +83,74 @@ class LarAgent
         return $this;
     }
 
-    public function getMaxCompletionTokens(): int
+    public function getMaxCompletionTokens(): ?int
     {
-        return $this->maxCompletionTokens;
+        return $this->driverConfig->maxCompletionTokens;
     }
 
     public function setMaxCompletionTokens(int $maxCompletionTokens): self
     {
-        $this->maxCompletionTokens = $maxCompletionTokens;
+        $this->driverConfig->set('maxCompletionTokens', $maxCompletionTokens);
 
         return $this;
     }
 
-    public function getTemperature(): float
+    public function getTemperature(): ?float
     {
-        return $this->temperature;
+        return $this->driverConfig->temperature;
     }
 
     public function setTemperature(float $temperature): self
     {
-        $this->temperature = $temperature;
+        $this->driverConfig->set('temperature', $temperature);
 
         return $this;
     }
 
     public function getN(): ?int
     {
-        return $this->n;
+        return $this->driverConfig->n;
     }
 
     public function setN(?int $n): self
     {
-        $this->n = $n;
+        $this->driverConfig->set('n', $n);
 
         return $this;
     }
 
     public function getTopP(): ?float
     {
-        return $this->topP;
+        return $this->driverConfig->topP;
     }
 
     public function setTopP(?float $topP): self
     {
-        $this->topP = $topP;
+        $this->driverConfig->set('topP', $topP);
 
         return $this;
     }
 
     public function getFrequencyPenalty(): ?float
     {
-        return $this->frequencyPenalty;
+        return $this->driverConfig->frequencyPenalty;
     }
 
     public function setFrequencyPenalty(?float $frequencyPenalty): self
     {
-        $this->frequencyPenalty = $frequencyPenalty;
+        $this->driverConfig->set('frequencyPenalty', $frequencyPenalty);
 
         return $this;
     }
 
     public function getPresencePenalty(): ?float
     {
-        return $this->presencePenalty;
+        return $this->driverConfig->presencePenalty;
     }
 
     public function setPresencePenalty(?float $presencePenalty): self
     {
-        $this->presencePenalty = $presencePenalty;
+        $this->driverConfig->set('presencePenalty', $presencePenalty);
 
         return $this;
     }
@@ -244,7 +222,7 @@ class LarAgent
      */
     public function toolAuto(): self
     {
-        $this->toolChoice = 'auto';
+        $this->driverConfig->set('toolChoice', 'auto');
 
         return $this;
     }
@@ -255,7 +233,7 @@ class LarAgent
      */
     public function toolNone(): self
     {
-        $this->toolChoice = 'none';
+        $this->driverConfig->set('toolChoice', 'none');
 
         return $this;
     }
@@ -266,7 +244,7 @@ class LarAgent
      */
     public function toolRequired(): self
     {
-        $this->toolChoice = 'required';
+        $this->driverConfig->set('toolChoice', 'required');
 
         return $this;
     }
@@ -279,12 +257,12 @@ class LarAgent
      */
     public function forceTool($toolName): self
     {
-        $this->toolChoice = [
+        $this->driverConfig->set('toolChoice', [
             'type' => 'function',
             'function' => [
                 'name' => $toolName,
             ],
-        ];
+        ]);
 
         return $this;
     }
@@ -298,17 +276,17 @@ class LarAgent
     public function getToolChoice()
     {
         // If no tools registered or choice is 'auto' (default), return null
-        if (empty($this->tools) || $this->toolChoice === null) {
+        if (empty($this->tools) || $this->driverConfig->toolChoice === null) {
             return null;
         }
 
         // If choice is 'none', always return it even without tools
-        if ($this->toolChoice === 'none') {
+        if ($this->driverConfig->toolChoice === 'none') {
             return 'none';
         }
 
         // For other choices, only return if tools are registered
-        return $this->toolChoice;
+        return $this->driverConfig->toolChoice;
     }
 
     /**
@@ -319,7 +297,7 @@ class LarAgent
      */
     public function setToolChoice(string|array|null $toolChoice): self
     {
-        $this->toolChoice = $toolChoice;
+        $this->driverConfig->set('toolChoice', $toolChoice);
 
         return $this;
     }
@@ -359,36 +337,36 @@ class LarAgent
 
     public function getParallelToolCalls(): ?bool
     {
-        return $this->parallelToolCalls;
+        return $this->driverConfig->parallelToolCalls;
     }
 
     public function setParallelToolCalls(?bool $parallelToolCalls): self
     {
-        $this->parallelToolCalls = $parallelToolCalls;
+        $this->driverConfig->set('parallelToolCalls', $parallelToolCalls);
 
         return $this;
     }
 
-    public function getModalities(): array
+    public function getModalities(): ?array
     {
-        return $this->modalities;
+        return $this->driverConfig->modalities;
     }
 
     public function setModalities(array $modalities): self
     {
-        $this->modalities = $modalities;
+        $this->driverConfig->set('modalities', $modalities);
 
         return $this;
     }
 
     public function getAudio(): ?array
     {
-        return $this->audio;
+        return $this->driverConfig->audio;
     }
 
     public function setAudio(?array $audio): self
     {
-        $this->audio = $audio;
+        $this->driverConfig->set('audio', $audio);
 
         return $this;
     }
@@ -399,9 +377,10 @@ class LarAgent
     {
         $this->driver = $driver;
         $this->chatHistory = $chatHistory;
+        $this->driverConfig = new DriverConfig();
     }
 
-    public static function setup(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory, array $configs = []): self
+    public static function setup(LlmDriverInterface $driver, ChatHistoryInterface $chatHistory, DriverConfig|array $configs = []): self
     {
         $agent = new self($driver, $chatHistory);
         $agent->initializeConfigs($configs);
@@ -409,36 +388,48 @@ class LarAgent
         return $agent;
     }
 
-    public function initializeConfigs(array $configs): void
+    public function initializeConfigs(DriverConfig|array $configs): void
     {
-        $excludedKeys = [
-            'api_key',
-            'api_url',
-        ];
-        $standardKeys = [
-            'contextWindowSize',
-            'maxCompletionTokens',
-            'temperature',
-            'reinjectInstructionsPer',
-            'model',
-            'n',
-            'topP',
-            'frequencyPenalty',
-            'presencePenalty',
-            'parallelToolCalls',
-            'toolChoice',
-            'modalities',
-            'audio',
-        ];
+        // If it's a DriverConfig, merge it directly
+        if ($configs instanceof DriverConfig) {
+            $this->driverConfig = $this->driverConfig->merge($configs);
 
-        foreach ($standardKeys as $key) {
-            if (array_key_exists($key, $configs)) {
-                $this->{$key} = $configs[$key];
+            // Handle contextWindowSize from extras if present
+            if ($configs->getExtra('contextWindowSize') !== null) {
+                $this->contextWindowSize = $configs->getExtra('contextWindowSize');
             }
+
+            // Set any extras from the DriverConfig to Configs trait
+            $extras = $configs->getExtras();
+            unset($extras['contextWindowSize']); // Already handled
+            if (! empty($extras)) {
+                $this->setConfigs($extras);
+            }
+
+            return;
         }
 
-        $otherConfigs = array_diff_key($configs, array_flip([...$standardKeys, ...$excludedKeys]));
-        $this->setConfigs($otherConfigs);
+        // Handle legacy array format (camelCase keys expected)
+        // Extract contextWindowSize separately as it's not part of DriverConfig
+        if (array_key_exists('contextWindowSize', $configs)) {
+            $this->contextWindowSize = $configs['contextWindowSize'];
+            unset($configs['contextWindowSize']);
+        }
+
+        if (array_key_exists('reinjectInstructionsPer', $configs)) {
+            $this->reinjectInstructionsPer = $configs['reinjectInstructionsPer'];
+            unset($configs['reinjectInstructionsPer']);
+        }
+
+        // Create DriverConfig from remaining array
+        $driverConfigFromArray = DriverConfig::fromArray($configs);
+        $this->driverConfig = $this->driverConfig->merge($driverConfigFromArray);
+
+        // Set extras from Configs trait (anything not in DriverConfig known keys)
+        $extras = $driverConfigFromArray->getExtras();
+        if (! empty($extras)) {
+            $this->setConfigs($extras);
+        }
     }
 
     public function setTools(array $tools): self
@@ -528,7 +519,7 @@ class LarAgent
 
         // Get the streamed response
         $stream = $this->driver->sendMessageStreamed(
-            $this->chatHistory->toArray(),
+            $this->chatHistory->getMessages()->all(),
             $this->buildConfig(),
             $callback
         );
@@ -621,7 +612,7 @@ class LarAgent
             return null;
         }
 
-        $response = $this->driver->sendMessage($this->chatHistory->toArray(), $this->buildConfig());
+        $response = $this->driver->sendMessage($this->chatHistory->getMessages()->all(), $this->buildConfig());
         // After response (After receiving message from LLM)
         $this->processAfterResponse($response);
         $this->chatHistory->addMessage($response);
@@ -704,51 +695,23 @@ class LarAgent
         return $response;
     }
 
-    protected function buildConfig(): array
+    protected function buildConfig(): DriverConfig
     {
-        $configs = [
-            'model' => $this->getModel(),
-            'max_completion_tokens' => $this->getMaxCompletionTokens(),
-            'temperature' => $this->getTemperature(),
-        ];
-
-        if ($this->getN() !== null) {
-            $configs['n'] = $this->getN();
+        // Clone the driverConfig and conditionally nullify tool-related settings if no tools
+        $config = clone $this->driverConfig;
+        
+        if (empty($this->tools)) {
+            $config->parallelToolCalls = null;
+            $config->toolChoice = null;
         }
 
-        if ($this->getTopP() !== null) {
-            $configs['top_p'] = $this->getTopP();
+        // Add any extra configs from Configs trait
+        $extras = $this->getConfigs();
+        if (! empty($extras)) {
+            $config = $config->withExtra($extras);
         }
 
-        if ($this->getFrequencyPenalty() !== null) {
-            $configs['frequency_penalty'] = $this->getFrequencyPenalty();
-        }
-
-        if ($this->getPresencePenalty() !== null) {
-            $configs['presence_penalty'] = $this->getPresencePenalty();
-        }
-
-        if (! empty($this->tools)) {
-            $PTC = $this->getParallelToolCalls();
-            if ($PTC !== null) {
-                $configs['parallel_tool_calls'] = $PTC;
-            }
-
-            $toolChoice = $this->getToolChoice();
-            if ($toolChoice !== null) {
-                $configs['tool_choice'] = $toolChoice;
-            }
-        }
-
-        if (! empty($this->modalities)) {
-            $configs['modalities'] = $this->modalities;
-        }
-
-        if (! empty($this->audio)) {
-            $configs['audio'] = $this->audio;
-        }
-
-        return [...$configs, ...$this->getConfigs()];
+        return $config;
     }
 
     protected function injectInstructions(): void
@@ -793,10 +756,9 @@ class LarAgent
             return null;
         }
 
-        // Build tool result message content
-        $messageArray = $this->driver->toolResultToMessage($toolCall, $result);
-
-        return new ToolResultMessage($messageArray);
+        // Create tool result message directly - formatter will handle driver-specific conversion
+        $content = is_string($result) ? $result : json_encode($result);
+        return new ToolResultMessage($content, $toolCall->getId(), $toolCall->getToolName());
     }
 
     /**

@@ -3,45 +3,33 @@
 use LarAgent\Core\Enums\Role;
 use LarAgent\Message;
 use LarAgent\Messages\UserMessage;
+use LarAgent\Messages\DataModels\MessageContent;
+use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\Content\ImageContent;
 
 it('creates a user message with content and metadata', function () {
     $message = new UserMessage('What is the weather in Boston?', ['key' => 'value']);
 
     expect($message->getRole())->toBe(Role::USER->value)
-        ->and($message->getContent())->toBe([
-            [
-                'type' => 'text',
-                'text' => 'What is the weather in Boston?',
-            ],
-        ])
+        ->and($message->getContentAsString())->toBe('What is the weather in Boston?')
         ->and($message->getMetadata())->toHaveKey('key', 'value');
 });
 
 it('converts the message to an array', function () {
     $message = new UserMessage('What is the weather in Boston?');
 
-    expect($message->toArray())->toMatchArray([
-        'role' => Role::USER->value,
-        'content' => [
-            [
-                'type' => 'text',
-                'text' => 'What is the weather in Boston?',
-            ],
-        ],
-    ]);
+    $array = $message->toArray();
+    expect($array['role'])->toBe(Role::USER->value)
+        ->and($array['content'])->toBeArray()
+        ->and($array['content'][0]['type'])->toBe('text')
+        ->and($array['content'][0]['text'])->toBe('What is the weather in Boston?');
 });
 
 it('supports array access', function () {
     $message = new UserMessage('What is the weather in Boston?');
 
     expect(isset($message['role']))->toBeTrue()
-        ->and($message['role'])->toBe(Role::USER->value)
-        ->and($message['content'])->toBe([
-            [
-                'type' => 'text',
-                'text' => 'What is the weather in Boston?',
-            ],
-        ]);
+        ->and($message['role'])->toBe(Role::USER->value);
 });
 
 it('throws an exception when trying to modify via array access', function () {
@@ -62,22 +50,6 @@ it('can be cast to a string', function () {
     expect((string) $message)->toBe('What is the weather in Boston?');
 });
 
-it('uses the first text element if content is an array', function () {
-    $message = Message::create(
-        Role::USER->value,
-        [
-            ['text' => 'What is the weather in Boston?'],
-            [
-                'image_url' => [
-                    'url' => 'https://example.com/image.jpg',
-                ],
-            ],
-        ]
-    );
-
-    expect((string) $message)->toBe('What is the weather in Boston?');
-});
-
 it('can set metadata', function () {
     $message = new UserMessage('What is the weather in Boston?');
     $message->setMetadata(['new_key' => 'new_value']);
@@ -88,10 +60,12 @@ it('can set metadata', function () {
 it('handles empty content gracefully', function () {
     $message = new UserMessage('');
 
-    expect($message->getContent())->toBe([
-        [
-            'type' => 'text',
-            'text' => '',
-        ],
-    ]);
+    expect($message->getContentAsString())->toBe('');
+});
+
+it('has unique id', function () {
+    $message = new UserMessage('Hello');
+    
+    expect($message->getId())->toStartWith('msg_')
+        ->and(strlen($message->getId()))->toBe(28); // 'msg_' + 24 hex chars
 });

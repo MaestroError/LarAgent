@@ -10,12 +10,15 @@ use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\DTO\AgentDTO;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
 use Redberry\MCPClient\MCPClient;
+use LarAgent\Context\Traits\HasContext;
+use LarAgent\Context\Storages\ChatHistoryStorage;
 
 /**
  * Class Agent
@@ -26,6 +29,7 @@ class Agent
 {
     use Configs;
     use Events;
+    use HasContext;
 
     // Agent properties
 
@@ -38,8 +42,6 @@ class Agent
      * casting it to string or array.
      */
     protected bool $returnMessage = false;
-
-    protected ChatHistoryInterface $chatHistory;
 
     /** @var string|null */
     protected $message;
@@ -65,8 +67,11 @@ class Agent
     /** @var array */
     protected $mcpConnections = [];
 
-    /** @var string */
+    /** @var string|array */
     protected $history;
+
+    /** @var array */
+    protected $storage;
 
     /** @var string */
     protected $driver;
@@ -112,20 +117,6 @@ class Agent
      */
     protected $name;
 
-    /**
-     * Chat key associated with this agent
-     *
-     * @var string
-     */
-    protected $chatKey;
-
-    /**
-     * Include model name in chat session ID
-     *
-     * @var bool
-     */
-    protected $includeModelInChatSessionId = false;
-
     /** @var int */
     protected $maxCompletionTokens;
 
@@ -153,16 +144,13 @@ class Agent
     /** @var float|null */
     protected $presencePenalty;
 
-    /** @var string */
-    protected $chatSessionId;
-
     // Misc
     private array $builtInHistories = [
-        'in_memory' => \LarAgent\History\InMemoryChatHistory::class,
-        'session' => \LarAgent\History\SessionChatHistory::class,
-        'cache' => \LarAgent\History\CacheChatHistory::class,
-        'file' => \LarAgent\History\FileChatHistory::class,
-        'json' => \LarAgent\History\JsonChatHistory::class,
+        'in_memory' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+        'session' => \LarAgent\Context\Drivers\SessionStorage::class,
+        'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
+        'file' => \LarAgent\Context\Drivers\FileStorage::class,
+        'json' => \LarAgent\Context\Drivers\FileStorage::class,
     ];
 
     /** @var array */
@@ -177,19 +165,71 @@ class Agent
     /** @var array|null */
     protected $audio = null;
 
-    public function __construct($key)
+    /** 
+     * Force read history from storage drivers
+     * On agent initialization
+     * 
+     * @var bool 
+     */
+    protected $forceReadHistory = false;
+
+    /** 
+     * Force save history to storage drivers
+     * After each agent response
+     * 
+     * @var bool 
+     */
+    protected $forceSaveHistory = false;
+
+    /** 
+     * Force read context from storage drivers
+     * On agent initialization
+     * 
+     * @var bool 
+     */
+    protected $forceReadContext = false;
+
+    public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
+        $this->usesUserId = $usesUserId;
+        
+        // Set group before identity is built (if provided)
+        if ($group !== null) {
+            $this->group = $group;
+        }
+        
         $this->setupProviderData();
         $this->setName();
-        $this->setChatSessionId($key);
+        $this->setChatSessionId($key, $this->name());
+
+        $defaultStorageDrivers = $this->defaultStorageDrivers();
+        $this->setupContext($defaultStorageDrivers);
+        
+        if ($this->forceReadContext) {
+            $this->readContext();
+        }
+        
         $this->setupChatHistory();
+
+        if ($this->forceReadHistory) {
+            $this->chatHistory()->read();
+        }
+
         $this->initMcpClient();
+        
         $this->callEvent('onInitialize');
     }
 
     public function __destruct()
     {
+        $this->cleanup();
         $this->onTerminate();
+    }
+
+    protected function cleanup()
+    {
+        // Save context (dirty tracking handled by storages, events handled safely by Context)
+        $this->context()->save();
     }
 
     // Public API
@@ -201,10 +241,36 @@ class Agent
      */
     public static function forUser(Authenticatable $user): static
     {
-        $userId = $user->getAuthIdentifier();
-        $instance = new static($userId);
+        return static::forUserId($user->getAuthIdentifier());
+    }
 
-        return $instance;
+    /**
+     * Create an agent instance for a specific user ID
+     *
+     * @param  string  $userId  The user ID to create agent for
+     */
+    public static function forUserId(string $userId): static
+    {
+        return new static($userId, usesUserId: true);
+    }
+
+    /**
+     * Reconstruct an agent instance from a SessionIdentity.
+     * Useful for operating on tracked storages without knowing the original creation method.
+     *
+     * @param  \LarAgent\Context\Contracts\SessionIdentity  $identity  The identity to reconstruct from
+     * @return static The reconstructed agent instance
+     */
+    public static function fromIdentity(\LarAgent\Context\Contracts\SessionIdentity $identity): static
+    {
+        $group = $identity->getGroup();
+        
+        // Determine if this was a user-based or chat-based identity
+        if ($identity->getUserId() !== null) {
+            return new static($identity->getUserId(), usesUserId: true, group: $group);
+        }
+        
+        return new static($identity->getChatName() ?? 'default', usesUserId: false, group: $group);
     }
 
     /**
@@ -571,23 +637,6 @@ class Agent
     }
 
     /**
-     * Create a new chat history instance
-     *
-     * @param  string  $sessionId  The session ID for the chat history
-     * @return ChatHistoryInterface The created chat history instance
-     */
-    public function createChatHistory(string $sessionId)
-    {
-        $historyClass = $this->builtInHistories[$this->history] ?? $this->history;
-
-        return new $historyClass($sessionId, [
-            'context_window' => $this->contextWindowSize,
-            'store_meta' => $this->storeMeta,
-            'save_chat_keys' => $this->saveChatKeys,
-        ]);
-    }
-
-    /**
      * Register additional tools for the agent
      *
      * Override this method in child classes to register custom tools.
@@ -832,16 +881,6 @@ class Agent
 
     // Public accessors / mutators
 
-    public function getChatSessionId(): string
-    {
-        return $this->chatSessionId;
-    }
-
-    public function keyIncludesModelName(): bool
-    {
-        return $this->includeModelInChatSessionId;
-    }
-
     public function getProviderName(): string
     {
         return $this->providerName;
@@ -882,14 +921,77 @@ class Agent
 
     public function chatHistory(): ChatHistoryInterface
     {
-        return $this->chatHistory;
+        return $this->context()->getStorage(ChatHistoryStorage::class);
     }
 
     public function setChatHistory(ChatHistoryInterface $chatHistory): static
     {
-        $this->chatHistory = $chatHistory;
+        $this->context()->register($chatHistory);
+        return $this;
+    }
+
+    protected function setupChatHistory(): void
+    {
+        $this->setChatHistory($this->createChatHistory());
+    }
+
+    /**
+     * Create a new chat history instance
+     *
+     * @return ChatHistoryInterface The created chat history instance
+     */
+    public function createChatHistory()
+    {
+        $historyStorageDrivers = $this->historyStorageDrivers();
+
+        $ChatHistoryStorage = new ChatHistoryStorage(
+            $this->context()->getIdentity(),
+            $historyStorageDrivers,
+            $this->storeMeta ?? false
+        );
+
+        return $ChatHistoryStorage;
+    }
+
+    /**
+     * Save the context manually.
+     * Useful for explicitly saving mid-request.
+     * Events are dispatched safely (skipped if app is shutting down).
+     *
+     * @return static
+     */
+    public function saveContext(): static
+    {
+        $this->context()->save();
 
         return $this;
+    }
+
+    public function readContext(): static
+    {
+        $this->context()->read();
+
+        return $this;
+    }
+
+    protected function historyStorageDrivers(): string|array 
+    {
+        if (is_string($this->history)) {
+            return $this->builtInHistories[$this->history] ?? $this->history;
+        }
+        if (!isset($this->history)) {
+            return $this->defaultStorageDrivers();
+        }
+        return $this->history;
+    }
+
+    protected function defaultStorageDrivers(): array
+    {
+        if (!isset($this->storage)) {
+            // Ultimate fallback to InMemoryStorage
+            return [\LarAgent\Context\Drivers\InMemoryStorage::class];
+        }
+        return $this->storage;
     }
 
     /**
@@ -909,36 +1011,46 @@ class Agent
 
     public function lastMessage(): ?MessageInterface
     {
-        return $this->chatHistory->getLastMessage();
+        return $this->chatHistory()->getLastMessage();
     }
 
     public function clear(): static
     {
         $this->callEvent('onClear');
-        $this->chatHistory->clear();
-        $this->chatHistory->writeToMemory();
+        $this->chatHistory()->clear();
+        $this->chatHistory()->writeToMemory();
 
         return $this;
     }
 
-    public function getChatKey(): string
+    /**
+     * Get all storage keys associated with this agent class
+     *
+     * @return array Array of all storage keys tracked by the context
+     */
+    public function getStorageKeys(): array
     {
-        return $this->chatKey;
+        return $this->context()->getTrackedKeys();
     }
 
     /**
-     * Get all chat keys associated with this agent class
+     * Get chat history keys associated with this agent class
      *
-     * @return array Array of chat keys filtered by agent class name
+     * @return array Array of chat history keys filtered by 'chatHistory' prefix
      */
     public function getChatKeys(): array
     {
-        $keys = $this->chatHistory->loadKeysFromMemory();
-        $agentClass = $this->name();
+        return $this->context()->getTrackedKeysByPrefix(ChatHistoryStorage::getStoragePrefix());
+    }
 
-        return array_filter($keys, function ($key) use ($agentClass) {
-            return str_starts_with($key, $agentClass.'_');
-        });
+    /**
+     * Get chat history identities associated with this agent class
+     *
+     * @return \LarAgent\Context\DataModels\SessionIdentityArray Array of chat history identities
+     */
+    public function getChatIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
+    {
+        return $this->context()->getTrackedIdentitiesByScope(ChatHistoryStorage::getStoragePrefix());
     }
 
     public function getModalities(): array
@@ -1138,34 +1250,6 @@ class Agent
     {
         $this->model = $model;
 
-        if ($this->keyIncludesModelName()) {
-            $this->refreshChatHistory();
-        }
-
-        return $this;
-    }
-
-    protected function refreshChatHistory(): void
-    {
-        // Update chat session ID with new model
-        $this->setChatSessionId($this->getChatKey());
-
-        // Create new chat history with updated session ID
-        $this->setupChatHistory();
-    }
-
-    public function withoutModelInChatSessionId(): static
-    {
-        $this->includeModelInChatSessionId = false;
-
-        return $this;
-    }
-
-    public function withModelInChatSessionId(): static
-    {
-        $this->includeModelInChatSessionId = true;
-        $this->refreshChatHistory();
-
         return $this;
     }
 
@@ -1182,19 +1266,7 @@ class Agent
      */
     public function toDTO(): AgentDTO
     {
-        $driverConfigs = array_filter([
-            'model' => $this->model(),
-            'contextWindowSize' => $this->contextWindowSize ?? null,
-            'maxCompletionTokens' => $this->maxCompletionTokens ?? null,
-            'temperature' => $this->temperature ?? null,
-            'n' => $this->n ?? null,
-            'topP' => $this->topP ?? null,
-            'frequencyPenalty' => $this->frequencyPenalty ?? null,
-            'presencePenalty' => $this->presencePenalty ?? null,
-            'reinjectInstructionsPer' => $this->reinjectInstructionsPer ?? null,
-            'parallelToolCalls' => $this->parallelToolCalls ?? null,
-            'chatSessionId' => $this->chatSessionId,
-        ], fn ($value) => ! is_null($value));
+        $driverConfigs = $this->buildConfigsFromAgent();
 
         return new AgentDTO(
             provider: $this->provider,
@@ -1207,9 +1279,8 @@ class Agent
                 'history' => $this->history,
                 'model' => $this->model(),
                 'driver' => $this->driver,
-                ...$driverConfigs,
-                ...$this->getConfigs(),
-            ]
+            ],
+            driverConfig: $driverConfigs,
         );
     }
 
@@ -1220,32 +1291,6 @@ class Agent
         $this->name = class_basename(static::class);
 
         return $this;
-    }
-
-    protected function setChatSessionId(string $id): static
-    {
-        $this->chatKey = $id;
-        $this->chatSessionId = $this->buildSessionId();
-
-        return $this;
-    }
-
-    protected function buildSessionId()
-    {
-        if ($this->keyIncludesModelName()) {
-            return sprintf(
-                '%s_%s_%s',
-                $this->name(),
-                $this->model(),
-                $this->getChatKey()
-            );
-        }
-
-        return sprintf(
-            '%s_%s',
-            $this->name(),
-            $this->getChatKey()
-        );
     }
 
     protected function getProviderData(): ?array
@@ -1297,9 +1342,9 @@ class Agent
         }
     }
 
-    protected function initDriver($settings): void
+    protected function initDriver(DriverConfig $config): void
     {
-        $this->llmDriver = new $this->driver($settings);
+        $this->llmDriver = new $this->driver($config);
     }
 
     protected function setupProviderData(): void
@@ -1309,68 +1354,53 @@ class Agent
             $this->driver = $provider['driver'] ?? config('laragent.default_driver');
         }
         if (! isset($this->history)) {
-            $this->history = $provider['chat_history'] ?? config('laragent.default_chat_history');
+            $this->history = $provider['history'] ?? config('laragent.default_history_storage');
+        }
+        if (! isset($this->storage)) {
+            $this->storage = $provider['storage'] ?? config('laragent.default_storage');
         }
         $this->providerName = $provider['name'] ?? '';
+        
+        // Extract provider settings into agent properties
         $this->setupDriverConfigs($provider);
 
-        $settings = array_merge($provider, $this->buildConfigsFromAgent());
-        $this->initDriver($settings);
+        // Build final config from agent properties (which now include provider defaults)
+        $finalConfig = $this->buildConfigsFromAgent();
+
+        $this->initDriver($finalConfig);
     }
 
     protected function setupAgent(): void
     {
         $config = $this->buildConfigsFromAgent();
-        $this->agent = LarAgent::setup($this->llmDriver, $this->chatHistory, $config);
+        $this->agent = LarAgent::setup($this->llmDriver, $this->chatHistory(), $config);
     }
 
     /**
-     * Build configuration array from agent properties.
+     * Build configuration DriverConfig from agent properties.
      * Overrides provider data with agent properties.
      *
-     * @return array The configuration array with model, API key, API URL, and optional parameters.
+     * @return DriverConfig The configuration DTO with model, API key, API URL, and optional parameters.
      */
-    protected function buildConfigsFromAgent(): array
+    protected function buildConfigsFromAgent(): DriverConfig
     {
-        $config = [
-            'model' => $this->model(),
-            'api_key' => $this->getApiKey(),
-            'api_url' => $this->getApiUrl(),
-        ];
-        if (property_exists($this, 'maxCompletionTokens')) {
-            $config['maxCompletionTokens'] = $this->maxCompletionTokens;
-        }
-        if (property_exists($this, 'temperature')) {
-            $config['temperature'] = $this->temperature;
-        }
-        if (property_exists($this, 'n')) {
-            $config['n'] = $this->n;
-        }
-        if (property_exists($this, 'topP')) {
-            $config['topP'] = $this->topP;
-        }
-        if (property_exists($this, 'frequencyPenalty')) {
-            $config['frequencyPenalty'] = $this->frequencyPenalty;
-        }
-        if (property_exists($this, 'presencePenalty')) {
-            $config['presencePenalty'] = $this->presencePenalty;
-        }
-        if (property_exists($this, 'parallelToolCalls')) {
-            $config['parallelToolCalls'] = $this->parallelToolCalls;
-        }
-        if (property_exists($this, 'toolChoice')) {
-            $config['toolChoice'] = $this->toolChoice;
-        }
+        $config = new DriverConfig(
+            model: $this->model(),
+            apiKey: $this->getApiKey(),
+            apiUrl: $this->getApiUrl(),
+            maxCompletionTokens: $this->maxCompletionTokens ?? null,
+            temperature: $this->temperature ?? null,
+            n: $this->n ?? null,
+            topP: $this->topP ?? null,
+            frequencyPenalty: $this->frequencyPenalty ?? null,
+            presencePenalty: $this->presencePenalty ?? null,
+            parallelToolCalls: $this->parallelToolCalls ?? null,
+            toolChoice: $this->toolChoice ?? null,
+            modalities: ! empty($this->modalities) ? $this->modalities : null,
+            audio: ! empty($this->audio) ? $this->audio : null,
+        );
 
-        if (! empty($this->modalities)) {
-            $config['modalities'] = $this->modalities;
-        }
-
-        if (! empty($this->audio)) {
-            $config['audio'] = $this->audio;
-        }
-
-        return [...$config, ...$this->configs];
+        return $config->withExtra($this->getConfigs());
     }
 
     protected function registerEvents(): void
@@ -1391,8 +1421,14 @@ class Agent
             return $returnValue === false ? false : true;
         });
 
-        $this->agent->afterSend(function ($agent, $history, $message) use ($instance) {
+        $forceSaveChatHistory = $this->forceSaveHistory;
+
+        $this->agent->afterSend(function ($agent, $history, $message) use ($instance, $forceSaveChatHistory) {
             $returnValue = $instance->callEvent('afterSend', [$history, $message]);
+
+            if ($forceSaveChatHistory) {
+                $instance->chatHistory()->save();
+            }
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
@@ -1445,12 +1481,6 @@ class Agent
     {
         $this->setupAgent();
         $this->registerEvents();
-    }
-
-    protected function setupChatHistory(): void
-    {
-        $chatHistory = $this->createChatHistory($this->getChatSessionId());
-        $this->setChatHistory($chatHistory);
     }
 
     protected function prepareMessage(): MessageInterface
