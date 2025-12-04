@@ -53,7 +53,7 @@ class AnotherContextManagerTestAgent extends Agent
 /**
  * Generate a unique test prefix for test isolation
  */
-function testId(): string
+function generateUniqueTestId(): string
 {
     return 'test_' . uniqid();
 }
@@ -135,7 +135,7 @@ test('ContextManager → facade → Context::agent() works', function () {
 // ===========================================
 
 test('ContextManager → forStorage() → filters by storage scope', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chat1", ['Hello']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chat2", ['World']);
     
@@ -153,7 +153,7 @@ test('ContextManager → forStorage() → filters by storage scope', function ()
 });
 
 test('ContextManager → forUser() → filters by user ID', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_user_1", ['Hello from user 1']);
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_user_2", ['Hello from user 2']);
     
@@ -165,7 +165,7 @@ test('ContextManager → forUser() → filters by user ID', function () {
 });
 
 test('ContextManager → forUser() → accepts Authenticatable instance', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_auth_user", ['Hello from auth user']);
     
     // Create a mock Authenticatable
@@ -188,7 +188,7 @@ test('ContextManager → forUser() → accepts Authenticatable instance', functi
 });
 
 test('ContextManager → forChat() → filters by chat name', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_support", ['Support message']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_sales", ['Sales message']);
     
@@ -200,7 +200,7 @@ test('ContextManager → forChat() → filters by chat name', function () {
 });
 
 test('ContextManager → forGroup() → filters by group', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupGroupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chat1", "{$id}_premium", ['Premium message']);
     setupGroupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chat2", "{$id}_free", ['Free message']);
     
@@ -212,7 +212,7 @@ test('ContextManager → forGroup() → filters by group', function () {
 });
 
 test('ContextManager → filter() → applies custom filter callback', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chat_a", ['A']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chat_b", ['B']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_other", ['C']);
@@ -227,7 +227,7 @@ test('ContextManager → filter() → applies custom filter callback', function 
 });
 
 test('ContextManager → chaining multiple filters → applies all filters', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserGroupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_user1", "{$id}_premium", ['Premium user 1']);
     setupUserGroupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_user1", "{$id}_free", ['Free user 1']);
     setupUserGroupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_user2", "{$id}_premium", ['Premium user 2']);
@@ -246,7 +246,7 @@ test('ContextManager → chaining multiple filters → applies all filters', fun
 });
 
 test('ContextManager → filters are immutable → original instance unchanged', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_test", ['Test']);
     
     $manager1 = ContextManager::of(ContextManagerTestAgent::class);
@@ -263,7 +263,7 @@ test('ContextManager → filters are immutable → original instance unchanged',
 // ===========================================
 
 test('ContextManager → getIdentities() → returns SessionIdentityArray', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_query1", ['Message 1']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_query2", ['Message 2']);
     
@@ -278,7 +278,7 @@ test('ContextManager → getIdentities() → returns SessionIdentityArray', func
 });
 
 test('ContextManager → getChatIdentities() → returns only chat history identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chat", ['Hello']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -292,7 +292,7 @@ test('ContextManager → getChatIdentities() → returns only chat history ident
 });
 
 test('ContextManager → getStorageKeys() → returns all tracked storage keys', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_keys", ['Test']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -303,7 +303,7 @@ test('ContextManager → getStorageKeys() → returns all tracked storage keys',
 });
 
 test('ContextManager → getChatKeys() → returns only chat history keys', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_chatkeys", ['Test']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -321,7 +321,7 @@ test('ContextManager → getChatKeys() → returns only chat history keys', func
 // ===========================================
 
 test('ContextManager → each() → iterates over matching identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_each1", ['Message 1']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_each2", ['Message 2']);
     
@@ -343,7 +343,7 @@ test('ContextManager → each() → iterates over matching identities', function
 });
 
 test('ContextManager → each() → provides working agent instance', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_each_agent", ['Original message']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -361,7 +361,7 @@ test('ContextManager → each() → provides working agent instance', function (
 });
 
 test('ContextManager → map() → maps over identities and returns array', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_map1", ['Msg 1']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_map2", ['Msg 2']);
     
@@ -380,7 +380,7 @@ test('ContextManager → map() → maps over identities and returns array', func
 });
 
 test('ContextManager → all() → returns array of SessionIdentity objects', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_all1", ['Msg']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_all2", ['Msg']);
     
@@ -400,7 +400,7 @@ test('ContextManager → all() → returns array of SessionIdentity objects', fu
 // ===========================================
 
 test('ContextManager → count() → returns number of matching identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_count1", ['Msg']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_count2", ['Msg']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_count3", ['Msg']);
@@ -422,7 +422,7 @@ test('ContextManager → count() → returns 0 when no matches', function () {
 });
 
 test('ContextManager → exists() → returns true when matches exist', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_exists", ['Msg']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -443,7 +443,7 @@ test('ContextManager → exists() → returns false when no matches', function (
 // ===========================================
 
 test('ContextManager → first() → returns first matching identity', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_first", ['Msg']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -461,7 +461,7 @@ test('ContextManager → first() → returns null when no matches', function () 
 });
 
 test('ContextManager → firstAgent() → returns agent instance for first match', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_firstagent", ['Msg']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -483,7 +483,7 @@ test('ContextManager → firstAgent() → returns null when no matches', functio
 // ===========================================
 
 test('ContextManager → clear() → clears data but keeps tracking', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_clear", ['Message to clear']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -505,7 +505,7 @@ test('ContextManager → clear() → clears data but keeps tracking', function (
 });
 
 test('ContextManager → clear() → only clears matching identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_keep", ['Keep this']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_remove", ['Clear this']);
     
@@ -525,7 +525,7 @@ test('ContextManager → clear() → only clears matching identities', function 
 });
 
 test('ContextManager → clear() → returns self for chaining', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_clearchain", ['Msg']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -539,7 +539,7 @@ test('ContextManager → clear() → returns self for chaining', function () {
 // ===========================================
 
 test('ContextManager → remove() → removes data and tracking', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_remove", ['Message to remove']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -555,7 +555,7 @@ test('ContextManager → remove() → removes data and tracking', function () {
 });
 
 test('ContextManager → remove() → only removes matching identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_keep", ['Keep']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_delete", ['Delete']);
     
@@ -570,7 +570,7 @@ test('ContextManager → remove() → only removes matching identities', functio
 });
 
 test('ContextManager → remove() → returns self for chaining', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_removechain", ['Msg']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -584,7 +584,7 @@ test('ContextManager → remove() → returns self for chaining', function () {
 // ===========================================
 
 test('ContextManager → clearAllChats() → clears all chat histories for agent', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_clearall1", ['Msg 1']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_clearall2", ['Msg 2']);
     
@@ -607,7 +607,7 @@ test('ContextManager → clearAllChats() → clears all chat histories for agent
 });
 
 test('ContextManager → clearAllChatsByUser() → clears chats for specific user', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_clearuser1", ['User 1 msg']);
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_clearuser2", ['User 2 msg']);
     
@@ -626,7 +626,7 @@ test('ContextManager → clearAllChatsByUser() → clears chats for specific use
 });
 
 test('ContextManager → removeAllChats() → removes all chat histories and tracking', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_removeall1", ['Msg 1']);
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_removeall2", ['Msg 2']);
     
@@ -654,7 +654,7 @@ test('ContextManager → removeAllChats() → removes all chat histories and tra
 });
 
 test('ContextManager → removeAllChatsByUser() → removes chats for specific user', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_removeuser1", ['User 1 msg']);
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_removeuser2", ['User 2 msg']);
     
@@ -668,7 +668,7 @@ test('ContextManager → removeAllChatsByUser() → removes chats for specific u
 });
 
 test('ContextManager → getIdentitiesByUser() → returns identities for user', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_getuser1", ['Msg']);
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_getuser2", ['Msg']);
     
@@ -681,7 +681,7 @@ test('ContextManager → getIdentitiesByUser() → returns identities for user',
 });
 
 test('ContextManager → eachByUser() → iterates over user identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_eachuser", ['Msg']);
     
     $called = false;
@@ -695,7 +695,7 @@ test('ContextManager → eachByUser() → iterates over user identities', functi
 });
 
 test('ContextManager → countByUser() → returns count for user', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_countuser", ['Msg']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -709,7 +709,7 @@ test('ContextManager → countByUser() → returns count for user', function () 
 // ===========================================
 
 test('ContextManager → agent isolation → different agents have separate identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_isolation", ['Agent 1 msg']);
     setupAgentWithMessages(AnotherContextManagerTestAgent::class, "{$id}_isolation", ['Agent 2 msg']);
     
@@ -729,7 +729,7 @@ test('ContextManager → agent isolation → different agents have separate iden
 });
 
 test('ContextManager → clearing one agent does not affect another', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_cross", ['Agent 1 msg']);
     setupAgentWithMessages(AnotherContextManagerTestAgent::class, "{$id}_cross", ['Agent 2 msg']);
     
@@ -747,7 +747,7 @@ test('ContextManager → clearing one agent does not affect another', function (
 // ===========================================
 
 test('ContextManager → handles empty results gracefully', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     $manager = ContextManager::of(ContextManagerTestAgent::class);
     
     $identities = $manager->forChat("{$id}_nonexistent")->getIdentities();
@@ -760,7 +760,7 @@ test('ContextManager → handles empty results gracefully', function () {
 });
 
 test('ContextManager → clear on empty results does not throw', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     $manager = ContextManager::of(ContextManagerTestAgent::class);
     
     $result = $manager->forChat("{$id}_nonexistent")->clear();
@@ -769,7 +769,7 @@ test('ContextManager → clear on empty results does not throw', function () {
 });
 
 test('ContextManager → remove on empty results does not throw', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     $manager = ContextManager::of(ContextManagerTestAgent::class);
     
     $result = $manager->forChat("{$id}_nonexistent")->remove();
@@ -778,7 +778,7 @@ test('ContextManager → remove on empty results does not throw', function () {
 });
 
 test('ContextManager → each on empty results does not call callback', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     $called = false;
     $manager = ContextManager::of(ContextManagerTestAgent::class);
     
@@ -790,7 +790,7 @@ test('ContextManager → each on empty results does not call callback', function
 });
 
 test('ContextManager → map on empty results returns empty array', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     $manager = ContextManager::of(ContextManagerTestAgent::class);
     
     $result = $manager->forChat("{$id}_nonexistent")->map(fn() => 'test');
@@ -803,7 +803,7 @@ test('ContextManager → map on empty results returns empty array', function () 
 // ===========================================
 
 test('ContextManager → temp agent is not tracked in identities', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_regular", ['Regular msg']);
     
     $manager = ContextManager::of(ContextManagerTestAgent::class);
@@ -820,7 +820,7 @@ test('ContextManager → temp agent is not tracked in identities', function () {
 // ===========================================
 
 test('ContextManager → complex filtering scenario', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     
     // Setup diverse data
     setupUserGroupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_user1", "{$id}_premium", ['Premium user 1']);
@@ -845,7 +845,7 @@ test('ContextManager → complex filtering scenario', function () {
 });
 
 test('ContextManager → batch operations', function () {
-    $id = testId();
+    $id = generateUniqueTestId();
     
     // Create multiple chats
     for ($i = 1; $i <= 5; $i++) {

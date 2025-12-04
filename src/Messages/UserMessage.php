@@ -94,7 +94,7 @@ class UserMessage extends Message implements MessageInterface
             ],
         ];
 
-        $this->content[] = ImageContent::fromArray($imageArray);
+        $this->content->add(ImageContent::fromArray($imageArray));
 
         return $this;
     }
@@ -116,7 +116,7 @@ class UserMessage extends Message implements MessageInterface
             ],
         ];
 
-        $this->content[] = AudioContent::fromArray($audioArray);
+        $this->content->add(AudioContent::fromArray($audioArray));
 
         return $this;
     }

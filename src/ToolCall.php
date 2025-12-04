@@ -18,11 +18,43 @@ class ToolCall extends DataModel implements ToolCallInterface
     #[Desc('Function details')]
     public ToolCallFunction $function;
 
-    public function __construct(string $id = '', string $toolName = '', string $arguments = '{}')
+    public function __construct(string $id, string $toolName, string $arguments = '{}')
     {
         $this->id = $id;
         $this->type = 'function';
         $this->function = new ToolCallFunction($toolName, $arguments);
+    }
+
+    /**
+     * Create a ToolCall instance from an array.
+     *
+     * @param array $data
+     * @return static
+     */
+    public static function fromArray(array $data): static
+    {
+        $id = $data['id'] ?? '';
+        $type = $data['type'] ?? 'function';
+        $function = ToolCallFunction::fromArray($data['function'] ?? []);
+
+        $instance = new static($id, $function->name, $function->arguments);
+        $instance->type = $type;
+
+        return $instance;
+    }
+
+    /**
+     * Convert the ToolCall to an array.
+     *
+     * @return array
+     */
+    public function toArray(): array
+    {
+        return [
+            'id' => $this->id,
+            'type' => $this->type,
+            'function' => $this->function->toArray(),
+        ];
     }
 
     // ToolCallInterface methods
