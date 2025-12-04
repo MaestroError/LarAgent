@@ -72,7 +72,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Send a message to the LLM and receive a response using native Gemini API.
      */
-    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         try {
             $payload = $this->preparePayload($messages, $overrideSettings);
@@ -141,7 +141,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Send a message to the LLM and receive a streamed response.
      */
-    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): Generator
     {
         try {
             $payload = $this->preparePayload($messages, $overrideSettings);

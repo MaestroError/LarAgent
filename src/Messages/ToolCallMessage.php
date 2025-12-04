@@ -10,6 +10,7 @@ use LarAgent\Attributes\Desc;
 use LarAgent\Messages\DataModels\ToolCallArray;
 use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\ToolCall;
+use LarAgent\Messages\DataModels\MessageContent;
 
 class ToolCallMessage extends AssistantMessage implements MessageInterface
 {
@@ -18,7 +19,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
 
     // Content is null for tool call messages (inherited from AssistantMessage)
     #[ExcludeFromSchema]
-    public ?TextContent $content = null;
+    public ?MessageContent $content = null;
 
     #[Desc('Array of tool calls requested by the assistant')]
     public ToolCallArray $toolCalls;

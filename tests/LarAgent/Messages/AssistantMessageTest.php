@@ -2,13 +2,13 @@
 
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Usage\DataModels\Usage;
-use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
 
 test('AssistantMessage: Creates with string content', function () {
     $message = new AssistantMessage('Hello');
 
     expect($message->getRole())->toBe('assistant');
-    expect($message->getContent())->toBeInstanceOf(TextContent::class);
+    expect($message->getContent())->toBeInstanceOf(MessageContent::class);
     expect((string) $message->getContent())->toBe('Hello');
 });
 

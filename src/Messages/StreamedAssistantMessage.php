@@ -5,6 +5,7 @@ namespace LarAgent\Messages;
 use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
 
 class StreamedAssistantMessage extends AssistantMessage implements MessageInterface
 {
@@ -34,8 +35,8 @@ class StreamedAssistantMessage extends AssistantMessage implements MessageInterf
     {
         $this->contentBuffer .= $chunk;
         $this->lastChunk = $chunk;
-        // Update the TextContent with the new buffer
-        $this->content = new TextContent($this->contentBuffer);
+        // Update the MessageContent with the new buffer
+        $this->content = new MessageContent([new TextContent($this->contentBuffer)]);
 
         return $this;
     }

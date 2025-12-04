@@ -62,6 +62,7 @@ abstract class DataModelArray implements DataModelArrayContract
             }
 
             if (!is_array($item)) {
+                print_r($item);
                 throw new InvalidArgumentException("Item must be an array or DataModel instance.");
             }
 

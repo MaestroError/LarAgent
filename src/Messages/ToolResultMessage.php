@@ -68,7 +68,7 @@ class ToolResultMessage extends Message implements MessageInterface
     {
         $result = [
             'role' => $this->getRole(),
-            'content' => $this->content ? (string) $this->content : '',
+            'content' => $this->content ? $this->content->toArray() : '',
             'tool_call_id' => $this->getToolCallId(),
             'message_uuid' => $this->message_uuid,
             'message_created' => $this->message_created,

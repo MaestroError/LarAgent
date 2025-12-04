@@ -65,7 +65,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         return $client;
     }
 
-    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');
@@ -103,7 +103,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         throw new \Exception('Unexpected stop reason: '.$response->stop_reason);
     }
 
-    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Claude driver.');

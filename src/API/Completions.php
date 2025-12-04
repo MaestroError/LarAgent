@@ -50,6 +50,11 @@ class Completions
             unset($message['usage']);
             unset($message['metadata']['usage']);
 
+            // Normalize content as string
+            if (isset($message['content']) && is_array($message['content'])) {
+                $message['content'] = $response->getContentAsString();
+            }
+
             $choices = [[
                 'index' => 0,
                 'message' => $message,

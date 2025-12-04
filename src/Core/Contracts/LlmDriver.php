@@ -18,7 +18,7 @@ interface LlmDriver
      * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults.
      * @return AssistantMessage The response from the LLM in a structured format.
      */
-    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage;
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage;
 
     /**
      * Register a tool for the LLM to use.
@@ -73,7 +73,7 @@ interface LlmDriver
      * @param  callable|null  $callback  Optional callback function to process each chunk of the stream
      * @return \Generator A generator that yields chunks of the response
      */
-    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator;
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator;
 
     /**
      * Get the provider data merged with the model defined settings.

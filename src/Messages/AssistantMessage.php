@@ -10,6 +10,7 @@ use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Attributes\Desc;
 use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\Usage\DataModels\Usage;
+use LarAgent\Messages\DataModels\MessageContent;
 
 class AssistantMessage extends Message implements MessageInterface
 {
@@ -17,7 +18,7 @@ class AssistantMessage extends Message implements MessageInterface
     public string|Role $role = 'assistant';
 
     #[Desc('The text content of the assistant response')]
-    public ?TextContent $content;
+    public ?MessageContent $content;
 
     /**
      * Token usage information from the API response.
@@ -26,12 +27,12 @@ class AssistantMessage extends Message implements MessageInterface
     #[ExcludeFromSchema]
     public ?Usage $usage = null;
 
-    public function __construct(string|TextContent $content = '', array $metadata = [])
+    public function __construct(string|MessageContent $content = '', array $metadata = [])
     {
         parent::__construct();
         
         if (is_string($content)) {
-            $this->content = new TextContent($content);
+            $this->content = new MessageContent([new TextContent($content)]);
         } else {
             $this->content = $content;
         }
@@ -39,15 +40,15 @@ class AssistantMessage extends Message implements MessageInterface
         $this->metadata = $metadata;
     }
 
-    public function getContent(): ?TextContent
+    public function getContent(): ?MessageContent
     {
         return $this->content;
     }
 
     public function setContent(?DataModelContract $content): void
     {
-        if ($content !== null && !($content instanceof TextContent)) {
-            throw new \InvalidArgumentException('AssistantMessage content must be TextContent or null');
+        if ($content !== null && !($content instanceof MessageContent)) {
+            throw new \InvalidArgumentException('AssistantMessage content must be MessageContent or null');
         }
         $this->content = $content;
     }
@@ -97,10 +98,18 @@ class AssistantMessage extends Message implements MessageInterface
     {
         $result = [
             'role' => $this->getRole(),
-            'content' => $this->content ? (string) $this->content : null,
             'message_uuid' => $this->message_uuid,
             'message_created' => $this->message_created,
         ];
+
+        if ($this->content !== null) {
+            $result['content'] = [
+                'type' => 'text',
+                'text' => (string) $this->content,
+            ];
+        } else {
+            $result['content'] = '';
+        }
 
         if (!empty($this->extras)) {
             $result['extras'] = $this->extras;

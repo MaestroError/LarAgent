@@ -7,6 +7,7 @@ use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
 use LarAgent\Context\SessionIdentity;
+use LarAgent\Messages\DataModels\MessageContent;
 
 it('can setup LarAgent', function () {
     $driver = new FakeLlmDriver;
@@ -75,7 +76,7 @@ it('can run and get response', function () {
 
     expect($response)->toBeInstanceOf(\LarAgent\Messages\AssistantMessage::class);
     expect((string) $response)->toBe('Hi there!');
-    expect($response['content'])->toBe('Hi there!');
+    expect($response->getContentAsString())->toBe('Hi there!');
 });
 
 it('can run with tools', function () {
@@ -100,7 +101,7 @@ it('can run with tools', function () {
         ->withMessage($userMessage);
 
     $agent->afterResponse(function ($agent, $message) {
-        $message->setContent(new TextContent($message->getContentAsString() . '. Checked at 2024-01-01'));
+        $message->setContent(new MessageContent(new TextContent($message->getContentAsString() . '. Checked at 2024-01-01')));
     });
 
     $driver->addMockResponse('tool_calls', [

@@ -56,7 +56,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
      *
      * @throws \Exception
      */
-    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the OpenAI driver.');
@@ -120,7 +120,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
      *
      * @throws \Exception
      */
-    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('OpenAI API key is required to use the OpenAI driver.');

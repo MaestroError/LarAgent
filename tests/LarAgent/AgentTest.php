@@ -6,6 +6,7 @@ use LarAgent\Message;
 use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
+use LarAgent\Messages\DataModels\MessageContent;
 
 // Test agent
 class TestAgent extends Agent
@@ -57,7 +58,7 @@ class TestAgent extends Agent
         if ($this->n > 1) {
             return;
         } else {
-            $message->setContent(new TextContent($message->getContentAsString() . '. Edited via event'));
+            $message->setContent(new MessageContent(new TextContent($message->getContentAsString() . '. Edited via event')));
         }
     }
 

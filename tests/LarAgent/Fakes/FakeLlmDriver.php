@@ -38,7 +38,7 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
         return array_merge($this->getSettings(), $this->lastOverrideSettings);
     }
 
-    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
     {
         $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
             ? $overrideSettings->toArray() 
@@ -93,7 +93,7 @@ class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
      *
      * @throws \Exception
      */
-    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
         $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig 
             ? $overrideSettings->toArray() 

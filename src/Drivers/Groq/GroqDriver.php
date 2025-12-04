@@ -56,7 +56,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         return $this->formatter;
     }
 
-    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Groq driver.');
@@ -91,7 +91,7 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         throw new \Exception('Unexpected finish reason: '.$finishReason);
     }
 
-    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Groq driver.');

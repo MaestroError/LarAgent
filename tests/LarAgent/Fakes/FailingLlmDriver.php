@@ -9,12 +9,12 @@ use LarAgent\Messages\ToolCallMessage;
 
 class FailingLlmDriver extends FakeLlmDriver
 {
-    public function sendMessage(MessageArray $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = new DriverConfig): AssistantMessage|ToolCallMessage
     {
         throw new \Exception('Simulated failure');
     }
 
-    public function sendMessageStreamed(MessageArray $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
         throw new \Exception('Simulated failure');
     }

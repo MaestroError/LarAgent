@@ -519,7 +519,7 @@ class LarAgent
 
         // Get the streamed response
         $stream = $this->driver->sendMessageStreamed(
-            $this->chatHistory->getMessages(),
+            $this->chatHistory->getMessages()->all(),
             $this->buildConfig(),
             $callback
         );
@@ -612,7 +612,7 @@ class LarAgent
             return null;
         }
 
-        $response = $this->driver->sendMessage($this->chatHistory->getMessages(), $this->buildConfig());
+        $response = $this->driver->sendMessage($this->chatHistory->getMessages()->all(), $this->buildConfig());
         // After response (After receiving message from LLM)
         $this->processAfterResponse($response);
         $this->chatHistory->addMessage($response);

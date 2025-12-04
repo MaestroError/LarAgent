@@ -14,7 +14,7 @@ it('returns an assistant message', function () {
         'metaData' => ['usage' => ['tokens' => 10]],
     ]);
 
-    $message = $driver->sendMessage(MessageArray::fromArray([]));
+    $message = $driver->sendMessage(MessageArray::fromArray([])->all());
 
     expect($message)
         ->toBeInstanceOf(AssistantMessage::class)
@@ -30,7 +30,7 @@ it('returns a tool call message', function () {
         'metaData' => ['usage' => ['tokens' => 15]],
     ]);
 
-    $message = $driver->sendMessage(MessageArray::fromArray([]));
+    $message = $driver->sendMessage(MessageArray::fromArray([])->all());
 
     expect($message)
         ->toBeInstanceOf(ToolCallMessage::class)
