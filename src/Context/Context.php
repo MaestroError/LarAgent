@@ -78,12 +78,6 @@ class Context implements ContextContract
         }
     }
 
-    public function __destruct()
-    {
-        // Auto-save dirty storages on termination
-        $this->save();
-    }
-
     /**
      * Build the identity for IdentityStorage.
      * Uses only agent name to ensure all sessions of the same agent share the same identity storage.
@@ -164,7 +158,7 @@ class Context implements ContextContract
     {
         $config = !empty($driversConfig) ? $driversConfig : $this->driversConfig;
         
-        $storage = new $storageClass($config, $this->identity);
+        $storage = new $storageClass($this->identity, $config);
         $this->register($storage);
         
         return $storage;

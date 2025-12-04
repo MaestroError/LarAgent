@@ -214,7 +214,12 @@ class Agent
 
     public function __destruct()
     {
+        $this->cleanup();
         $this->onTerminate();
+    }
+
+    protected function cleanup() {
+        $this->saveContext();
     }
 
     // Public API

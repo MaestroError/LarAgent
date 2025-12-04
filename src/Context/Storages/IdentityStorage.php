@@ -53,7 +53,7 @@ class IdentityStorage extends Storage
      */
     public function addIdentity(SessionIdentityContract $identity): void
     {
-        // Dispatch IdentityAdding event
+        // Dispatch IdentityAdding event (always, before attempting to add)
         if (class_exists('Illuminate\Support\Facades\Event')) {
             \Illuminate\Support\Facades\Event::dispatch(new IdentityAdding($this, $identity));
         }
@@ -64,11 +64,11 @@ class IdentityStorage extends Storage
         if (!$this->items->hasKey($identity->getKey())) {
             $this->items->add($identity);
             $this->dirty = true;
-        }
 
-        // Dispatch IdentityAdded event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new IdentityAdded($this, $identity));
+            // Dispatch IdentityAdded event (only when actually added)
+            if (class_exists('Illuminate\Support\Facades\Event')) {
+                \Illuminate\Support\Facades\Event::dispatch(new IdentityAdded($this, $identity));
+            }
         }
     }
 

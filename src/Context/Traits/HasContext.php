@@ -81,7 +81,7 @@ trait HasContext
         $identity = isset($this->sessionIdentity) ? $this->sessionIdentity : $this->buildIdentity();
         $this->context = new Context($identity, $driversConfig);
         // Explicitly load context identity data
-        $this->context->getContextIdentity()->read();
+        $this->context->getIdentityStorage()->read();
     }
 
     public function usesUserId(): static
