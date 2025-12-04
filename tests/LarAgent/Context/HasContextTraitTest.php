@@ -364,38 +364,6 @@ describe('HasContext Trait', function () {
         
     });
     
-    describe('setGroup', function () {
-        
-        test('sets group', function () {
-            $instance = new HasContextTestClass();
-            $instance->setPropertiesForTest('Agent', 'chat');
-            $instance->setGroup('new_group');
-            
-            expect($instance->group())->toBe('new_group');
-        });
-        
-        test('returns static for fluent interface', function () {
-            $instance = new HasContextTestClass();
-            $instance->setPropertiesForTest('Agent', 'chat');
-            $result = $instance->setGroup('group');
-            
-            expect($result)->toBeInstanceOf(HasContextTestClass::class);
-        });
-        
-        test('can be chained with other methods', function () {
-            $instance = new HasContextTestClass();
-            $instance->setPropertiesForTest('Agent', 'chat');
-            
-            $instance
-                ->setGroup('chained_group')
-                ->usesUserId();
-            
-            expect($instance->group())->toBe('chained_group')
-                ->and($instance->hasUserId())->toBeTrue();
-        });
-        
-    });
-    
     describe('context', function () {
         
         test('returns Context instance', function () {
@@ -416,14 +384,12 @@ describe('HasContext Trait', function () {
         test('full workflow with userId', function () {
             $instance = new HasContextTestClass();
             
-            // Enable userId tracking
+            // Enable userId tracking and set group via property
             $instance->usesUserId();
+            $instance->setPropertiesForTest('WorkflowAgent', 'user_abc123', 'user_abc123', 'workflow_group');
             
             // Set session info
             $instance->publicSetChatSessionId('user_abc123', 'WorkflowAgent');
-            
-            // Set group
-            $instance->setGroup('workflow_group');
             
             // Setup context
             $instance->publicSetupContext([
@@ -479,9 +445,9 @@ describe('HasContext Trait', function () {
         test('sessionIdentity with all parameters matches expected key', function () {
             $instance = new HasContextTestClass();
             
-            // Enable userId and set group
+            // Enable userId and set group via property before building session
             $instance->usesUserId();
-            $instance->setGroup('test_group');
+            $instance->setPropertiesForTest('FullAgent', 'user_123', null, 'test_group');
             
             // Set session
             $instance->publicSetChatSessionId('user_123', 'FullAgent');

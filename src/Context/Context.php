@@ -288,6 +288,17 @@ class Context implements ContextContract
     }
 
     /**
+     * Get tracked identities filtered by scope.
+     *
+     * @param string $scope The scope to filter by (e.g., 'chatHistory')
+     * @return \LarAgent\Context\DataModels\SessionIdentityArray
+     */
+    public function getTrackedIdentitiesByScope(string $scope): \LarAgent\Context\DataModels\SessionIdentityArray
+    {
+        return $this->identityStorage->getIdentitiesByScope($scope);
+    }
+
+    /**
      * Get the identity storage instance.
      *
      * @return IdentityStorage

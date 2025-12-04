@@ -153,11 +153,33 @@ class IdentityStorage extends Storage
      */
     public function getKeysByPrefix(string $prefix): array
     {
-        $filtered = $this->get()->filter(function (SessionIdentity $identity) use ($prefix) {
-            return str_starts_with($identity->getKey(), $prefix . '_');
-        });
+        return $this->getIdentitiesByScope($prefix)->getKeys();
+    }
 
-        return $filtered->getKeys();
+    /**
+     * Get tracked identities filtered by scope/prefix.
+     *
+     * @param string $scope The scope to filter by (e.g., 'chatHistory')
+     * @return SessionIdentityArray
+     */
+    public function getIdentitiesByScope(string $scope): SessionIdentityArray
+    {
+        return $this->get()->filter(function (SessionIdentity $identity) use ($scope) {
+            return $identity->getScope() === $scope;
+        });
+    }
+
+    /**
+     * Get tracked identities filtered by user ID.
+     *
+     * @param string $userId The user ID to filter by
+     * @return SessionIdentityArray
+     */
+    public function getIdentitiesByUser(string $userId): SessionIdentityArray
+    {
+        return $this->get()->filter(function (SessionIdentity $identity) use ($userId) {
+            return $identity->getUserId() === $userId;
+        });
     }
 
     /**

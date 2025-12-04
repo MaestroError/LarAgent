@@ -120,12 +120,6 @@ trait HasContext
         return $this->group;
     }
 
-    public function setGroup(string $group): static
-    {
-        $this->group = $group;
-        return $this;
-    }
-
     public function context(): Context
     {
         return $this->context;

@@ -189,8 +189,15 @@ class Agent
      */
     protected $forceReadContext = false;
 
-    public function __construct($key)
+    public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
+        $this->usesUserId = $usesUserId;
+        
+        // Set group before identity is built (if provided)
+        if ($group !== null) {
+            $this->group = $group;
+        }
+        
         $this->setupProviderData();
         $this->setName();
         $this->setChatSessionId($key, $this->name());
@@ -234,11 +241,36 @@ class Agent
      */
     public static function forUser(Authenticatable $user): static
     {
-        $userId = $user->getAuthIdentifier();
-        $instance = new static($userId);
-        $instance->usesUserId();
+        return static::forUserId($user->getAuthIdentifier());
+    }
 
-        return $instance;
+    /**
+     * Create an agent instance for a specific user ID
+     *
+     * @param  string  $userId  The user ID to create agent for
+     */
+    public static function forUserId(string $userId): static
+    {
+        return new static($userId, usesUserId: true);
+    }
+
+    /**
+     * Reconstruct an agent instance from a SessionIdentity.
+     * Useful for operating on tracked storages without knowing the original creation method.
+     *
+     * @param  \LarAgent\Context\Contracts\SessionIdentity  $identity  The identity to reconstruct from
+     * @return static The reconstructed agent instance
+     */
+    public static function fromIdentity(\LarAgent\Context\Contracts\SessionIdentity $identity): static
+    {
+        $group = $identity->getGroup();
+        
+        // Determine if this was a user-based or chat-based identity
+        if ($identity->getUserId() !== null) {
+            return new static($identity->getUserId(), usesUserId: true, group: $group);
+        }
+        
+        return new static($identity->getChatName() ?? 'default', usesUserId: false, group: $group);
     }
 
     /**
@@ -1009,6 +1041,16 @@ class Agent
     public function getChatKeys(): array
     {
         return $this->context()->getTrackedKeysByPrefix(ChatHistoryStorage::getStoragePrefix());
+    }
+
+    /**
+     * Get chat history identities associated with this agent class
+     *
+     * @return \LarAgent\Context\DataModels\SessionIdentityArray Array of chat history identities
+     */
+    public function getChatIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
+    {
+        return $this->context()->getTrackedIdentitiesByScope(ChatHistoryStorage::getStoragePrefix());
     }
 
     public function getModalities(): array
