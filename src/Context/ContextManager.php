@@ -7,6 +7,7 @@ use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\DataModels\SessionIdentityArray;
 use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Context\Storages\IdentityStorage;
+use LarAgent\Context\Traits\HasContextFilters;
 
 /**
  * Context Manager provides an Eloquent-like fluent API for working with agent contexts.
@@ -22,6 +23,7 @@ use LarAgent\Context\Storages\IdentityStorage;
  */
 class ContextManager
 {
+    use HasContextFilters;
     /**
      * The agent class to work with
      */
@@ -31,13 +33,6 @@ class ContextManager
      * Temporary agent instance for accessing context
      */
     protected ?Agent $tempAgent = null;
-
-    /**
-     * Array of filter callbacks to apply
-     * 
-     * @var array<callable>
-     */
-    protected array $filters = [];
 
     /**
      * Create a new ContextManager for the given agent class.
@@ -103,82 +98,6 @@ class ContextManager
     }
 
     // ==========================================
-    // Filter Methods (Chainable)
-    // ==========================================
-
-    /**
-     * Filter by storage scope/type.
-     *
-     * @param string $storageClass The storage class to filter by (e.g., ChatHistoryStorage::class)
-     * @return static
-     */
-    public function forStorage(string $storageClass): static
-    {
-        $instance = $this->newInstance();
-        
-        // Resolve class name to prefix if it's a Storage class
-        $scope = $storageClass;
-        if (class_exists($storageClass) && method_exists($storageClass, 'getStoragePrefix')) {
-            $scope = $storageClass::getStoragePrefix();
-        }
-        
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getScope() === $scope;
-        return $instance;
-    }
-
-    /**
-     * Filter by user ID.
-     *
-     * @param string $userId The user ID to filter by
-     * @return static
-     */
-    public function forUser(string $userId): static
-    {
-        $instance = $this->newInstance();
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getUserId() === $userId;
-        return $instance;
-    }
-
-    /**
-     * Filter by chat name.
-     *
-     * @param string $chatName The chat name to filter by
-     * @return static
-     */
-    public function forChat(string $chatName): static
-    {
-        $instance = $this->newInstance();
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getChatName() === $chatName;
-        return $instance;
-    }
-
-    /**
-     * Filter by group.
-     *
-     * @param string $group The group to filter by
-     * @return static
-     */
-    public function forGroup(string $group): static
-    {
-        $instance = $this->newInstance();
-        $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getGroup() === $group;
-        return $instance;
-    }
-
-    /**
-     * Add a custom filter callback.
-     *
-     * @param callable $callback Receives SessionIdentityContract, returns bool
-     * @return static
-     */
-    public function filter(callable $callback): static
-    {
-        $instance = $this->newInstance();
-        $instance->filters[] = $callback;
-        return $instance;
-    }
-
-    // ==========================================
     // Query Methods (Non-terminal)
     // ==========================================
 
@@ -190,44 +109,6 @@ class ContextManager
     protected function getAllIdentities(): SessionIdentityArray
     {
         return $this->getContext()->getIdentityStorage()->get();
-    }
-
-    /**
-     * Get identities matching all applied filters.
-     * Default to ChatHistoryStorage scope if no storage filter applied.
-     *
-     * @return SessionIdentityArray
-     */
-    public function getIdentities(): SessionIdentityArray
-    {
-        $identities = $this->getAllIdentities();
-
-        // Check if a storage filter has been applied
-        $hasStorageFilter = false;
-        foreach ($this->filters as $filter) {
-            // We can't easily detect this, so we'll track it differently
-        }
-
-        // Apply default ChatHistoryStorage filter if no explicit storage filter
-        // and we're starting fresh (this ensures backwards compatibility)
-        $filters = $this->filters;
-        
-        // Apply all filters
-        foreach ($filters as $filter) {
-            $identities = $identities->filter($filter);
-        }
-
-        return $identities;
-    }
-
-    /**
-     * Get chat history identities (filtered by ChatHistoryStorage scope).
-     *
-     * @return SessionIdentityArray
-     */
-    public function getChatIdentities(): SessionIdentityArray
-    {
-        return $this->forStorage(ChatHistoryStorage::class)->getIdentities();
     }
 
     /**
@@ -270,26 +151,6 @@ class ContextManager
     }
 
     /**
-     * Get count of matching identities.
-     *
-     * @return int
-     */
-    public function count(): int
-    {
-        return $this->getIdentities()->count();
-    }
-
-    /**
-     * Get the first matching identity.
-     *
-     * @return SessionIdentityContract|null
-     */
-    public function first(): ?SessionIdentityContract
-    {
-        return $this->getIdentities()->first();
-    }
-
-    /**
      * Get the first matching identity as an agent instance.
      *
      * @return Agent|null
@@ -298,16 +159,6 @@ class ContextManager
     {
         $identity = $this->first();
         return $identity ? $this->agentClass::fromIdentity($identity) : null;
-    }
-
-    /**
-     * Check if any identities match the current filters.
-     *
-     * @return bool
-     */
-    public function exists(): bool
-    {
-        return $this->count() > 0;
     }
 
     /**
@@ -348,16 +199,6 @@ class ContextManager
         $identityStorage->save();
         
         return $this;
-    }
-
-    /**
-     * Collect all matching identities as an array of SessionIdentity objects.
-     *
-     * @return array<SessionIdentityContract>
-     */
-    public function all(): array
-    {
-        return $this->getIdentities()->all();
     }
 
     /**
