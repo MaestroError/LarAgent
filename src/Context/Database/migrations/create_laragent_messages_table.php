@@ -20,7 +20,7 @@ return new class extends Migration
             
             // Core message fields
             $table->string('role', 50)->nullable();
-            $table->longText('content')->nullable();
+            $table->json('content')->nullable();
             $table->string('message_uuid', 50)->nullable()->index();
             $table->string('message_created', 50)->nullable();
             

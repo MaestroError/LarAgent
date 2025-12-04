@@ -130,7 +130,7 @@ describe('PublishCommand', function () {
             ->and($content)->toContain('$table->string(\'session_key\')')
             ->and($content)->toContain('$table->unsignedInteger(\'position\')')
             ->and($content)->toContain('$table->string(\'role\'')
-            ->and($content)->toContain('$table->longText(\'content\')')
+            ->and($content)->toContain('$table->json(\'content\')')
             ->and($content)->toContain('$table->json(\'tool_calls\')')
             ->and($content)->toContain('$table->json(\'usage\')')
             ->and($content)->toContain('$table->json(\'metadata\')')

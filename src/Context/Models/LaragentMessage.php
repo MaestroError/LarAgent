@@ -48,6 +48,7 @@ class LaragentMessage extends Model
      */
     protected $casts = [
         'position' => 'integer',
+        'content' => 'array',
         'tool_calls' => 'array',
         'usage' => 'array',
         'metadata' => 'array',
