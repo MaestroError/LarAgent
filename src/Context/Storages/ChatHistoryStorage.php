@@ -6,6 +6,7 @@ use LarAgent\Context\Abstract\Storage;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\DataModelArray as DataModelArrayContract;
+use LarAgent\Core\Traits\SafeEventDispatch;
 use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Events\ChatHistory\ChatHistoryLoaded;
 use LarAgent\Events\ChatHistory\ChatHistorySaving;
@@ -16,6 +17,7 @@ use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 
 class ChatHistoryStorage extends Storage implements ChatHistoryInterface
 {
+    use SafeEventDispatch;
     /**
      * Whether to store metadata with messages
      */
@@ -66,16 +68,12 @@ class ChatHistoryStorage extends Storage implements ChatHistoryInterface
     public function addMessage(MessageInterface $message): void
     {
         // Dispatch MessageAdding event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new MessageAdding($this, $message));
-        }
+        $this->dispatchEvent(new MessageAdding($this, $message));
 
         $this->add($message);
 
         // Dispatch MessageAdded event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new MessageAdded($this, $message));
-        }
+        $this->dispatchEvent(new MessageAdded($this, $message));
     }
 
     /**
@@ -191,17 +189,13 @@ class ChatHistoryStorage extends Storage implements ChatHistoryInterface
         }
 
         // Dispatch ChatHistorySaving event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ChatHistorySaving($this, $this->getMessages()));
-        }
+        $this->dispatchEvent(new ChatHistorySaving($this, $this->getMessages()));
 
         $this->writeItems();
         $this->dirty = false;
 
         // Dispatch ChatHistorySaved event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ChatHistorySaved($this));
-        }
+        $this->dispatchEvent(new ChatHistorySaved($this));
     }
 
     /**
@@ -215,9 +209,7 @@ class ChatHistoryStorage extends Storage implements ChatHistoryInterface
         parent::load();
 
         // Dispatch ChatHistoryLoaded event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ChatHistoryLoaded($this, $this->items));
-        }
+        $this->dispatchEvent(new ChatHistoryLoaded($this, $this->items));
     }
 
     /**

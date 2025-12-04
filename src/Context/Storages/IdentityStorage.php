@@ -6,6 +6,7 @@ use LarAgent\Context\Abstract\Storage;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\DataModels\SessionIdentityArray;
 use LarAgent\Context\SessionIdentity;
+use LarAgent\Core\Traits\SafeEventDispatch;
 use LarAgent\Events\IdentityStorage\IdentityStorageLoaded;
 use LarAgent\Events\IdentityStorage\IdentityStorageSaving;
 use LarAgent\Events\IdentityStorage\IdentityStorageSaved;
@@ -25,6 +26,27 @@ use LarAgent\Events\IdentityStorage\IdentityAdded;
  */
 class IdentityStorage extends Storage
 {
+    use SafeEventDispatch;
+
+    /**
+     * Reserved session ID prefix for temporary/internal agent instances.
+     * Identities with this prefix will not be tracked.
+     */
+    public const TEMP_SESSION_PREFIX = '_temp';
+
+    /**
+     * Check if an identity should be tracked.
+     * Identities with reserved prefixes are excluded from tracking.
+     *
+     * @param SessionIdentityContract $identity
+     * @return bool
+     */
+    protected function shouldTrack(SessionIdentityContract $identity): bool
+    {
+        $chatName = $identity->getChatName();
+        return $chatName === null || !str_starts_with($chatName, self::TEMP_SESSION_PREFIX);
+    }
+
     /**
      * Get the DataModelArray class name for identities
      * 
@@ -47,16 +69,20 @@ class IdentityStorage extends Storage
 
     /**
      * Add a storage identity to track.
+     * Identities with reserved session prefixes (e.g., '_temp') are not tracked.
      *
      * @param SessionIdentityContract $identity The storage identity to track
      * @return void
      */
     public function addIdentity(SessionIdentityContract $identity): void
     {
-        // Dispatch IdentityAdding event (always, before attempting to add)
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new IdentityAdding($this, $identity));
+        // Skip tracking for reserved/temporary sessions
+        if (!$this->shouldTrack($identity)) {
+            return;
         }
+
+        // Dispatch IdentityAdding event (always, before attempting to add)
+        $this->dispatchEvent(new IdentityAdding($this, $identity));
 
         $this->ensureLoaded();
         
@@ -66,9 +92,7 @@ class IdentityStorage extends Storage
             $this->dirty = true;
 
             // Dispatch IdentityAdded event (only when actually added)
-            if (class_exists('Illuminate\Support\Facades\Event')) {
-                \Illuminate\Support\Facades\Event::dispatch(new IdentityAdded($this, $identity));
-            }
+            $this->dispatchEvent(new IdentityAdded($this, $identity));
         }
     }
 
@@ -122,6 +146,21 @@ class IdentityStorage extends Storage
     }
 
     /**
+     * Get tracked storage keys filtered by prefix.
+     *
+     * @param string $prefix The prefix to filter by (e.g., 'chatHistory')
+     * @return array<string>
+     */
+    public function getKeysByPrefix(string $prefix): array
+    {
+        $filtered = $this->get()->filter(function (SessionIdentity $identity) use ($prefix) {
+            return str_starts_with($identity->getKey(), $prefix . '_');
+        });
+
+        return $filtered->getKeys();
+    }
+
+    /**
      * Get all tracked identities.
      *
      * @return SessionIdentityArray
@@ -144,17 +183,13 @@ class IdentityStorage extends Storage
         }
 
         // Dispatch IdentityStorageSaving event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new IdentityStorageSaving($this, $this->getIdentities()));
-        }
+        $this->dispatchEvent(new IdentityStorageSaving($this, $this->getIdentities()));
 
         $this->writeItems();
         $this->dirty = false;
 
         // Dispatch IdentityStorageSaved event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new IdentityStorageSaved($this));
-        }
+        $this->dispatchEvent(new IdentityStorageSaved($this));
     }
 
     /**
@@ -168,8 +203,6 @@ class IdentityStorage extends Storage
         parent::load();
 
         // Dispatch IdentityStorageLoaded event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new IdentityStorageLoaded($this, $this->items));
-        }
+        $this->dispatchEvent(new IdentityStorageLoaded($this, $this->items));
     }
 }

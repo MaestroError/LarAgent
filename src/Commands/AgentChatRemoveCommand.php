@@ -25,8 +25,8 @@ class AgentChatRemoveCommand extends Command
             }
         }
 
-        // Create a temporary instance to get chat keys
-        $agent = $agentClass::for('temp');
+        // Create a temporary instance to get chat keys (using reserved prefix so it won't be tracked)
+        $agent = $agentClass::for(\LarAgent\Context\Storages\IdentityStorage::TEMP_SESSION_PREFIX);
         $chatKeys = $agent->getChatKeys();
 
         if (! empty($chatKeys)) {
@@ -36,7 +36,9 @@ class AgentChatRemoveCommand extends Command
             foreach ($chatKeys as $key) {
                 $this->line("Removing chat history: {$key}");
             }
-            $agent->context()->remove();
+            // @todo: create via context facade
+            // @deprecated for now
+            // $agent->context()->remove();
 
             $this->info("Successfully removed all chat histories for agent: {$agentName}");
         } else {

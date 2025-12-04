@@ -19,7 +19,7 @@ use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 class TestAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
-    protected $history = 'in_memory';
+    protected $history = 'session';
     protected $provider = 'default';
     protected $tools = [];
     protected $driver = FakeLlmDriver::class;
@@ -75,6 +75,9 @@ test('it can clear chat history for existing agent', function () {
     $chatKeys = $agent->getChatKeys();
     expect($chatKeys)->toHaveCount(1);
     expect($chatKeys)->toContain('chatHistory_TestAgent_test_key');
+
+    // Save context before agent goes out of scope
+    $agent->context()->save();
 
     // Clear the history
     $this->artisan('agent:chat:clear', ['agent' => 'TestAgent'])

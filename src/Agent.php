@@ -209,6 +209,7 @@ class Agent
         }
 
         $this->initMcpClient();
+        
         $this->callEvent('onInitialize');
     }
 
@@ -218,8 +219,10 @@ class Agent
         $this->onTerminate();
     }
 
-    protected function cleanup() {
-        $this->saveContext();
+    protected function cleanup()
+    {
+        // Save context (dirty tracking handled by storages, events handled safely by Context)
+        $this->context()->save();
     }
 
     // Public API
@@ -918,6 +921,13 @@ class Agent
         return $ChatHistoryStorage;
     }
 
+    /**
+     * Save the context manually.
+     * Useful for explicitly saving mid-request.
+     * Events are dispatched safely (skipped if app is shutting down).
+     *
+     * @return static
+     */
     public function saveContext(): static
     {
         $this->context()->save();
@@ -946,7 +956,8 @@ class Agent
     protected function defaultStorageDrivers(): array
     {
         if (!isset($this->storage)) {
-            return $this->defaultStorageDrivers();
+            // Ultimate fallback to InMemoryStorage
+            return [\LarAgent\Context\Drivers\InMemoryStorage::class];
         }
         return $this->storage;
     }
@@ -981,13 +992,23 @@ class Agent
     }
 
     /**
-     * Get all chat keys associated with this agent class
+     * Get all storage keys associated with this agent class
      *
-     * @return array Array of chat keys filtered by agent class name
+     * @return array Array of all storage keys tracked by the context
+     */
+    public function getStorageKeys(): array
+    {
+        return $this->context()->getTrackedKeys();
+    }
+
+    /**
+     * Get chat history keys associated with this agent class
+     *
+     * @return array Array of chat history keys filtered by 'chatHistory' prefix
      */
     public function getChatKeys(): array
     {
-        return $this->context()->getTrackedKeys();
+        return $this->context()->getTrackedKeysByPrefix(ChatHistoryStorage::getStoragePrefix());
     }
 
     public function getModalities(): array

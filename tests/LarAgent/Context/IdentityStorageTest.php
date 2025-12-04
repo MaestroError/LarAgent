@@ -457,3 +457,73 @@ test('IdentityStorage multiple agents can have separate identity storages', func
     expect($keys1[0])->toContain('Agent1');
     expect($keys2[0])->toContain('Agent2');
 });
+
+// ===========================================
+// 2.7 Temporary Session Prefix (Reserved Keys)
+// ===========================================
+
+test('IdentityStorage TEMP_SESSION_PREFIX constant is defined', function () {
+    expect(IdentityStorage::TEMP_SESSION_PREFIX)->toBe('_temp');
+});
+
+test('IdentityStorage does not track identities with temp prefix', function () {
+    $baseIdentity = createIdentityStorageTestIdentity('TestAgent');
+    $storage = createTestIdentityStorage($baseIdentity);
+    
+    // Create an identity with temp prefix
+    $tempIdentity = createIdentityStorageTestIdentity('TestAgent', IdentityStorage::TEMP_SESSION_PREFIX);
+    $storage->addIdentity($tempIdentity);
+    
+    // Should not be tracked
+    expect($storage->count())->toBe(0);
+    expect($storage->hasKey($tempIdentity->getKey()))->toBeFalse();
+});
+
+test('IdentityStorage does not track identities with temp prefix variations', function () {
+    $baseIdentity = createIdentityStorageTestIdentity('TestAgent');
+    $storage = createTestIdentityStorage($baseIdentity);
+    
+    // Create identities with various temp prefix patterns
+    $temp1 = createIdentityStorageTestIdentity('TestAgent', '_temp');
+    $temp2 = createIdentityStorageTestIdentity('TestAgent', '_temp_123');
+    $temp3 = createIdentityStorageTestIdentity('TestAgent', '_temporary');
+    
+    $storage->addIdentity($temp1);
+    $storage->addIdentity($temp2);
+    $storage->addIdentity($temp3);
+    
+    // None should be tracked
+    expect($storage->count())->toBe(0);
+});
+
+test('IdentityStorage still tracks regular identities alongside temp', function () {
+    $baseIdentity = createIdentityStorageTestIdentity('TestAgent');
+    $storage = createTestIdentityStorage($baseIdentity);
+    
+    // Add temp and regular identities
+    $tempIdentity = createIdentityStorageTestIdentity('TestAgent', '_temp');
+    $regularIdentity = createIdentityStorageTestIdentity('TestAgent', 'user_123');
+    
+    $storage->addIdentity($tempIdentity);
+    $storage->addIdentity($regularIdentity);
+    
+    // Only regular should be tracked
+    expect($storage->count())->toBe(1);
+    expect($storage->hasKey($tempIdentity->getKey()))->toBeFalse();
+    expect($storage->hasKey($regularIdentity->getKey()))->toBeTrue();
+});
+
+test('IdentityStorage does not dispatch events for temp identities', function () {
+    Event::fake([IdentityAdding::class, IdentityAdded::class]);
+    
+    $baseIdentity = createIdentityStorageTestIdentity('TestAgent');
+    $storage = createTestIdentityStorage($baseIdentity);
+    
+    // Add temp identity
+    $tempIdentity = createIdentityStorageTestIdentity('TestAgent', '_temp');
+    $storage->addIdentity($tempIdentity);
+    
+    // No events should be dispatched
+    Event::assertNotDispatched(IdentityAdding::class);
+    Event::assertNotDispatched(IdentityAdded::class);
+});

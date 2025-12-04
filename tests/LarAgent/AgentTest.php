@@ -67,6 +67,22 @@ class TestAgent extends Agent
     }
 }
 
+// Test agent without storage property set - for testing fallback behavior
+class TestAgentNoStorage extends Agent
+{
+    protected $model = 'gpt-4o-mini';
+
+    protected $driver = FakeLlmDriver::class;
+
+    // Intentionally NOT setting $storage or $history properties
+    // to test fallback behavior
+
+    public function instructions()
+    {
+        return 'You are a test agent.';
+    }
+}
+
 // Test tool
 class WeatherTool extends Tool
 {
@@ -750,4 +766,33 @@ it('arbitrary configs are overwritten during chaining', function () {
     $agent->withConfigs(['test_key' => 'test_value']);
     $agent->withConfigs(['test_key' => 'test_value2']);
     expect($agent->getConfig('test_key'))->toBe('test_value2');
+});
+
+// ===========================================
+// Storage Driver Configuration Tests
+// ===========================================
+
+it('uses InMemoryStorage as fallback when no storage configured', function () {
+    // Clear the config temporarily
+    $originalConfig = config('laragent.default_storage');
+    config(['laragent.default_storage' => null]);
+    
+    // Create agent without storage configured - should not infinite loop
+    $agent = TestAgentNoStorage::for('test_storage_fallback');
+    
+    // The agent should have been created successfully
+    expect($agent)->toBeInstanceOf(Agent::class);
+    
+    // Restore config
+    config(['laragent.default_storage' => $originalConfig]);
+});
+
+it('uses config default_storage when agent storage not set', function () {
+    $configDrivers = config('laragent.default_storage');
+    
+    $agent = TestAgentNoStorage::for('test_config_storage');
+    
+    // Should work without errors
+    expect($agent)->toBeInstanceOf(Agent::class);
+    expect($agent->chatHistory())->not->toBeNull();
 });

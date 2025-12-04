@@ -6,6 +6,7 @@ use LarAgent\Context\Contracts\Context as ContextContract;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\Contracts\Storage as StorageContract;
 use LarAgent\Context\Storages\IdentityStorage;
+use LarAgent\Core\Traits\SafeEventDispatch;
 use LarAgent\Events\Context\ContextCreated;
 use LarAgent\Events\Context\ContextSaving;
 use LarAgent\Events\Context\ContextSaved;
@@ -26,6 +27,7 @@ use LarAgent\Events\Context\StorageRegistered;
  */
 class Context implements ContextContract
 {
+    use SafeEventDispatch;
     /**
      * Base identity for this context
      */
@@ -73,9 +75,7 @@ class Context implements ContextContract
         $this->identityStorage = $this->buildIdentityStorage();
 
         // Dispatch ContextCreated event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ContextCreated($this));
-        }
+        $this->dispatchEvent(new ContextCreated($this));
     }
 
     /**
@@ -139,9 +139,7 @@ class Context implements ContextContract
         $this->identityStorage->addIdentity($storage->getIdentity());
 
         // Dispatch StorageRegistered event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new StorageRegistered($this, $prefix, $storage));
-        }
+        $this->dispatchEvent(new StorageRegistered($this, $prefix, $storage));
         
         return $this;
     }
@@ -207,9 +205,7 @@ class Context implements ContextContract
     public function save(): void
     {
         // Dispatch ContextSaving event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ContextSaving($this));
-        }
+        $this->dispatchEvent(new ContextSaving($this));
 
         foreach ($this->storages as $storage) {
             $storage->save();
@@ -217,9 +213,7 @@ class Context implements ContextContract
         $this->identityStorage->save();
 
         // Dispatch ContextSaved event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ContextSaved($this));
-        }
+        $this->dispatchEvent(new ContextSaved($this));
     }
 
     /**
@@ -230,18 +224,14 @@ class Context implements ContextContract
     public function read(): void
     {
         // Dispatch ContextReading event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ContextReading($this));
-        }
+        $this->dispatchEvent(new ContextReading($this));
 
         foreach ($this->storages as $storage) {
             $storage->read();
         }
 
         // Dispatch ContextRead event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ContextRead($this));
-        }
+        $this->dispatchEvent(new ContextRead($this));
     }
 
     /**
@@ -252,18 +242,14 @@ class Context implements ContextContract
     public function clear(): void
     {
         // Dispatch ContextClearing event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ContextClearing($this));
-        }
+        $this->dispatchEvent(new ContextClearing($this));
 
         foreach ($this->storages as $storage) {
             $storage->clear();
         }
 
         // Dispatch ContextCleared event
-        if (class_exists('Illuminate\Support\Facades\Event')) {
-            \Illuminate\Support\Facades\Event::dispatch(new ContextCleared($this));
-        }
+        $this->dispatchEvent(new ContextCleared($this));
     }
 
     /**
@@ -288,6 +274,17 @@ class Context implements ContextContract
     public function getTrackedKeys(): array
     {
         return $this->identityStorage->getKeys();
+    }
+
+    /**
+     * Get storage keys tracked by this context, filtered by prefix.
+     *
+     * @param string $prefix The storage prefix to filter by (e.g., 'chatHistory')
+     * @return array<string>
+     */
+    public function getTrackedKeysByPrefix(string $prefix): array
+    {
+        return $this->identityStorage->getKeysByPrefix($prefix);
     }
 
     /**
