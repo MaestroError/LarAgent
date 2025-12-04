@@ -146,11 +146,6 @@ test('DataModel: ArrayAccess works with fill logic', function () {
 
     // Offset Unset
     unset($model['name']);
-    // Note: Unsetting a typed property without default value might leave it uninitialized.
-    // In this test case, we just check if we can unset it.
-    // Accessing it afterwards might throw Error depending on PHP version and initialization state.
-    // Let's check if property_exists still returns true (it should, but uninitialized)
-    // or if isset returns false.
     expect(isset($model['name']))->toBeFalse();
 });
 

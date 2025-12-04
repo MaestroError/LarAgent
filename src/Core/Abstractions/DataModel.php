@@ -338,6 +338,15 @@ abstract class DataModel implements DataModelContract, ArrayAccess, JsonSerializ
         $this->fill([$offset => $value]);
     }
 
+    /**
+     * Unset an offset.
+     *
+     * Note: Unsetting a typed property without default value will leave it uninitialized.
+     * Accessing it afterwards will throw an Error. The property still exists but isset() returns false.
+     *
+     * @param mixed $offset
+     * @return void
+     */
     public function offsetUnset(mixed $offset): void
     {
         unset($this->$offset);
