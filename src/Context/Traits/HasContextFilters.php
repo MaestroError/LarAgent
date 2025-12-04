@@ -2,6 +2,7 @@
 
 namespace LarAgent\Context\Traits;
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\DataModels\SessionIdentityArray;
 use LarAgent\Context\Storages\ChatHistoryStorage;
@@ -50,11 +51,15 @@ trait HasContextFilters
     /**
      * Filter by user ID.
      *
-     * @param string $userId The user ID to filter by
+     * @param string|Authenticatable $user The user ID or Authenticatable instance to filter by
      * @return static
      */
-    public function forUser(string $userId): static
+    public function forUser(string|Authenticatable $user): static
     {
+        $userId = $user instanceof Authenticatable
+            ? (string) $user->getAuthIdentifier()
+            : $user;
+
         $instance = $this->newInstance();
         $instance->filters[] = fn(SessionIdentityContract $identity) => $identity->getUserId() === $userId;
         return $instance;

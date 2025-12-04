@@ -22,18 +22,6 @@ use LarAgent\Context\NamedContextManager;
  */
 class Context extends Facade
 {
-    /**
-     * Create a named context manager for lightweight access.
-     * Does not require agent class initialization.
-     *
-     * @param string $agentName The agent name (without namespace)
-     * @return NamedContextManager
-     */
-    public static function named(string $agentName): NamedContextManager
-    {
-        return NamedContextManager::named($agentName);
-    }
-
     protected static function getFacadeAccessor(): string
     {
         return ContextManager::class;

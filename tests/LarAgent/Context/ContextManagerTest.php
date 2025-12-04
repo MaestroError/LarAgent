@@ -164,6 +164,29 @@ test('ContextManager → forUser() → filters by user ID', function () {
     expect($identities->first()->getUserId())->toBe("{$id}_user_1");
 });
 
+test('ContextManager → forUser() → accepts Authenticatable instance', function () {
+    $id = testId();
+    setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_auth_user", ['Hello from auth user']);
+    
+    // Create a mock Authenticatable
+    $user = new class("{$id}_auth_user") implements \Illuminate\Contracts\Auth\Authenticatable {
+        public function __construct(private string $id) {}
+        public function getAuthIdentifierName() { return 'id'; }
+        public function getAuthIdentifier() { return $this->id; }
+        public function getAuthPassword() { return ''; }
+        public function getRememberToken() { return ''; }
+        public function setRememberToken($value) {}
+        public function getRememberTokenName() { return ''; }
+        public function getAuthPasswordName() { return 'password'; }
+    };
+    
+    $manager = ContextManager::of(ContextManagerTestAgent::class);
+    $identities = $manager->forUser($user)->getIdentities();
+    
+    expect($identities->count())->toBe(1);
+    expect($identities->first()->getUserId())->toBe("{$id}_auth_user");
+});
+
 test('ContextManager → forChat() → filters by chat name', function () {
     $id = testId();
     setupAgentWithMessages(ContextManagerTestAgent::class, "{$id}_support", ['Support message']);

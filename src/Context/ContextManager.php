@@ -14,6 +14,10 @@ use LarAgent\Context\Traits\HasContextFilters;
  * 
  * Allows filtering and operating on agent storages with chainable methods.
  * 
+ * Is created to access contexts outside of agent.
+ * 
+ * Inside agent, use `$this->context()` instead.
+ * 
  * Usage:
  *   Context::of(MyAgent::class)->each(fn($identity, $agent) => ...)
  *   Context::of(MyAgent::class)->forUser($userId)->each(...)
@@ -57,6 +61,18 @@ class ContextManager
     public static function agent(string $agentClass): static
     {
         return static::of($agentClass);
+    }
+
+    /**
+     * Create a named context manager for lightweight access.
+     * Does not require agent class initialization.
+     *
+     * @param string $agentName The agent name (without namespace)
+     * @return NamedContextManager
+     */
+    public static function named(string $agentName): NamedContextManager
+    {
+        return NamedContextManager::named($agentName);
     }
 
     /**
