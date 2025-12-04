@@ -184,7 +184,7 @@ it('uses developer role for instructions when enabled', function () {
     $history = $chatHistory->toArray();
     $hasDevMessage = false;
     foreach ($history as $message) {
-        if ($message['role'] === 'developer' && $message['content'] === $instructions) {
+        if ($message['role'] === 'developer' && $message['content'][0]['text'] === $instructions) {
             $hasDevMessage = true;
             break;
         }

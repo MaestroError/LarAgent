@@ -23,7 +23,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
     #[Desc('Array of tool calls requested by the assistant')]
     public ToolCallArray $toolCalls;
 
-    public function __construct(ToolCallArray|array $toolCalls = [], array $metadata = [])
+    public function __construct(ToolCallArray|array $toolCalls, array $metadata = [])
     {
         parent::__construct('', $metadata);
         $this->content = null; // ToolCallMessage has no text content
@@ -45,7 +45,7 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
 
     public static function fromArray(array $data): static
     {
-        $toolCalls = $data['tool_calls'] ?? [];
+        $toolCalls = $data['tool_calls'];
         $metadata = $data['metadata'] ?? [];
 
         $instance = new static($toolCalls, $metadata);
@@ -61,12 +61,12 @@ class ToolCallMessage extends AssistantMessage implements MessageInterface
         }
         
         // Handle any extras
-        $knownKeys = ['role', 'tool_calls', 'metadata', 'message_uuid', 'extras', 'content'];
-        foreach ($data as $key => $value) {
-            if (!in_array($key, $knownKeys)) {
-                $instance->extras[$key] = $value;
-            }
-        }
+        // $knownKeys = ['role', 'tool_calls', 'metadata', 'message_uuid', 'extras', 'content'];
+        // foreach ($data as $key => $value) {
+        //     if (!in_array($key, $knownKeys)) {
+        //         $instance->extras[$key] = $value;
+        //     }
+        // }
         
         if (isset($data['extras'])) {
             $instance->extras = array_merge($instance->extras, $data['extras']);

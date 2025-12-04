@@ -22,6 +22,13 @@ class ToolCall extends DataModel implements ToolCallInterface
     {
         $this->id = $id;
         $this->type = 'function';
+
+        // Validate that $arguments is valid JSON
+        json_decode($arguments);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \InvalidArgumentException("ToolCall arguments must be a valid JSON string. Error: " . json_last_error_msg());
+        }
+        
         $this->function = new ToolCallFunction($toolName, $arguments);
     }
 

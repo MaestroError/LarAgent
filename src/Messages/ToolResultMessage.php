@@ -18,7 +18,7 @@ class ToolResultMessage extends Message implements MessageInterface
     #[Desc('The result content from tool execution')]
     public ?ToolResultContent $content;
 
-    public function __construct(ToolResultContent|string $content = '', string $toolCallId = '', string $toolName = '', array $metadata = [])
+    public function __construct(ToolResultContent|string $content, string $toolCallId, string $toolName = '', array $metadata = [])
     {
         parent::__construct();
         
@@ -84,7 +84,7 @@ class ToolResultMessage extends Message implements MessageInterface
     public static function fromArray(array $data): static
     {
         $content = $data['content'] ?? '';
-        $toolCallId = $data['tool_call_id'] ?? '';
+        $toolCallId = $data['tool_call_id'];
         $toolName = $data['tool_name'] ?? '';
         $metadata = $data['metadata'] ?? [];
         
