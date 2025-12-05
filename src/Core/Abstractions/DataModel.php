@@ -218,17 +218,27 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
     /**
      * Check if a value can potentially be cast to a given type (used for union type casting).
      */
-    protected static function canCastToType(mixed $value, ReflectionNamedType $type): bool
+    protected static function canCastToType(mixed $value, ReflectionType $type): bool
     {
+        // Nested union types are not supported in PHP's type system currently,
+        // but handle it defensively by returning true to attempt casting
+        if ($type instanceof ReflectionUnionType) {
+            return true;
+        }
+
+        if (! $type instanceof ReflectionNamedType) {
+            return true;
+        }
+
         $typeName = $type->getName();
 
-        // Builtin types - check if already that type
+        // Builtin types - strict type checking
         if ($type->isBuiltin()) {
             return match ($typeName) {
-                'int' => is_int($value) || is_numeric($value),
-                'float' => is_float($value) || is_numeric($value),
+                'int' => is_int($value),
+                'float' => is_float($value),
                 'bool' => is_bool($value),
-                'string' => is_string($value) || is_scalar($value),
+                'string' => is_string($value),
                 'array' => is_array($value),
                 default => true,
             };
@@ -250,8 +260,17 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
     /**
      * Check if a value is valid for a given type (used for union type casting).
      */
-    protected static function isValueValidForType(mixed $value, ReflectionNamedType $type): bool
+    protected static function isValueValidForType(mixed $value, ReflectionType $type): bool
     {
+        // Nested union types are not supported in PHP's type system currently,
+        // but handle it defensively by returning false
+        if ($type instanceof ReflectionUnionType) {
+            return false;
+        }
+
+        if (! $type instanceof ReflectionNamedType) {
+            return false;
+        }
         $typeName = $type->getName();
 
         if ($type->isBuiltin()) {
