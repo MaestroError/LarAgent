@@ -735,7 +735,7 @@ class Agent
 
     protected function setupToolCaching()
     {
-        $config = config('laragent.tool_caching', []);
+        $config = config('laragent.mcp_tool_caching', []);
         $this->toolCaching = $config['enabled'] ?? false;
         $this->toolCacheTtl = $config['ttl'] ?? 3600;
         $this->toolCacheStore = $config['store'] ?? null;

@@ -13,37 +13,72 @@ class AgentToolClearCommand extends Command
 
     public function handle()
     {
-        $store = config('laragent.tool_caching.store');
-        $this->info('Clearing tool cache (store: '.($store ?? 'default').')...');
-
-        // Since we use specific keys, we can't easily "clear only tool cache" unless we use tags.
-        // Cache tags are not supported by all drivers (e.g. file, database).
-        // So we might have to rely on cache:clear or just warn the user.
-        // OR, we can iterate if we knew the keys.
-        // But we don't know the keys easily.
-
-        // However, the requirement said: "Cache removing is preferable to happen with Laravel's standard cache:clear command, if not, we should add separate command to empty the tool's cache"
-
-        // If we use a separate store for tools, we can clear that store.
-        // If we use the default store, we might clear everything.
-
-        // Let's try to use tags if available.
-        // In Agent.php, I didn't implement tags.
-
-        // If I can't use tags, I can't selectively clear.
-        // But wait, if the user configured a specific store for tools (e.g. a separate redis db), we can flush it.
+        $store = config('laragent.mcp_tool_caching.store');
 
         if ($store) {
-            try {
-                Cache::store($store)->flush();
-                $this->info('Tool cache cleared.');
-            } catch (\Exception $e) {
-                $this->error("Failed to clear cache store '{$store}': ".$e->getMessage());
-            }
+            $this->info("Clearing MCP tool cache from store '{$store}'...");
+
+            // Clear only MCP tool keys, not the entire store
+            $cleared = $this->clearMcpToolKeys(Cache::store($store));
+
+            $this->info("Cleared {$cleared} MCP tool cache entries.");
         } else {
-            $this->warn("No specific tool cache store configured. Please run 'php artisan cache:clear' to clear the default cache, or configure a dedicated store for tools.");
+            $this->info('Clearing MCP tool cache from default store...');
+
+            $cleared = $this->clearMcpToolKeys(Cache::getFacadeRoot());
+
+            if ($cleared > 0) {
+                $this->info("Cleared {$cleared} MCP tool cache entries.");
+            } else {
+                $this->warn('Cannot clear MCP tool cache selectively for this cache driver.');
+                $this->warn('Use `php artisan cache:clear` to clear entire cache.');
+            }
         }
 
         return 0;
+    }
+
+    /**
+     * Clear MCP tool cache keys from the given cache instance
+     */
+    protected function clearMcpToolKeys($cache): int
+    {
+        $cleared = 0;
+
+        // Try Redis with SCAN (safe for production)
+        if (method_exists($cache->getStore(), 'getRedis')) {
+            $redis = $cache->getStore()->getRedis();
+            $cursor = '0';
+
+            do {
+                // Use SCAN instead of KEYS to avoid blocking Redis
+                $result = $redis->scan($cursor, ['MATCH' => 'laragent:tools:*', 'COUNT' => 100]);
+                $cursor = $result[0];
+                $keys = $result[1] ?? [];
+
+                if (! empty($keys)) {
+                    $redis->del($keys);
+                    $cleared += count($keys);
+                }
+            } while ($cursor !== '0');
+
+            return $cleared;
+        }
+
+        $mcpServers = config('laragent.mcp_servers', []);
+        foreach (array_keys($mcpServers) as $serverName) {
+            $pattern = "laragent:tools:{$serverName}";
+            if (Cache::forget($pattern)) {
+                $cleared++;
+            }
+
+            foreach (['tools', 'resources'] as $method) {
+                if (Cache::forget("{$pattern}:{$method}")) {
+                    $cleared++;
+                }
+            }
+        }
+
+        return $cleared;
     }
 }

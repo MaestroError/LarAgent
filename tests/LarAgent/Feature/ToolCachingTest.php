@@ -1,170 +1,205 @@
 <?php
 
-namespace LarAgent\Tests\LarAgent\Feature;
-
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use LarAgent\Agent;
-use LarAgent\Tests\TestCase;
-use LarAgent\Tool;
 
-class ToolCachingTest extends TestCase
+beforeEach(function () {
+    Config::set('laragent.mcp_tool_caching.enabled', true);
+});
+
+it('caches MCP tools after first fetch', function () {
+    Config::set('laragent.mcp_tool_caching.store', 'array');
+    $agent = createTestAgent();
+
+    $tools = $agent->test_build_tools_from_mcp_servers();
+
+    expect($tools)->toHaveCount(1);
+    expect($tools[0]->getName())->toBe('test_tool');
+});
+
+it('stores tools in cache with correct key', function () {
+    Config::set('laragent.mcp_tool_caching.store', 'array');
+    $agent = createTestAgent();
+
+    $agent->test_build_tools_from_mcp_servers();
+
+    $key = 'laragent:tools:test_server';
+    expect(Cache::store('array')->has($key))->toBeTrue();
+});
+
+it('uses cached tools on subsequent requests', function () {
+    Config::set('laragent.mcp_tool_caching.store', 'array');
+
+    $agent1 = createTestAgent();
+    $agent1->test_build_tools_from_mcp_servers();
+
+    // Second agent should NOT call tools() - uses cache instead
+    $agent2 = createTestAgentWithNeverCalledTools();
+    $tools = $agent2->test_build_tools_from_mcp_servers();
+
+    expect($tools)->toHaveCount(1);
+    expect($tools[0]->getName())->toBe('test_tool');
+});
+
+it('preserves tool properties when caching', function () {
+    Config::set('laragent.mcp_tool_caching.store', 'array');
+    $agent = createTestAgent();
+    $tools = $agent->test_build_tools_from_mcp_servers();
+
+    $tool = $tools[0];
+    expect($tool->getName())->toBe('test_tool');
+    expect($tool->getDescription())->toBe('A test tool');
+    expect($tool->getProperties())->toHaveKey('arg1');
+    expect($tool->getRequired())->toContain('arg1');
+});
+
+it('clears mcp tool cache with command for default store', function () {
+    Config::set('laragent.mcp_tool_caching.store', null);
+
+    $agent = createTestAgent();
+    $agent->test_build_tools_from_mcp_servers();
+
+    expect(Cache::has('laragent:tools:test_server'))->toBeTrue();
+
+    $this->artisan('agent:tool-clear')
+        ->expectsOutput('Clearing MCP tool cache from default store...')
+        ->assertExitCode(0);
+});
+
+it('clears mcp tool cache from dedicated store', function () {
+    Config::set('laragent.mcp_tool_caching.store', 'array');
+
+    $agent = createTestAgent();
+    $agent->test_build_tools_from_mcp_servers();
+
+    expect(Cache::store('array')->has('laragent:tools:test_server'))->toBeTrue();
+
+    $this->artisan('agent:tool-clear')
+        ->expectsOutput("Clearing MCP tool cache from store 'array'...")
+        ->expectsOutput('Cleared 1 MCP tool cache entries.')
+        ->assertExitCode(0);
+
+    expect(Cache::store('array')->has('laragent:tools:test_server'))->toBeFalse();
+});
+
+function createTestAgent()
 {
-    protected function setUp(): void
+    $agent = new class('test_key') extends Agent
     {
-        parent::setUp();
-        Config::set('laragent.tool_caching.enabled', true);
-        Config::set('laragent.tool_caching.store', 'array'); // Use array driver for testing
-    }
+        public $mockMcpClient;
 
-    public function test_it_caches_mcp_tools()
+        protected function createMcpClient(): \Redberry\MCPClient\MCPClient
+        {
+            return $this->mockMcpClient;
+        }
+
+        protected function initMcpClient() {}
+
+        public function toDTO(): \LarAgent\Core\DTO\AgentDTO
+        {
+            return new \LarAgent\Core\DTO\AgentDTO(
+                provider: 'test',
+                providerName: 'test',
+                message: null,
+                tools: [],
+                instructions: '',
+                responseSchema: [],
+                configuration: []
+            );
+        }
+
+        public function registerMcpServers()
+        {
+            return ['test_server'];
+        }
+
+        public function test_build_tools_from_mcp_servers()
+        {
+            return $this->buildToolsFromMcpServers();
+        }
+    };
+
+    $mockClient = Mockery::mock(\Redberry\MCPClient\MCPClient::class);
+    $mockClient->shouldReceive('connect')->andReturnSelf();
+
+    $mockToolsData = [
+        [
+            'name' => 'test_tool',
+            'description' => 'A test tool',
+            'inputSchema' => [
+                'properties' => ['arg1' => ['type' => 'string']],
+                'required' => ['arg1'],
+            ],
+        ],
+    ];
+
+    $mockCollection = Mockery::mock(\Redberry\MCPClient\Collection::class);
+    $mockCollection->shouldReceive('getIterator')->andReturn(new \ArrayIterator($mockToolsData));
+    $mockClient->shouldReceive('tools')->andReturn($mockCollection);
+
+    $agent->mockMcpClient = $mockClient;
+
+    Config::set('laragent.mcp_servers', [
+        'test_server' => [
+            'type' => 'stdio',
+            'command' => ['echo', 'hello'],
+        ],
+    ]);
+
+    return $agent;
+}
+
+function createTestAgentWithNeverCalledTools()
+{
+    $agent = new class('test_key_2') extends Agent
     {
-        // Mock the MCP client response or behavior
-        // Since we can't easily mock the internal MCP client without dependency injection or facade,
-        // we might need to rely on a subclass of Agent that mocks the MCP client creation.
+        public $mockMcpClient;
 
-        // However, Agent.php has `createMcpClient` which is protected.
-        // We can create a TestAgent that overrides it.
-
-        $agent = new class('test_key') extends Agent
+        protected function createMcpClient(): \Redberry\MCPClient\MCPClient
         {
-            public $mockMcpClient;
+            return $this->mockMcpClient;
+        }
 
-            protected function createMcpClient(): \Redberry\MCPClient\MCPClient
-            {
-                return $this->mockMcpClient;
-            }
+        protected function initMcpClient() {}
 
-            protected function initMcpClient()
-            {
-                // Do nothing
-            }
-
-            public function toDTO(): \LarAgent\Core\DTO\AgentDTO
-            {
-                // Return dummy DTO to avoid triggering getTools() during construction
-                return new \LarAgent\Core\DTO\AgentDTO(
-                    provider: 'test',
-                    providerName: 'test',
-                    message: null,
-                    tools: [],
-                    instructions: '',
-                    responseSchema: [],
-                    configuration: []
-                );
-            }
-
-            public function manualInitMcpClient()
-            {
-                // Do nothing
-            }
-
-            public function registerMcpServers()
-            {
-                return ['test_server'];
-            }
-
-            // Expose protected method for testing
-            public function test_build_tools_from_mcp_servers()
-            {
-                return $this->buildToolsFromMcpServers();
-            }
-        };
-
-        // Mock MCP Client
-        $mockClient = \Mockery::mock(\Redberry\MCPClient\MCPClient::class);
-        $mockClient->shouldReceive('connect')->andReturnSelf();
-
-        // Mock tools response
-        $mockToolsData = [
-            [
-                'name' => 'test_tool',
-                'description' => 'A test tool',
-                'inputSchema' => [
-                    'properties' => ['arg1' => ['type' => 'string']],
-                    'required' => ['arg1'],
-                ],
-            ],
-        ];
-
-        $mockCollection = \Mockery::mock(\Redberry\MCPClient\Collection::class);
-        $mockCollection->shouldReceive('getIterator')->andReturn(new \ArrayIterator($mockToolsData));
-
-        $mockClient->shouldReceive('tools')->andReturn($mockCollection);
-
-        $agent->mockMcpClient = $mockClient;
-
-        // Configure agent to use a dummy MCP server
-        Config::set('laragent.mcp_servers', [
-            'test_server' => [
-                'type' => 'stdio', // Dummy type
-                'command' => ['echo', 'hello'],
-            ],
-        ]);
-
-        // Trigger tool building (which should cache)
-        $tools = $agent->test_build_tools_from_mcp_servers();
-
-        $this->assertCount(1, $tools);
-        $this->assertEquals('test_tool', $tools[0]->getName());
-
-        // Verify it is in cache
-        // Key format: laragent:tools:{serverName}
-        $key = 'laragent:tools:test_server';
-        $this->assertTrue(Cache::store('array')->has($key));
-
-        // Now, let's create a new agent and verify it uses the cache
-        // We will mock the client to throw an exception if tools() is called
-
-        $agent2 = new class('test_key_2') extends Agent
+        public function toDTO(): \LarAgent\Core\DTO\AgentDTO
         {
-            public $mockMcpClient;
+            return new \LarAgent\Core\DTO\AgentDTO(
+                provider: 'test',
+                providerName: 'test',
+                message: null,
+                tools: [],
+                instructions: '',
+                responseSchema: [],
+                configuration: []
+            );
+        }
 
-            protected function createMcpClient(): \Redberry\MCPClient\MCPClient
-            {
-                return $this->mockMcpClient;
-            }
+        public function registerMcpServers()
+        {
+            return ['test_server'];
+        }
 
-            protected function initMcpClient()
-            {
-                // Do nothing
-            }
+        public function test_build_tools_from_mcp_servers()
+        {
+            return $this->buildToolsFromMcpServers();
+        }
+    };
 
-            public function toDTO(): \LarAgent\Core\DTO\AgentDTO
-            {
-                return new \LarAgent\Core\DTO\AgentDTO(
-                    provider: 'test',
-                    providerName: 'test',
-                    message: null,
-                    tools: [],
-                    instructions: '',
-                    responseSchema: [],
-                    configuration: []
-                );
-            }
+    $mockClient = Mockery::mock(\Redberry\MCPClient\MCPClient::class);
+    $mockClient->shouldReceive('connect')->andReturnSelf();
+    // tools() should NOT be called - cache must be used
+    $mockClient->shouldReceive('tools')->never();
 
-            public function registerMcpServers()
-            {
-                return ['test_server'];
-            }
+    $agent->mockMcpClient = $mockClient;
 
-            public function test_build_tools_from_mcp_servers()
-            {
-                return $this->buildToolsFromMcpServers();
-            }
-        };
+    Config::set('laragent.mcp_servers', [
+        'test_server' => [
+            'type' => 'stdio',
+            'command' => ['echo', 'hello'],
+        ],
+    ]);
 
-        $mockClient2 = \Mockery::mock(\Redberry\MCPClient\MCPClient::class);
-        // connect might still be called for lazy connection setup
-        $mockClient2->shouldReceive('connect')->andReturnSelf();
-        // tools() should NOT be called
-        $mockClient2->shouldReceive('tools')->never();
-
-        $agent2->mockMcpClient = $mockClient2;
-
-        $tools2 = $agent2->test_build_tools_from_mcp_servers();
-
-        $this->assertCount(1, $tools2);
-        $this->assertEquals('test_tool', $tools2[0]->getName());
-    }
+    return $agent;
 }

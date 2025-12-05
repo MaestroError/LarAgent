@@ -112,10 +112,10 @@ return [
      */
     'fallback_provider' => null,
 
-    'tool_caching' => [
-        'enabled' => env('LARAGENT_TOOL_CACHING', false),
-        'ttl' => env('LARAGENT_TOOL_CACHE_TTL', 3600), // 1 hour
-        'store' => env('LARAGENT_TOOL_CACHE_STORE', 'file'), // Cache store to use
+    'mcp_tool_caching' => [
+        'enabled' => env('LARAGENT_MCP_TOOL_CACHING', false),
+        'ttl' => env('LARAGENT_MCP_TOOL_CACHE_TTL', 3600), // 1 hour
+        'store' => env('LARAGENT_MCP_TOOL_CACHE_STORE', null), // Cache store to use (null = default)
     ],
 
     'mcp_servers' => [
