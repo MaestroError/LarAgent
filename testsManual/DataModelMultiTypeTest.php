@@ -86,7 +86,7 @@ echo "--- Example 1: Using Primitive Values ---\n";
 $settings1 = NotificationSettings::fromArray([
     'userId' => 12345,  // numeric ID
     'enabled' => true,   // boolean
-    'contact' => 'email', // will cast to enum
+    'contact' => 'email', // will cast to enum (because NotificationChannel is listed first in the union type; this is order-dependent)
     'priority' => 2,     // numeric priority
     'metadata' => 'simple string',
 ]);
