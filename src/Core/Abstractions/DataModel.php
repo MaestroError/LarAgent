@@ -221,7 +221,7 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
     protected static function canCastToType(mixed $value, ReflectionType $type): bool
     {
         // Nested union types are not supported in PHP's type system currently,
-        // but handle it defensively by returning true to attempt casting
+        // but return true to allow the casting attempt - the recursive call will handle it
         if ($type instanceof ReflectionUnionType) {
             return true;
         }
