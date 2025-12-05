@@ -237,3 +237,172 @@ test('DataModel: implements JsonSerializable', function () {
     expect($decoded['name'])->toBe('John JSON');
     expect($decoded['age'])->toBe(40);
 });
+
+// --- Multi-Type Support Tests ---
+
+enum TestIntEnum: int
+{
+    case One = 1;
+    case Two = 2;
+}
+
+class TestMultiTypeModel extends DataModel
+{
+    // Single type (baseline test)
+    public string $singleType;
+
+    // Primitive union types
+    public string|int $stringOrInt;
+
+    // Union with nullable
+    public string|int|null $stringOrIntNullable = null;
+
+    // Union with enum
+    public string|TestBackedEnum $stringOrEnum;
+
+    // Union with DataModel
+    public string|TestNestedModel $stringOrModel;
+
+    // Complex union: primitive + enum + DataModel
+    public string|int|TestBackedEnum|TestNestedModel $complexUnion;
+}
+
+test('DataModel: toSchema generates correct schema for single type (baseline)', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    expect($schema['properties']['singleType'])->toBe(['type' => 'string']);
+});
+
+test('DataModel: toSchema generates oneOf for primitive union types', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    expect($schema['properties']['stringOrInt'])->toHaveKey('oneOf');
+    expect($schema['properties']['stringOrInt']['oneOf'])->toHaveCount(2);
+    expect($schema['properties']['stringOrInt']['oneOf'][0])->toBe(['type' => 'string']);
+    expect($schema['properties']['stringOrInt']['oneOf'][1])->toBe(['type' => 'integer']);
+});
+
+test('DataModel: toSchema handles nullable union types correctly', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    // Nullable union should still generate oneOf but without null type
+    expect($schema['properties']['stringOrIntNullable'])->toHaveKey('oneOf');
+    expect($schema['properties']['stringOrIntNullable']['oneOf'])->toHaveCount(2);
+
+    // Should not be in required array since it's nullable
+    expect($schema['required'])->not->toContain('stringOrIntNullable');
+});
+
+test('DataModel: toSchema generates oneOf for union with enum', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    expect($schema['properties']['stringOrEnum'])->toHaveKey('oneOf');
+    expect($schema['properties']['stringOrEnum']['oneOf'])->toHaveCount(2);
+
+    // First type should be enum with values
+    expect($schema['properties']['stringOrEnum']['oneOf'][0])->toHaveKey('enum');
+    expect($schema['properties']['stringOrEnum']['oneOf'][0]['enum'])->toBe(['value_1', 'value_2']);
+
+    // Second type should be plain string
+    expect($schema['properties']['stringOrEnum']['oneOf'][1])->toBe(['type' => 'string']);
+});
+
+test('DataModel: toSchema generates oneOf for union with DataModel', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    expect($schema['properties']['stringOrModel'])->toHaveKey('oneOf');
+    expect($schema['properties']['stringOrModel']['oneOf'])->toHaveCount(2);
+
+    // First type should be nested object
+    expect($schema['properties']['stringOrModel']['oneOf'][0]['type'])->toBe('object');
+    expect($schema['properties']['stringOrModel']['oneOf'][0]['properties'])->toHaveKey('nestedProp');
+
+    // Second type should be plain string
+    expect($schema['properties']['stringOrModel']['oneOf'][1])->toBe(['type' => 'string']);
+});
+
+test('DataModel: toSchema generates oneOf for complex union types', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    expect($schema['properties']['complexUnion'])->toHaveKey('oneOf');
+    expect($schema['properties']['complexUnion']['oneOf'])->toHaveCount(4);
+
+    // Check all type combinations are present
+    $types = array_column($schema['properties']['complexUnion']['oneOf'], 'type');
+    expect($types)->toContain('string', 'integer', 'object');
+});
+
+test('DataModel: fill and casting work with union types - primitive values', function () {
+    $model = new TestMultiTypeModel;
+
+    // Test string value
+    $model->fill(['stringOrInt' => 'hello']);
+    expect($model->stringOrInt)->toBe('hello');
+
+    // Test int value
+    $model->fill(['stringOrInt' => 42]);
+    expect($model->stringOrInt)->toBe(42);
+});
+
+test('DataModel: fill and casting work with union types - enum values', function () {
+    $model = new TestMultiTypeModel;
+
+    // Test casting string to enum
+    $model->fill(['stringOrEnum' => 'value_1']);
+    expect($model->stringOrEnum)->toBe(TestBackedEnum::Value1);
+
+    // Test keeping string as string
+    $model->fill(['stringOrEnum' => 'not_an_enum_value']);
+    expect($model->stringOrEnum)->toBe('not_an_enum_value');
+});
+
+test('DataModel: fill and casting work with union types - DataModel values', function () {
+    $model = new TestMultiTypeModel;
+
+    // Test casting array to DataModel
+    $model->fill(['stringOrModel' => ['nestedProp' => 'test value']]);
+    expect($model->stringOrModel)->toBeInstanceOf(TestNestedModel::class);
+    expect($model->stringOrModel->nestedProp)->toBe('test value');
+
+    // Test keeping string as string
+    $model->fill(['stringOrModel' => 'plain string']);
+    expect($model->stringOrModel)->toBe('plain string');
+});
+
+test('DataModel: fromArray works with multi-type properties', function () {
+    $data = [
+        'singleType' => 'test',
+        'stringOrInt' => 123,
+        'stringOrEnum' => 'value_2',
+        'stringOrModel' => ['nestedProp' => 'nested'],
+        'complexUnion' => 'complex string',
+    ];
+
+    $model = TestMultiTypeModel::fromArray($data);
+
+    expect($model->singleType)->toBe('test');
+    expect($model->stringOrInt)->toBe(123);
+    expect($model->stringOrEnum)->toBe(TestBackedEnum::Value2);
+    expect($model->stringOrModel)->toBeInstanceOf(TestNestedModel::class);
+    expect($model->complexUnion)->toBe('complex string');
+});
+
+test('DataModel: toArray works correctly with multi-type properties', function () {
+    $model = new TestMultiTypeModel;
+    $model->fill([
+        'singleType' => 'test',
+        'stringOrInt' => 42,
+        'stringOrEnum' => 'value_1',
+        'stringOrModel' => ['nestedProp' => 'test'],
+        'complexUnion' => 'value_2',
+    ]);
+
+    $array = $model->toArray();
+
+    expect($array['singleType'])->toBe('test');
+    expect($array['stringOrInt'])->toBe(42);
+    expect($array['stringOrEnum'])->toBe('value_1'); // Enum serialized to value
+    expect($array['stringOrModel'])->toBeArray();
+    expect($array['stringOrModel']['nestedProp'])->toBe('test');
+    expect($array['complexUnion'])->toBe('value_2');
+});
