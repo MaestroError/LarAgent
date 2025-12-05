@@ -174,6 +174,11 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
                     continue;
                 }
                 
+                // Check if this type is potentially compatible before trying to cast
+                if (! static::canCastToType($value, $subType)) {
+                    continue;
+                }
+                
                 // Try to cast to this type
                 $castValue = static::castValue($value, $subType);
                 
@@ -195,9 +200,9 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
             } elseif (enum_exists($typeName)) {
                 if ($value instanceof $typeName) {
                     return $value;
-                } elseif (is_subclass_of($typeName, BackedEnum::class)) {
+                } elseif (is_subclass_of($typeName, BackedEnum::class) && (is_string($value) || is_int($value))) {
                     return $typeName::tryFrom($value) ?? $value;
-                } elseif (is_subclass_of($typeName, UnitEnum::class)) {
+                } elseif (is_subclass_of($typeName, UnitEnum::class) && is_string($value)) {
                     foreach ($typeName::cases() as $case) {
                         if ($case->name === $value) {
                             return $case;
@@ -208,6 +213,38 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
         }
 
         return $value;
+    }
+
+    /**
+     * Check if a value can potentially be cast to a given type (used for union type casting).
+     */
+    protected static function canCastToType(mixed $value, ReflectionNamedType $type): bool
+    {
+        $typeName = $type->getName();
+
+        // Builtin types - check if already that type
+        if ($type->isBuiltin()) {
+            return match ($typeName) {
+                'int' => is_int($value) || is_numeric($value),
+                'float' => is_float($value) || is_numeric($value),
+                'bool' => is_bool($value),
+                'string' => is_string($value) || is_scalar($value),
+                'array' => is_array($value),
+                default => true,
+            };
+        }
+
+        // DataModel - needs array or already instance
+        if (is_subclass_of($typeName, DataModelContract::class)) {
+            return is_array($value) || $value instanceof $typeName;
+        }
+
+        // Enum - needs string/int or already instance
+        if (enum_exists($typeName)) {
+            return $value instanceof $typeName || is_string($value) || is_int($value);
+        }
+
+        return true;
     }
 
     /**
