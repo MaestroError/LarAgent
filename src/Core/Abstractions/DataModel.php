@@ -173,21 +173,21 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
                 if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
                     continue;
                 }
-                
+
                 // Check if this type is potentially compatible before trying to cast
                 if (! static::canCastToType($value, $subType)) {
                     continue;
                 }
-                
+
                 // Try to cast to this type
                 $castValue = static::castValue($value, $subType);
-                
+
                 // If casting was successful (value changed or is valid for the type), return it
                 if ($castValue !== $value || static::isValueValidForType($value, $subType)) {
                     return $castValue;
                 }
             }
-            
+
             // If no casting worked, return original value
             return $value;
         }
