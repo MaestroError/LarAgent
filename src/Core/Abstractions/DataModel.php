@@ -220,8 +220,8 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
      */
     protected static function canCastToType(mixed $value, ReflectionType $type): bool
     {
-        // Nested union types are not supported in PHP's type system currently,
-        // but return true to allow the casting attempt - the recursive call will handle it
+        // Defensive check: Union types should only appear at the top level, not nested within another union.
+        // If encountered, allow the recursive castValue call to handle it.
         if ($type instanceof ReflectionUnionType) {
             return true;
         }
@@ -262,8 +262,7 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
      */
     protected static function isValueValidForType(mixed $value, ReflectionType $type): bool
     {
-        // Nested union types are not supported in PHP's type system currently,
-        // but handle it defensively by returning false
+        // Defensive check: Union types should never appear nested. Return false to prevent validation of impossible type combinations.
         if ($type instanceof ReflectionUnionType) {
             return false;
         }
