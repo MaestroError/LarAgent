@@ -34,6 +34,7 @@ class LarAgentServiceProvider extends PackageServiceProvider
                 AgentChatClearCommand::class,
                 AgentChatRemoveCommand::class,
                 PublishCommand::class,
+                \LarAgent\Commands\AgentToolClearCommand::class,
             ]);
 
     }
