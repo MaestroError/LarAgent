@@ -402,6 +402,7 @@ test('DataModel: toArray works correctly with multi-type properties', function (
     expect($array['singleType'])->toBe('test');
     expect($array['stringOrInt'])->toBe(42);
     expect($array['stringOrEnum'])->toBe('value_1'); // Enum serialized to value
+    expect($model->stringOrEnum)->toBe(TestBackedEnum::Value1);
     expect($array['stringOrModel'])->toBeArray();
     expect($array['stringOrModel']['nestedProp'])->toBe('test');
     expect($array['complexUnion'])->toBe('value_2');
