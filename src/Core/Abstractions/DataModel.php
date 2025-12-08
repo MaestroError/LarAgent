@@ -60,7 +60,15 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
      */
     public function toSchema(): array
     {
-        return static::generateSchema();
+        return static::generateSchemaFromTrait();
+    }
+
+    /**
+     * Generate the OpenAPI schema for the model statically (public wrapper).
+     */
+    public static function generateSchema(): array
+    {
+        return static::generateSchemaFromTrait();
     }
 
     /**

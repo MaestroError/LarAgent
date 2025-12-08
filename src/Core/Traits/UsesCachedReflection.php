@@ -99,7 +99,7 @@ trait UsesCachedReflection
      *
      * @return array OpenAPI schema with type, properties, and required fields
      */
-    protected static function generateSchema(): array
+    protected static function generateSchemaFromTrait(): array
     {
         $config = static::getCachedConfig();
         $schema = [
