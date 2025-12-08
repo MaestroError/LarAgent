@@ -202,7 +202,7 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
                     return $value;
                 } elseif (is_subclass_of($typeName, BackedEnum::class) && (is_string($value) || is_int($value))) {
                     return $typeName::tryFrom($value) ?? $value;
-                } elseif (is_subclass_of($typeName, UnitEnum::class) && is_string($value)) {
+                } elseif (is_subclass_of($typeName, UnitEnum::class) && (is_string($value) || is_int($value))) {
                     foreach ($typeName::cases() as $case) {
                         if ($case->name === $value) {
                             return $case;

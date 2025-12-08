@@ -300,8 +300,7 @@ test('DataModel: toSchema generates oneOf for union with enum', function () {
     expect($schema['properties']['stringOrEnum']['oneOf'])->toHaveCount(2);
 
     // First type should be enum with values
-    expect($schema['properties']['stringOrEnum']['oneOf'][0])->toHaveKey('enum');
-    expect($schema['properties']['stringOrEnum']['oneOf'][0]['enum'])->toBe(['value_1', 'value_2']);
+    expect($schema['properties']['stringOrEnum']['oneOf'][0])->toBe(['type' => 'string', 'enum' => ['value_1', 'value_2']]);
 
     // Second type should be plain string
     expect($schema['properties']['stringOrEnum']['oneOf'][1])->toBe(['type' => 'string']);
