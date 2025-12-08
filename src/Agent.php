@@ -144,9 +144,6 @@ class Agent
     /** @var float|null */
     protected $presencePenalty;
 
-    /** @var string */
-    protected $chatSessionId;
-
     /** @var bool */
     protected $toolCaching = false;
 
