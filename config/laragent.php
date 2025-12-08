@@ -112,6 +112,12 @@ return [
      */
     'fallback_provider' => null,
 
+    'mcp_tool_caching' => [
+        'enabled' => env('MCP_TOOL_CACHE_ENABLED', false),
+        'ttl' => env('MCP_TOOL_CACHE_TTL', 3600),
+        'store' => env('MCP_TOOL_CACHE_STORE', null),
+    ],
+
     'mcp_servers' => [
         'github' => [
             'type' => \Redberry\MCPClient\Enums\Transporters::HTTP,
