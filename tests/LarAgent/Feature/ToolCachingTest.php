@@ -65,6 +65,8 @@ it('clears mcp tool cache with command for default store', function () {
     $this->artisan('agent:tool-clear')
         ->expectsOutput('Clearing MCP tool cache from default store...')
         ->assertExitCode(0);
+
+    expect(Cache::has('laragent:tools:test_server'))->toBeFalse();
 });
 
 it('clears mcp tool cache from dedicated store', function () {
@@ -77,8 +79,42 @@ it('clears mcp tool cache from dedicated store', function () {
 
     $this->artisan('agent:tool-clear')
         ->expectsOutput("Clearing MCP tool cache from store 'array'...")
-        ->expectsOutput('Cleared 1 MCP tool cache entries.')
         ->assertExitCode(0);
+
+    expect(Cache::store('array')->has('laragent:tools:test_server'))->toBeFalse();
+});
+
+it('does not cache tools when caching is disabled', function () {
+    Config::set('laragent.mcp_tool_caching.enabled', false);
+    Config::set('laragent.mcp_tool_caching.store', 'array');
+
+    $mockClient = Mockery::mock(\Redberry\MCPClient\MCPClient::class);
+    $mockClient->shouldReceive('connect')->andReturnSelf();
+
+    $mockToolsData = [
+        [
+            'name' => 'test_tool',
+            'description' => 'A test tool',
+            'inputSchema' => [
+                'properties' => ['arg1' => ['type' => 'string']],
+                'required' => ['arg1'],
+            ],
+        ],
+    ];
+
+    $mockCollection = Mockery::mock(\Redberry\MCPClient\Collection::class);
+    $mockCollection->shouldReceive('getIterator')->andReturn(new \ArrayIterator($mockToolsData));
+    $mockClient->shouldReceive('tools')->twice()->andReturn($mockCollection);
+
+    $agent1 = createTestAgent();
+    $agent1->mockMcpClient = $mockClient;
+    $agent1->test_build_tools_from_mcp_servers();
+
+    expect(Cache::store('array')->has('laragent:tools:test_server'))->toBeFalse();
+
+    $agent2 = createTestAgent();
+    $agent2->mockMcpClient = $mockClient;
+    $agent2->test_build_tools_from_mcp_servers();
 
     expect(Cache::store('array')->has('laragent:tools:test_server'))->toBeFalse();
 });

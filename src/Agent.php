@@ -733,6 +733,9 @@ class Agent
         return $tools;
     }
 
+    /**
+     * Initialize tool caching configuration from config
+     */
     protected function setupToolCaching()
     {
         $config = config('laragent.mcp_tool_caching', []);
@@ -741,6 +744,13 @@ class Agent
         $this->toolCacheStore = $config['store'] ?? null;
     }
 
+    /**
+     * Generate cache key for MCP tool configuration
+     *
+     * Note: Cache is shared across all users and agents for the same server configuration.
+     * If MCP tools return different results based on user context or permissions,
+     * consider implementing per-user or per-agent cache scoping.
+     */
     protected function getCacheKey(array $parsedConfig): string
     {
         // Create a unique key based on server name, method, filter, and arguments
@@ -758,6 +768,9 @@ class Agent
         return $key;
     }
 
+    /**
+     * Retrieve cached tool definitions and reconstruct Tool instances
+     */
     protected function getToolsFromCache(array $parsedConfig): ?array
     {
         $key = $this->getCacheKey($parsedConfig);
@@ -772,6 +785,9 @@ class Agent
         return null;
     }
 
+    /**
+     * Serialize and cache tool definitions with configured TTL
+     */
     protected function cacheTools(array $parsedConfig, array $tools): void
     {
         $key = $this->getCacheKey($parsedConfig);
@@ -789,6 +805,9 @@ class Agent
         $store->put($key, $toolsData, $this->toolCacheTtl);
     }
 
+    /**
+     * Reconstruct Tool instances from cached data
+     */
     protected function reconstructTools(array $toolsData, string $serverName): array
     {
         $tools = [];
@@ -797,15 +816,15 @@ class Agent
             $tool->setProperties($data['properties']);
             $tool->setRequiredProps($data['required']);
 
-            // Re-bind the callback
             $instance = $this;
             $toolName = $data['name'];
 
-            // Ensure connection exists (might need to reconnect if cached)
             if (! isset($this->mcpConnections[$serverName])) {
-                // We need to connect to execute the tool, but we don't need to fetch tools again
-                // This is lazy connection basically, but we need to ensure client is ready
-                $this->mcpConnections[$serverName] = $this->createMcpClient()->connect($serverName);
+                try {
+                    $this->mcpConnections[$serverName] = $this->createMcpClient()->connect($serverName);
+                } catch (\Exception $e) {
+                    throw new \RuntimeException("Failed to connect to MCP server '{$serverName}'", 0, $e);
+                }
             }
 
             $tool->setCallback(function (...$args) use ($instance, $toolName, $serverName) {

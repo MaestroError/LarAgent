@@ -9,7 +9,7 @@ class AgentToolClearCommand extends Command
 {
     protected $signature = 'agent:tool-clear';
 
-    protected $description = 'Clear the tool cache';
+    protected $description = 'Clear the MCP tool cache';
 
     public function handle()
     {
@@ -48,11 +48,11 @@ class AgentToolClearCommand extends Command
         // Try Redis with SCAN (safe for production)
         if (method_exists($cache->getStore(), 'getRedis')) {
             $redis = $cache->getStore()->getRedis();
+            $prefix = method_exists($cache->getStore(), 'getPrefix') ? $cache->getStore()->getPrefix() : '';
             $cursor = '0';
 
             do {
-                // Use SCAN instead of KEYS to avoid blocking Redis
-                $result = $redis->scan($cursor, ['MATCH' => 'laragent:tools:*', 'COUNT' => 100]);
+                $result = $redis->scan($cursor, 'MATCH', $prefix.'laragent:tools:*', 'COUNT', 100);
                 $cursor = $result[0];
                 $keys = $result[1] ?? [];
 
@@ -67,13 +67,14 @@ class AgentToolClearCommand extends Command
 
         $mcpServers = config('laragent.mcp_servers', []);
         foreach (array_keys($mcpServers) as $serverName) {
-            $pattern = "laragent:tools:{$serverName}";
-            if (Cache::forget($pattern)) {
+            $baseKey = "laragent:tools:{$serverName}";
+            if ($cache->forget($baseKey)) {
                 $cleared++;
             }
 
             foreach (['tools', 'resources'] as $method) {
-                if (Cache::forget("{$pattern}:{$method}")) {
+                $key = "{$baseKey}:{$method}";
+                if ($cache->forget($key)) {
                     $cleared++;
                 }
             }
