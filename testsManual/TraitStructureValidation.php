@@ -37,7 +37,7 @@ try {
     // Check that key methods exist
     $methods = [
         'getCachedConfig',
-        'generateSchema',
+        'generateSchemaFromTrait',
         'getPropertySchemaFromConfig',
         'castValue',
         'canCastToType',
