@@ -13,6 +13,7 @@ use ReflectionEnum;
 use ReflectionNamedType;
 use ReflectionProperty;
 use ReflectionType;
+use ReflectionUnionType;
 use UnitEnum;
 
 abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializable
@@ -165,6 +166,32 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
 
     protected static function castValue(mixed $value, ?ReflectionType $type): mixed
     {
+        // Handle union types by trying each type in order
+        if ($type instanceof ReflectionUnionType) {
+            foreach ($type->getTypes() as $subType) {
+                // Skip null type
+                if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
+                    continue;
+                }
+                
+                // Check if this type is potentially compatible before trying to cast
+                if (! static::canCastToType($value, $subType)) {
+                    continue;
+                }
+                
+                // Try to cast to this type
+                $castValue = static::castValue($value, $subType);
+                
+                // If casting was successful (value changed or is valid for the type), return it
+                if ($castValue !== $value || static::isValueValidForType($value, $subType)) {
+                    return $castValue;
+                }
+            }
+            
+            // If no casting worked, return original value
+            return $value;
+        }
+
         if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
             $typeName = $type->getName();
 
@@ -173,9 +200,9 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
             } elseif (enum_exists($typeName)) {
                 if ($value instanceof $typeName) {
                     return $value;
-                } elseif (is_subclass_of($typeName, BackedEnum::class)) {
+                } elseif (is_subclass_of($typeName, BackedEnum::class) && (is_string($value) || is_int($value))) {
                     return $typeName::tryFrom($value) ?? $value;
-                } elseif (is_subclass_of($typeName, UnitEnum::class)) {
+                } elseif (is_subclass_of($typeName, UnitEnum::class) && (is_string($value) || is_int($value))) {
                     foreach ($typeName::cases() as $case) {
                         if ($case->name === $value) {
                             return $case;
@@ -186,6 +213,85 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
         }
 
         return $value;
+    }
+
+    /**
+     * Check if a value can potentially be cast to a given type (used for union type casting).
+     */
+    protected static function canCastToType(mixed $value, ReflectionType $type): bool
+    {
+        // Defensive check: Union types should only appear at the top level, not nested within another union.
+        // If encountered, allow the recursive castValue call to handle it.
+        if ($type instanceof ReflectionUnionType) {
+            return true;
+        }
+
+        if (! $type instanceof ReflectionNamedType) {
+            return true;
+        }
+
+        $typeName = $type->getName();
+
+        // Builtin types - strict type checking
+        if ($type->isBuiltin()) {
+            return match ($typeName) {
+                'int' => is_int($value),
+                'float' => is_float($value),
+                'bool' => is_bool($value),
+                'string' => is_string($value),
+                'array' => is_array($value),
+                default => true,
+            };
+        }
+
+        // DataModel - needs array or already instance
+        if (is_subclass_of($typeName, DataModelContract::class)) {
+            return is_array($value) || $value instanceof $typeName;
+        }
+
+        // Enum - needs string/int or already instance
+        if (enum_exists($typeName)) {
+            return $value instanceof $typeName || is_string($value) || is_int($value);
+        }
+
+        return true;
+    }
+
+    /**
+     * Check if a value is valid for a given type (used for union type casting).
+     */
+    protected static function isValueValidForType(mixed $value, ReflectionType $type): bool
+    {
+        // Defensive check: Union types should never appear nested. Return false to prevent validation of impossible type combinations.
+        if ($type instanceof ReflectionUnionType) {
+            return false;
+        }
+
+        if (! $type instanceof ReflectionNamedType) {
+            return false;
+        }
+        $typeName = $type->getName();
+
+        if ($type->isBuiltin()) {
+            return match ($typeName) {
+                'int' => is_int($value),
+                'float' => is_float($value),
+                'bool' => is_bool($value),
+                'string' => is_string($value),
+                'array' => is_array($value),
+                default => false,
+            };
+        }
+
+        if (is_subclass_of($typeName, DataModelContract::class)) {
+            return $value instanceof $typeName;
+        }
+
+        if (enum_exists($typeName)) {
+            return $value instanceof $typeName;
+        }
+
+        return false;
     }
 
     protected static function getCachedConfig(): array
@@ -259,6 +365,31 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
     protected static function getTypeSchemaFromType(?ReflectionType $type): array
     {
         if (! $type) {
+            return ['type' => 'string'];
+        }
+
+        // Handle union types (e.g., string|int)
+        if ($type instanceof ReflectionUnionType) {
+            $schemas = [];
+            foreach ($type->getTypes() as $subType) {
+                // Skip null type as it's handled by OpenAPI's nullable property
+                if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
+                    continue;
+                }
+                $schemas[] = static::getTypeSchemaFromType($subType);
+            }
+
+            // If we have multiple schemas, use oneOf
+            if (count($schemas) > 1) {
+                return ['oneOf' => $schemas];
+            }
+
+            // If only one schema (after filtering out null), return it directly
+            if (count($schemas) === 1) {
+                return $schemas[0];
+            }
+
+            // Fallback if all types were null (shouldn't happen in practice)
             return ['type' => 'string'];
         }
 
