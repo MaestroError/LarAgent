@@ -109,7 +109,7 @@ class SchemaGenerator
         echo "=== Caching Demonstration ===\n\n";
 
         // Clear cache first
-        self::clearTypeReflectionCache();
+        self::clearReflectionCache();
         echo "Cache cleared.\n\n";
 
         // Measure performance with caching
@@ -125,13 +125,13 @@ class SchemaGenerator
         echo "   Time: " . number_format($withCache * 1000, 4) . "ms\n\n";
 
         // Clear cache and measure again
-        self::clearTypeReflectionCache();
+        self::clearReflectionCache();
         echo "Cache cleared again.\n\n";
 
         echo "Resolving type 1000 times (rebuilding cache each time is slower):\n";
         $start = microtime(true);
         for ($i = 0; $i < 1000; $i++) {
-            self::clearTypeReflectionCache();
+            self::clearReflectionCache();
             self::namedTypeToSchema($type);
         }
         $withoutCache = microtime(true) - $start;

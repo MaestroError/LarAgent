@@ -1685,15 +1685,35 @@ class Agent
                     $toolAttribute->description
                 );
 
-                // Add parameters as tool properties
+                // Add parameters as tool properties using trait methods
                 foreach ($method->getParameters() as $param) {
-                    $type = $param->getType();
-                    $AiType = $this->convertToOpenAIType($type);
+                    $typeInfo = static::getTypeInfo($param->getType());
+                    $schema = $typeInfo['schema'];
+                    
+                    // Extract type and enum values from schema
+                    $type = $schema['type'] ?? 'string';
+                    $enum = [];
+                    
+                    if (isset($schema['enum'])) {
+                        $enum = [
+                            'values' => $schema['enum'],
+                            'enumClass' => $typeInfo['enumClass'],
+                        ];
+                    } elseif (isset($schema['oneOf'])) {
+                        // For union types, use the schema as-is
+                        $type = $schema;
+                    }
+                    
+                    // Store DataModel class if present
+                    if ($typeInfo['dataModelClass']) {
+                        $tool->addDataModelType($param->getName(), $typeInfo['dataModelClass']);
+                    }
+                    
                     $tool->addProperty(
                         $param->getName(),
-                        isset($AiType['type']) ? $AiType['type'] : $AiType,
+                        $type,
                         isset($toolAttribute->parameterDescriptions[$param->getName()]) ? $toolAttribute->parameterDescriptions[$param->getName()] : '',
-                        isset($AiType['enum']) ? $AiType['enum'] : []
+                        $enum
                     );
                     if (! $param->isOptional()) {
                         $tool->setRequired($param->getName());

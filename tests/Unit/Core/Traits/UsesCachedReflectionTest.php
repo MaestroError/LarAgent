@@ -43,7 +43,7 @@ describe('UsesCachedReflection Trait', function () {
 
     beforeEach(function () {
         // Clear cache before each test
-        TestClassUsingTrait::clearTypeReflectionCache();
+        TestClassUsingTrait::clearReflectionCache();
     });
 
     describe('builtinTypeToSchema()', function () {
@@ -282,7 +282,7 @@ describe('UsesCachedReflection Trait', function () {
             TestClassUsingTrait::namedTypeToSchema($type);
             
             // Clear cache
-            TestClassUsingTrait::clearTypeReflectionCache();
+            TestClassUsingTrait::clearReflectionCache();
             
             // Should still work after clearing
             $schema = TestClassUsingTrait::namedTypeToSchema($type);
