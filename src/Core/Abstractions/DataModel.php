@@ -8,6 +8,7 @@ use JsonSerializable;
 use LarAgent\Attributes\Desc;
 use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Traits\UsesCachedReflection;
 use ReflectionClass;
 use ReflectionEnum;
 use ReflectionNamedType;
@@ -18,6 +19,8 @@ use UnitEnum;
 
 abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializable
 {
+    use UsesCachedReflection;
+
     protected static array $reflectionCache = [];
 
     /**
@@ -364,83 +367,7 @@ abstract class DataModel implements ArrayAccess, DataModelContract, JsonSerializ
 
     protected static function getTypeSchemaFromType(?ReflectionType $type): array
     {
-        if (! $type) {
-            return ['type' => 'string'];
-        }
-
-        // Handle union types (e.g., string|int)
-        if ($type instanceof ReflectionUnionType) {
-            $schemas = [];
-            foreach ($type->getTypes() as $subType) {
-                // Skip null type as it's handled by OpenAPI's nullable property
-                if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
-                    continue;
-                }
-                $schemas[] = static::getTypeSchemaFromType($subType);
-            }
-
-            // If we have multiple schemas, use oneOf
-            if (count($schemas) > 1) {
-                return ['oneOf' => $schemas];
-            }
-
-            // If only one schema (after filtering out null), return it directly
-            if (count($schemas) === 1) {
-                return $schemas[0];
-            }
-
-            // Fallback if all types were null (shouldn't happen in practice)
-            return ['type' => 'string'];
-        }
-
-        if ($type instanceof ReflectionNamedType) {
-            $typeName = $type->getName();
-
-            if ($type->isBuiltin()) {
-                return match ($typeName) {
-                    'int' => ['type' => 'integer'],
-                    'float' => ['type' => 'number'],
-                    'bool' => ['type' => 'boolean'],
-                    'array' => ['type' => 'array'],
-                    default => ['type' => 'string'],
-                };
-            }
-
-            if (is_subclass_of($typeName, DataModelContract::class)) {
-                if (method_exists($typeName, 'generateSchema')) {
-                    return $typeName::generateSchema();
-                }
-                try {
-                    $instance = (new ReflectionClass($typeName))->newInstanceWithoutConstructor();
-
-                    return $instance->toSchema();
-                } catch (\Throwable $e) {
-                    return ['type' => 'object'];
-                }
-            }
-
-            if (enum_exists($typeName)) {
-                $reflectionEnum = new ReflectionEnum($typeName);
-                $cases = $reflectionEnum->getCases();
-                $values = [];
-                $schemaType = 'string';
-
-                if ($reflectionEnum->isBacked()) {
-                    $backingType = $reflectionEnum->getBackingType()->getName();
-                    $schemaType = $backingType === 'int' ? 'integer' : 'string';
-                    $values = array_map(fn ($case) => $case->getBackingValue(), $cases);
-                } else {
-                    $values = array_map(fn ($case) => $case->getName(), $cases);
-                }
-
-                return [
-                    'type' => $schemaType,
-                    'enum' => $values,
-                ];
-            }
-        }
-
-        return ['type' => 'string'];
+        return static::reflectionTypeToSchema($type);
     }
 
     public function offsetExists(mixed $offset): bool

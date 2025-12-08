@@ -15,6 +15,7 @@ use LarAgent\Core\DTO\AgentDTO;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
+use LarAgent\Core\Traits\UsesCachedReflection;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
@@ -30,6 +31,7 @@ class Agent
     use Configs;
     use Events;
     use HasContext;
+    use UsesCachedReflection;
 
     // Agent properties
 
@@ -1685,7 +1687,7 @@ class Agent
 
                 // Add parameters as tool properties
                 foreach ($method->getParameters() as $param) {
-                    $type = $param->getType()?->getName() ?? 'string';
+                    $type = $param->getType();
                     $AiType = $this->convertToOpenAIType($type);
                     $tool->addProperty(
                         $param->getName(),
@@ -1714,34 +1716,61 @@ class Agent
 
     protected function convertToOpenAIType($type)
     {
+        // Handle ReflectionType objects (new behavior for union types support)
+        if ($type instanceof \ReflectionType) {
+            $schema = static::reflectionTypeToSchema($type);
 
-        if ($type instanceof \ReflectionEnum || (is_string($type) && enum_exists($type))) {
-            $enumClass = is_string($type) ? $type : $type->getName();
+            // For backward compatibility with existing code that expects enum format
+            if (isset($schema['enum'])) {
+                return [
+                    'type' => $schema['type'],
+                    'enum' => [
+                        'values' => $schema['enum'],
+                        'enumClass' => null, // Not available from ReflectionType
+                    ],
+                ];
+            }
+
+            // For simple types, return just the type string for backward compatibility
+            if (isset($schema['type']) && count($schema) === 1) {
+                return $schema['type'];
+            }
+
+            return $schema;
+        }
+
+        // Handle string type names (legacy behavior)
+        if (is_string($type)) {
+            $schema = static::typeNameToSchema($type);
+
+            // If it's an enum, convert to old format for backward compatibility
+            if (is_array($schema) && isset($schema['enum'])) {
+                return [
+                    'type' => $schema['type'],
+                    'enum' => [
+                        'values' => $schema['enum'],
+                        'enumClass' => $type, // Store the enum class name for conversion
+                    ],
+                ];
+            }
+
+            return $schema;
+        }
+
+        // Handle ReflectionEnum (old behavior)
+        if ($type instanceof \ReflectionEnum) {
+            $schema = static::enumTypeToSchema($type->getName());
 
             return [
-                'type' => 'string',
+                'type' => $schema['type'],
                 'enum' => [
-                    'values' => array_map(fn ($case) => $case->value, $enumClass::cases()),
-                    'enumClass' => $enumClass, // Store the enum class name for conversion
+                    'values' => $schema['enum'],
+                    'enumClass' => $type->getName(),
                 ],
             ];
         }
 
-        switch ($type) {
-            case 'string':
-                return 'string';
-            case 'int':
-                return 'integer';
-            case 'float':
-                return 'number';
-            case 'bool':
-                return 'boolean';
-            case 'array':
-                return 'array';
-            case 'object':
-                return 'object';
-            default:
-                return 'string';
-        }
+        // Default fallback
+        return 'string';
     }
 }
