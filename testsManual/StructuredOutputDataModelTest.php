@@ -94,7 +94,7 @@ class TestAgentWithDataModelInstance extends TestAgentMock
     public function __construct()
     {
         // Set the responseSchema to a DataModel instance
-        $this->responseSchema = new WeatherInfo();
+        $this->responseSchema = new WeatherInfo;
     }
 }
 
@@ -113,7 +113,7 @@ class TestAgentOverrideWithInstance extends TestAgentMock
 {
     public function structuredOutput()
     {
-        return (new WeatherInfo())->toSchema();
+        return (new WeatherInfo)->toSchema();
     }
 }
 
@@ -168,122 +168,122 @@ echo "╚═══════════════════════�
 
 // Test 1: DataModel Instance
 runTest('Test 1: DataModel Instance in responseSchema', function () {
-    $agent = new TestAgentWithDataModelInstance();
+    $agent = new TestAgentWithDataModelInstance;
 
     // Verify structuredOutput returns a schema array
     $schema = $agent->structuredOutput();
 
-    if (!is_array($schema)) {
+    if (! is_array($schema)) {
         throw new \Exception('structuredOutput() should return an array schema');
     }
 
-    if (!isset($schema['type']) || $schema['type'] !== 'object') {
+    if (! isset($schema['type']) || $schema['type'] !== 'object') {
         throw new \Exception("Schema should have type 'object'");
     }
 
-    if (!isset($schema['properties']['city'])) {
+    if (! isset($schema['properties']['city'])) {
         throw new \Exception("Schema should have 'city' property");
     }
 
-    if (!isset($schema['properties']['temperature'])) {
+    if (! isset($schema['properties']['temperature'])) {
         throw new \Exception("Schema should have 'temperature' property");
     }
 
-    if (!isset($schema['properties']['condition'])) {
+    if (! isset($schema['properties']['condition'])) {
         throw new \Exception("Schema should have 'condition' property");
     }
 
     echo "Schema validation passed:\n";
-    echo json_encode($schema, JSON_PRETTY_PRINT) . "\n";
+    echo json_encode($schema, JSON_PRETTY_PRINT)."\n";
 });
 
 // Test 2: DataModel Class Name
 runTest('Test 2: DataModel Class Name in responseSchema', function () {
-    $agent = new TestAgentWithDataModelClassName();
+    $agent = new TestAgentWithDataModelClassName;
 
     // Verify structuredOutput returns a schema array
     $schema = $agent->structuredOutput();
 
-    if (!is_array($schema)) {
+    if (! is_array($schema)) {
         throw new \Exception('structuredOutput() should return an array schema');
     }
 
-    if (!isset($schema['type']) || $schema['type'] !== 'object') {
+    if (! isset($schema['type']) || $schema['type'] !== 'object') {
         throw new \Exception("Schema should have type 'object'");
     }
 
-    if (!isset($schema['properties']['city'])) {
+    if (! isset($schema['properties']['city'])) {
         throw new \Exception("Schema should have 'city' property");
     }
 
     echo "Schema validation passed:\n";
-    echo json_encode($schema, JSON_PRETTY_PRINT) . "\n";
+    echo json_encode($schema, JSON_PRETTY_PRINT)."\n";
 });
 
 // Test 3: Override structuredOutput with instance
 runTest('Test 3: Override structuredOutput Method with Instance', function () {
-    $agent = new TestAgentOverrideWithInstance();
+    $agent = new TestAgentOverrideWithInstance;
 
     // Verify structuredOutput returns a schema array
     $schema = $agent->structuredOutput();
 
-    if (!is_array($schema)) {
+    if (! is_array($schema)) {
         throw new \Exception('structuredOutput() should return an array schema');
     }
 
-    if (!isset($schema['type']) || $schema['type'] !== 'object') {
+    if (! isset($schema['type']) || $schema['type'] !== 'object') {
         throw new \Exception("Schema should have type 'object'");
     }
 
     echo "Schema validation passed:\n";
-    echo json_encode($schema, JSON_PRETTY_PRINT) . "\n";
+    echo json_encode($schema, JSON_PRETTY_PRINT)."\n";
 });
 
 // Test 4: Override structuredOutput with class name
 runTest('Test 4: Override structuredOutput Method with Class Name', function () {
-    $agent = new TestAgentOverrideWithClassName();
+    $agent = new TestAgentOverrideWithClassName;
 
     // Verify structuredOutput returns a schema array
     $schema = $agent->structuredOutput();
 
-    if (!is_array($schema)) {
+    if (! is_array($schema)) {
         throw new \Exception('structuredOutput() should return an array schema');
     }
 
-    if (!isset($schema['type']) || $schema['type'] !== 'object') {
+    if (! isset($schema['type']) || $schema['type'] !== 'object') {
         throw new \Exception("Schema should have type 'object'");
     }
 
     echo "Schema validation passed:\n";
-    echo json_encode($schema, JSON_PRETTY_PRINT) . "\n";
+    echo json_encode($schema, JSON_PRETTY_PRINT)."\n";
 });
 
 // Test 5: Complex DataModel
 runTest('Test 5: Complex DataModel with Nested Structures', function () {
-    $agent = new TestAgentWithComplexDataModel();
+    $agent = new TestAgentWithComplexDataModel;
 
     // Verify structuredOutput returns a schema array
     $schema = $agent->structuredOutput();
 
-    if (!is_array($schema)) {
+    if (! is_array($schema)) {
         throw new \Exception('structuredOutput() should return an array schema');
     }
 
-    if (!isset($schema['type']) || $schema['type'] !== 'object') {
+    if (! isset($schema['type']) || $schema['type'] !== 'object') {
         throw new \Exception("Schema should have type 'object'");
     }
 
-    if (!isset($schema['properties']['locations'])) {
+    if (! isset($schema['properties']['locations'])) {
         throw new \Exception("Schema should have 'locations' property");
     }
 
     echo "Schema validation passed:\n";
-    echo json_encode($schema, JSON_PRETTY_PRINT) . "\n";
+    echo json_encode($schema, JSON_PRETTY_PRINT)."\n";
 });
 
 // Test 6: Verify backward compatibility with array schemas
 runTest('Test 6: Backward Compatibility with Array Schemas', function () {
-    $agent = new TestAgentMock();
+    $agent = new TestAgentMock;
 
     // Set schema using traditional array format
     $agent->setResponseSchema([
@@ -296,20 +296,20 @@ runTest('Test 6: Backward Compatibility with Array Schemas', function () {
 
     $schema = $agent->structuredOutput();
 
-    if (!is_array($schema)) {
+    if (! is_array($schema)) {
         throw new \Exception('structuredOutput() should return an array schema');
     }
 
-    if (!isset($schema['type']) || $schema['type'] !== 'object') {
+    if (! isset($schema['type']) || $schema['type'] !== 'object') {
         throw new \Exception("Schema should have type 'object'");
     }
 
-    if (!isset($schema['properties']['answer'])) {
+    if (! isset($schema['properties']['answer'])) {
         throw new \Exception("Schema should have 'answer' property");
     }
 
     echo "Array schema backward compatibility maintained\n";
-    echo json_encode($schema, JSON_PRETTY_PRINT) . "\n";
+    echo json_encode($schema, JSON_PRETTY_PRINT)."\n";
 });
 
 echo "\n";
