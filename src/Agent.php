@@ -1670,13 +1670,10 @@ class Agent
     protected function buildToolsFromAttributeMethods(): array
     {
         $tools = [];
-        $reflection = new \ReflectionClass($this);
+        $methods = static::getCachedMethodsWithAttribute(ToolAttribute::class);
 
-        foreach ($reflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+        foreach ($methods as $method) {
             $attributes = $method->getAttributes(ToolAttribute::class);
-            if (empty($attributes)) {
-                continue;
-            }
 
             foreach ($attributes as $attribute) {
                 $toolAttribute = $attribute->newInstance();
@@ -1720,7 +1717,6 @@ class Agent
                     }
                 }
 
-                $instance = $this;
                 // Bind the method to the tool, handling both static and instance methods
                 $tool->setCallback(
                     $method->isStatic()
@@ -1734,63 +1730,4 @@ class Agent
         return $tools;
     }
 
-    protected function convertToOpenAIType($type)
-    {
-        // Handle ReflectionType objects (new behavior for union types support)
-        if ($type instanceof \ReflectionType) {
-            $schema = static::reflectionTypeToSchema($type);
-
-            // For backward compatibility with existing code that expects enum format
-            if (isset($schema['enum'])) {
-                return [
-                    'type' => $schema['type'],
-                    'enum' => [
-                        'values' => $schema['enum'],
-                        'enumClass' => null, // Not available from ReflectionType
-                    ],
-                ];
-            }
-
-            // For simple types, return just the type string for backward compatibility
-            if (isset($schema['type']) && count($schema) === 1) {
-                return $schema['type'];
-            }
-
-            return $schema;
-        }
-
-        // Handle string type names (legacy behavior)
-        if (is_string($type)) {
-            $schema = static::typeNameToSchema($type);
-
-            // If it's an enum, convert to old format for backward compatibility
-            if (is_array($schema) && isset($schema['enum'])) {
-                return [
-                    'type' => $schema['type'],
-                    'enum' => [
-                        'values' => $schema['enum'],
-                        'enumClass' => $type, // Store the enum class name for conversion
-                    ],
-                ];
-            }
-
-            return $schema;
-        }
-
-        // Handle ReflectionEnum (old behavior)
-        if ($type instanceof \ReflectionEnum) {
-            $schema = static::enumTypeToSchema($type->getName());
-
-            return [
-                'type' => $schema['type'],
-                'enum' => [
-                    'values' => $schema['enum'],
-                    'enumClass' => $type->getName(),
-                ],
-            ];
-        }
-
-        // Default fallback
-        return 'string';
-    }
 }

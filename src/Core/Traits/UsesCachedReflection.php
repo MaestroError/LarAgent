@@ -608,6 +608,36 @@ trait UsesCachedReflection
     }
 
     /**
+     * Get cached public methods with a specific attribute
+     *
+     * @param  string  $attributeClass  The attribute class to filter methods by
+     * @return array Array of ReflectionMethod objects with the specified attribute
+     */
+    protected static function getCachedMethodsWithAttribute(string $attributeClass): array
+    {
+        $class = static::class;
+        $cacheKey = $class.':methods:'.$attributeClass;
+
+        if (isset(static::$reflectionCache[$cacheKey])) {
+            return static::$reflectionCache[$cacheKey];
+        }
+
+        $reflection = new ReflectionClass($class);
+        $methods = [];
+
+        foreach ($reflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+            $attributes = $method->getAttributes($attributeClass);
+            if (! empty($attributes)) {
+                $methods[] = $method;
+            }
+        }
+
+        static::$reflectionCache[$cacheKey] = $methods;
+
+        return $methods;
+    }
+
+    /**
      * Clear the reflection cache
      *
      * Useful for testing or when type definitions change at runtime.
