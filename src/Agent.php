@@ -15,6 +15,7 @@ use LarAgent\Core\DTO\AgentDTO;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
+use LarAgent\Core\Traits\UsesCachedReflection;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
@@ -30,6 +31,7 @@ class Agent
     use Configs;
     use Events;
     use HasContext;
+    use UsesCachedReflection;
 
     // Agent properties
 
@@ -1668,13 +1670,10 @@ class Agent
     protected function buildToolsFromAttributeMethods(): array
     {
         $tools = [];
-        $reflection = new \ReflectionClass($this);
+        $methods = static::getCachedMethodsWithAttribute(ToolAttribute::class);
 
-        foreach ($reflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+        foreach ($methods as $method) {
             $attributes = $method->getAttributes(ToolAttribute::class);
-            if (empty($attributes)) {
-                continue;
-            }
 
             foreach ($attributes as $attribute) {
                 $toolAttribute = $attribute->newInstance();
@@ -1683,22 +1682,49 @@ class Agent
                     $toolAttribute->description
                 );
 
-                // Add parameters as tool properties
+                // Add parameters as tool properties using trait methods
                 foreach ($method->getParameters() as $param) {
-                    $type = $param->getType()?->getName() ?? 'string';
-                    $AiType = $this->convertToOpenAIType($type);
+                    $typeInfo = static::getTypeInfo($param->getType());
+                    $schema = $typeInfo['schema'];
+                    
+                    // Extract type and enum values from schema
+                    $type = $schema['type'] ?? 'string';
+                    $enum = [];
+                    
+                    if (isset($schema['enum'])) {
+                        $enum = [
+                            'values' => $schema['enum'],
+                            'enumClass' => $typeInfo['enumClass'],
+                        ];
+                    } elseif (isset($schema['oneOf'])) {
+                        // For union types, use the schema as-is
+                        $type = $schema;
+                        
+                        // Store enum classes for union types (can be array of classes)
+                        if ($typeInfo['enumClass']) {
+                            $tool->addEnumType($param->getName(), $typeInfo['enumClass']);
+                        }
+                    } elseif ($typeInfo['dataModelClass'] || ( ($schema['type'] ?? '') === 'object' && isset($schema['properties']) )) {
+                        // For DataModels/objects with nested properties, use the full schema
+                        $type = $schema;
+                    }
+                    
+                    // Store DataModel class if present (can be array for union types)
+                    if ($typeInfo['dataModelClass']) {
+                        $tool->addDataModelType($param->getName(), $typeInfo['dataModelClass']);
+                    }
+                    
                     $tool->addProperty(
                         $param->getName(),
-                        isset($AiType['type']) ? $AiType['type'] : $AiType,
-                        isset($toolAttribute->parameterDescriptions[$param->getName()]) ? $toolAttribute->parameterDescriptions[$param->getName()] : '',
-                        isset($AiType['enum']) ? $AiType['enum'] : []
+                        $type,
+                        $toolAttribute->parameterDescriptions[$param->getName()] ?? '',
+                        $enum
                     );
                     if (! $param->isOptional()) {
                         $tool->setRequired($param->getName());
                     }
                 }
 
-                $instance = $this;
                 // Bind the method to the tool, handling both static and instance methods
                 $tool->setCallback(
                     $method->isStatic()
@@ -1712,36 +1738,4 @@ class Agent
         return $tools;
     }
 
-    protected function convertToOpenAIType($type)
-    {
-
-        if ($type instanceof \ReflectionEnum || (is_string($type) && enum_exists($type))) {
-            $enumClass = is_string($type) ? $type : $type->getName();
-
-            return [
-                'type' => 'string',
-                'enum' => [
-                    'values' => array_map(fn ($case) => $case->value, $enumClass::cases()),
-                    'enumClass' => $enumClass, // Store the enum class name for conversion
-                ],
-            ];
-        }
-
-        switch ($type) {
-            case 'string':
-                return 'string';
-            case 'int':
-                return 'integer';
-            case 'float':
-                return 'number';
-            case 'bool':
-                return 'boolean';
-            case 'array':
-                return 'array';
-            case 'object':
-                return 'object';
-            default:
-                return 'string';
-        }
-    }
 }
