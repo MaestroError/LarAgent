@@ -6,6 +6,7 @@ use BackedEnum;
 use LarAgent\Attributes\Desc;
 use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Helpers\UnionTypeResolver;
 use ReflectionClass;
 use ReflectionEnum;
 use ReflectionNamedType;
@@ -201,9 +202,9 @@ trait UsesCachedReflection
      */
     protected static function castUnionType(mixed $value, ReflectionUnionType $type): mixed
     {
-        // Collect DataModel classes from the union for smart matching
+        // Collect DataModel and Enum classes from the union for smart matching
         $dataModelClasses = [];
-        $otherTypes = [];
+        $enumClasses = [];
 
         foreach ($type->getTypes() as $subType) {
             // Skip null type
@@ -218,29 +219,35 @@ trait UsesCachedReflection
 
                     continue;
                 }
-            }
+                if (enum_exists($typeName)) {
+                    $enumClasses[] = $typeName;
 
-            $otherTypes[] = $subType;
-        }
-
-        // If value is an array and we have multiple DataModel classes, use smart matching
-        if (is_array($value) && count($dataModelClasses) > 1) {
-            $bestMatch = static::findBestDataModelMatch($value, $dataModelClasses);
-            if ($bestMatch) {
-                return $bestMatch::fromArray($value);
+                    continue;
+                }
             }
         }
 
-        // If value is an array and we have exactly one DataModel, use it
-        if (is_array($value) && count($dataModelClasses) === 1) {
-            return $dataModelClasses[0]::fromArray($value);
+        // Use centralized resolver for DataModel and Enum matching
+        if (! empty($dataModelClasses) || ! empty($enumClasses)) {
+            $resolved = UnionTypeResolver::resolveUnionValue($value, $dataModelClasses, $enumClasses);
+            if ($resolved !== $value) {
+                return $resolved;
+            }
         }
 
-        // For non-array values or no DataModels, try each type in order
+        // For other types (builtins, etc.), try each type in order
         foreach ($type->getTypes() as $subType) {
             // Skip null type
             if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
                 continue;
+            }
+
+            // Skip DataModels and Enums (already handled above)
+            if ($subType instanceof ReflectionNamedType && ! $subType->isBuiltin()) {
+                $typeName = $subType->getName();
+                if (is_subclass_of($typeName, DataModelContract::class) || enum_exists($typeName)) {
+                    continue;
+                }
             }
 
             // Check if this type is potentially compatible before trying to cast
@@ -264,8 +271,7 @@ trait UsesCachedReflection
     /**
      * Find the best matching DataModel class for an array value
      *
-     * Compares input array keys against each DataModel's required properties
-     * and returns the class with the highest match score.
+     * Delegates to UnionTypeResolver for centralized logic.
      *
      * @param  array  $value  The input array
      * @param  array  $dataModelClasses  Array of DataModel class names
@@ -273,33 +279,7 @@ trait UsesCachedReflection
      */
     protected static function findBestDataModelMatch(array $value, array $dataModelClasses): ?string
     {
-        $bestMatch = null;
-        $bestScore = -1;
-        $inputKeys = array_keys($value);
-
-        foreach ($dataModelClasses as $class) {
-            // Get required properties from the DataModel's schema
-            $schema = $class::generateSchema();
-            $requiredProps = $schema['required'] ?? [];
-
-            // Calculate match score: required properties present in input
-            $matchCount = count(array_intersect($requiredProps, $inputKeys));
-
-            // Also check if all required properties are present (for better accuracy)
-            $allRequiredPresent = empty(array_diff($requiredProps, $inputKeys));
-
-            // Prefer classes where all required properties are present
-            if ($allRequiredPresent && $matchCount > $bestScore) {
-                $bestScore = $matchCount;
-                $bestMatch = $class;
-            } elseif ($bestMatch === null && $matchCount > $bestScore) {
-                // Fallback: use partial match if no full match found
-                $bestScore = $matchCount;
-                $bestMatch = $class;
-            }
-        }
-
-        return $bestMatch;
+        return UnionTypeResolver::findBestDataModelMatch($value, $dataModelClasses);
     }
 
     /**

@@ -4,6 +4,7 @@ namespace LarAgent;
 
 use LarAgent\Core\Abstractions\Tool as AbstractTool;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
+use LarAgent\Core\Helpers\UnionTypeResolver;
 
 class Tool extends AbstractTool implements ToolInterface
 {
@@ -74,71 +75,25 @@ class Tool extends AbstractTool implements ToolInterface
 
     protected function convertSpecialTypes(array $input): array
     {
-        // Convert enums (handle both single class and array of classes)
-        // Only convert if the value is a scalar (string/int), not an array
-        foreach ($this->enumTypes as $paramName => $enumClass) {
-            if (isset($input[$paramName]) && !is_array($input[$paramName])) {
-                if (is_array($enumClass)) {
-                    // Multiple enum classes - try each one
-                    foreach ($enumClass as $class) {
-                        try {
-                            $input[$paramName] = $class::from($input[$paramName]);
-                            break; // Successfully converted
-                        } catch (\ValueError $e) {
-                            // Try next enum class
-                            continue;
-                        }
-                    }
-                } else {
-                    $input[$paramName] = $enumClass::from($input[$paramName]);
-                }
-            }
-        }
+        foreach ($input as $paramName => $value) {
+            $dataModelClasses = $this->dataModelTypes[$paramName] ?? null;
+            $enumClasses = $this->enumTypes[$paramName] ?? null;
 
-        // Convert DataModels (handle both single class and array of classes)
-        foreach ($this->dataModelTypes as $paramName => $dataModelClass) {
-            if (isset($input[$paramName]) && is_array($input[$paramName])) {
-                if (is_array($dataModelClass)) {
-                    // Multiple DataModel classes - find the best match based on properties
-                    $inputKeys = array_keys($input[$paramName]);
-                    $bestMatch = null;
-                    $bestScore = -1;
-                    
-                    foreach ($dataModelClass as $class) {
-                        try {
-                            // Get the DataModel's expected properties
-                            $schema = $class::generateSchema();
-                            $expectedProps = array_keys($schema['properties'] ?? []);
-                            $requiredProps = $schema['required'] ?? [];
-                            
-                            // Calculate match score based on property overlap
-                            $matchingProps = array_intersect($inputKeys, $expectedProps);
-                            $hasAllRequired = empty(array_diff($requiredProps, $inputKeys));
-                            
-                            // Score: matching properties count + bonus if all required present
-                            $score = count($matchingProps) + ($hasAllRequired ? 100 : 0);
-                            
-                            if ($score > $bestScore) {
-                                $bestScore = $score;
-                                $bestMatch = $class;
-                            }
-                        } catch (\Throwable $e) {
-                            continue;
-                        }
-                    }
-                    
-                    // Use the best matching DataModel class
-                    if ($bestMatch !== null) {
-                        try {
-                            $input[$paramName] = $bestMatch::fromArray($input[$paramName]);
-                        } catch (\Throwable $e) {
-                            // Failed to create instance
-                        }
-                    }
-                } else {
-                    $input[$paramName] = $dataModelClass::fromArray($input[$paramName]);
-                }
+            // Skip if no special types registered for this parameter
+            if ($dataModelClasses === null && $enumClasses === null) {
+                continue;
             }
+
+            // Normalize to arrays
+            $dataModelClasses = $dataModelClasses ? (array) $dataModelClasses : [];
+            $enumClasses = $enumClasses ? (array) $enumClasses : [];
+
+            // Use centralized resolver
+            $input[$paramName] = UnionTypeResolver::resolveUnionValue(
+                $value,
+                $dataModelClasses,
+                $enumClasses
+            );
         }
 
         return $input;
