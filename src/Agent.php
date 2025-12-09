@@ -646,8 +646,8 @@ class Agent
             return $this->responseSchema::generateSchema();
         }
 
-        // Otherwise, return the array schema as-is
-        return $this->responseSchema;
+        // Otherwise, return the array schema as-is if it's an array, otherwise return null
+        return is_array($this->responseSchema) ? $this->responseSchema : null;
     }
 
     /**

@@ -164,7 +164,7 @@ function runTest(string $testName, callable $testFn): void
 echo "\n";
 echo "╔════════════════════════════════════════════════════════════════════════════╗\n";
 echo "║         STRUCTURED OUTPUT WITH DATAMODEL - MANUAL TESTS                    ║\n";
-echo "╔════════════════════════════════════════════════════════════════════════════╗\n";
+echo "╚════════════════════════════════════════════════════════════════════════════╝\n";
 
 // Test 1: DataModel Instance
 runTest('Test 1: DataModel Instance in responseSchema', function () {
@@ -315,7 +315,7 @@ runTest('Test 6: Backward Compatibility with Array Schemas', function () {
 echo "\n";
 echo "╔════════════════════════════════════════════════════════════════════════════╗\n";
 echo "║                        ALL TESTS PASSED ✅                                 ║\n";
-echo "╔════════════════════════════════════════════════════════════════════════════╗\n";
+echo "╚════════════════════════════════════════════════════════════════════════════╝\n";
 echo "\n";
 echo "Summary:\n";
 echo "  ✓ DataModel instances work in responseSchema property\n";
