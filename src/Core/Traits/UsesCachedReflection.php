@@ -2,18 +2,18 @@
 
 namespace LarAgent\Core\Traits;
 
-use BackedEnum;
 use LarAgent\Attributes\Desc;
 use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Core\Helpers\SchemaGenerator;
+use LarAgent\Core\Helpers\TypeCaster;
+use LarAgent\Core\Helpers\TypeInfoExtractor;
 use LarAgent\Core\Helpers\UnionTypeResolver;
 use ReflectionClass;
-use ReflectionEnum;
 use ReflectionNamedType;
 use ReflectionProperty;
 use ReflectionType;
 use ReflectionUnionType;
-use UnitEnum;
 
 /**
  * Trait UsesCachedReflection
@@ -154,7 +154,7 @@ trait UsesCachedReflection
     /**
      * Cast a value to match a ReflectionType
      *
-     * Handles union types, DataModel classes, enums, and builtin types.
+     * Delegates to TypeCaster helper for centralized type casting logic.
      *
      * @param  mixed  $value  The value to cast
      * @param  ReflectionType|null  $type  The target type
@@ -162,39 +162,13 @@ trait UsesCachedReflection
      */
     protected static function castValue(mixed $value, ?ReflectionType $type): mixed
     {
-        // Handle union types with smart DataModel matching
-        if ($type instanceof ReflectionUnionType) {
-            return static::castUnionType($value, $type);
-        }
-
-        if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
-            $typeName = $type->getName();
-
-            if (is_subclass_of($typeName, DataModelContract::class) && is_array($value)) {
-                return $typeName::fromArray($value);
-            } elseif (enum_exists($typeName)) {
-                if ($value instanceof $typeName) {
-                    return $value;
-                } elseif (is_subclass_of($typeName, BackedEnum::class) && (is_string($value) || is_int($value))) {
-                    return $typeName::tryFrom($value) ?? $value;
-                } elseif (is_subclass_of($typeName, UnitEnum::class) && (is_string($value) || is_int($value))) {
-                    foreach ($typeName::cases() as $case) {
-                        if ($case->name === $value) {
-                            return $case;
-                        }
-                    }
-                }
-            }
-        }
-
-        return $value;
+        return TypeCaster::cast($value, $type);
     }
 
     /**
      * Cast a value for a union type with smart DataModel matching
      *
-     * When multiple DataModels are in a union, selects the best match based on
-     * which DataModel's required properties best match the input array keys.
+     * Delegates to TypeCaster helper for centralized logic.
      *
      * @param  mixed  $value  The value to cast
      * @param  ReflectionUnionType  $type  The union type
@@ -202,70 +176,7 @@ trait UsesCachedReflection
      */
     protected static function castUnionType(mixed $value, ReflectionUnionType $type): mixed
     {
-        // Collect DataModel and Enum classes from the union for smart matching
-        $dataModelClasses = [];
-        $enumClasses = [];
-
-        foreach ($type->getTypes() as $subType) {
-            // Skip null type
-            if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
-                continue;
-            }
-
-            if ($subType instanceof ReflectionNamedType && ! $subType->isBuiltin()) {
-                $typeName = $subType->getName();
-                if (is_subclass_of($typeName, DataModelContract::class)) {
-                    $dataModelClasses[] = $typeName;
-
-                    continue;
-                }
-                if (enum_exists($typeName)) {
-                    $enumClasses[] = $typeName;
-
-                    continue;
-                }
-            }
-        }
-
-        // Use centralized resolver for DataModel and Enum matching
-        if (! empty($dataModelClasses) || ! empty($enumClasses)) {
-            $resolved = UnionTypeResolver::resolveUnionValue($value, $dataModelClasses, $enumClasses);
-            if ($resolved !== $value) {
-                return $resolved;
-            }
-        }
-
-        // For other types (builtins, etc.), try each type in order
-        foreach ($type->getTypes() as $subType) {
-            // Skip null type
-            if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
-                continue;
-            }
-
-            // Skip DataModels and Enums (already handled above)
-            if ($subType instanceof ReflectionNamedType && ! $subType->isBuiltin()) {
-                $typeName = $subType->getName();
-                if (is_subclass_of($typeName, DataModelContract::class) || enum_exists($typeName)) {
-                    continue;
-                }
-            }
-
-            // Check if this type is potentially compatible before trying to cast
-            if (! static::canCastToType($value, $subType)) {
-                continue;
-            }
-
-            // Try to cast to this type
-            $castValue = static::castValue($value, $subType);
-
-            // If casting was successful (value changed or is valid for the type), return it
-            if ($castValue !== $value || static::isValueValidForType($value, $subType)) {
-                return $castValue;
-            }
-        }
-
-        // If no casting worked, return original value
-        return $value;
+        return TypeCaster::castUnionType($value, $type);
     }
 
     /**
@@ -285,7 +196,7 @@ trait UsesCachedReflection
     /**
      * Check if a value can potentially be cast to a given type
      *
-     * Used for union type casting to determine compatibility.
+     * Delegates to TypeCaster helper.
      *
      * @param  mixed  $value  The value to check
      * @param  ReflectionType  $type  The target type
@@ -293,47 +204,13 @@ trait UsesCachedReflection
      */
     protected static function canCastToType(mixed $value, ReflectionType $type): bool
     {
-        // Defensive check: Union types should only appear at the top level, not nested within another union.
-        // If encountered, allow the recursive castValue call to handle it.
-        if ($type instanceof ReflectionUnionType) {
-            return true;
-        }
-
-        if (! $type instanceof ReflectionNamedType) {
-            return true;
-        }
-
-        $typeName = $type->getName();
-
-        // Builtin types - strict type checking
-        if ($type->isBuiltin()) {
-            return match ($typeName) {
-                'int' => is_int($value),
-                'float' => is_float($value),
-                'bool' => is_bool($value),
-                'string' => is_string($value),
-                'array' => is_array($value),
-                default => true,
-            };
-        }
-
-        // DataModel - needs array or already instance
-        if (is_subclass_of($typeName, DataModelContract::class)) {
-            return is_array($value) || $value instanceof $typeName;
-        }
-
-        // Enum - needs string/int or already instance
-        if (enum_exists($typeName)) {
-            return $value instanceof $typeName || is_string($value) || is_int($value);
-        }
-
-        return true;
+        return TypeCaster::canCast($value, $type);
     }
 
     /**
      * Check if a value is valid for a given type
      *
-     * Used for union type casting validation.
+     * Delegates to TypeCaster helper.
      *
      * @param  mixed  $value  The value to check
      * @param  ReflectionType  $type  The target type
@@ -341,242 +218,98 @@ trait UsesCachedReflection
      */
     protected static function isValueValidForType(mixed $value, ReflectionType $type): bool
     {
-        // Defensive check: Union types should never appear nested. Return false to prevent validation of impossible type combinations.
-        if ($type instanceof ReflectionUnionType) {
-            return false;
-        }
-
-        if (! $type instanceof ReflectionNamedType) {
-            return false;
-        }
-        $typeName = $type->getName();
-
-        if ($type->isBuiltin()) {
-            return match ($typeName) {
-                'int' => is_int($value),
-                'float' => is_float($value),
-                'bool' => is_bool($value),
-                'string' => is_string($value),
-                'array' => is_array($value),
-                default => false,
-            };
-        }
-
-        if (is_subclass_of($typeName, DataModelContract::class)) {
-            return $value instanceof $typeName;
-        }
-
-        if (enum_exists($typeName)) {
-            return $value instanceof $typeName;
-        }
-
-        return false;
+        return TypeCaster::isValidForType($value, $type);
     }
 
     /**
      * Convert a ReflectionType to OpenAPI schema format
      *
-     * Handles builtin types, enums, DataModel classes, and union types.
-     * Uses caching to avoid repeated reflection operations.
+     * Delegates to SchemaGenerator helper for centralized schema generation.
      *
      * @param  ReflectionType|null  $type  The reflection type to convert
      * @return array OpenAPI schema array (e.g., ['type' => 'string'])
      */
     protected static function reflectionTypeToSchema(?ReflectionType $type): array
     {
-        if (! $type) {
-            return ['type' => 'string'];
-        }
-
-        // Handle union types (e.g., string|int)
-        if ($type instanceof ReflectionUnionType) {
-            return static::unionTypeToSchema($type);
-        }
-
-        if ($type instanceof ReflectionNamedType) {
-            return static::namedTypeToSchema($type);
-        }
-
-        return ['type' => 'string'];
+        return SchemaGenerator::fromReflectionType($type);
     }
 
     /**
      * Convert a union type to OpenAPI schema format using oneOf
+     *
+     * Delegates to SchemaGenerator helper.
      *
      * @param  ReflectionUnionType  $unionType  The union type to convert
      * @return array OpenAPI schema with oneOf or single type
      */
     protected static function unionTypeToSchema(ReflectionUnionType $unionType): array
     {
-        $schemas = [];
-        foreach ($unionType->getTypes() as $subType) {
-            // Skip null type as it's handled by OpenAPI's nullable property
-            if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
-                continue;
-            }
-            $schemas[] = static::reflectionTypeToSchema($subType);
-        }
-
-        // If we have multiple schemas, use oneOf
-        if (count($schemas) > 1) {
-            return ['oneOf' => $schemas];
-        }
-
-        // If only one schema (after filtering out null), return it directly
-        if (count($schemas) === 1) {
-            return $schemas[0];
-        }
-
-        // Fallback if all types were null (shouldn't happen in practice)
-        return ['type' => 'string'];
+        return SchemaGenerator::fromUnionType($unionType);
     }
 
     /**
      * Convert a named type to OpenAPI schema format
      *
-     * Handles builtin types, enums, and DataModel classes.
+     * Delegates to SchemaGenerator helper.
      *
      * @param  ReflectionNamedType  $namedType  The named type to convert
      * @return array OpenAPI schema array
      */
     protected static function namedTypeToSchema(ReflectionNamedType $namedType): array
     {
-        $typeName = $namedType->getName();
-
-        // Check cache first (use a sub-key for type schemas to avoid conflicts)
-        $cacheKey = 'typeSchema:'.$typeName;
-        if (isset(static::$reflectionCache[$cacheKey])) {
-            return static::$reflectionCache[$cacheKey];
-        }
-
-        // Handle builtin types
-        if ($namedType->isBuiltin()) {
-            $schema = static::builtinTypeToSchema($typeName);
-            static::$reflectionCache[$cacheKey] = $schema;
-
-            return $schema;
-        }
-
-        // Handle DataModel classes
-        if (is_subclass_of($typeName, DataModelContract::class)) {
-            // Don't cache DataModel schemas as they may be dynamic
-            return static::dataModelTypeToSchema($typeName);
-        }
-
-        // Handle Enums
-        if (enum_exists($typeName)) {
-            $schema = static::enumTypeToSchema($typeName);
-            static::$reflectionCache[$cacheKey] = $schema;
-
-            return $schema;
-        }
-
-        // Default fallback
-        $schema = ['type' => 'string'];
-        static::$reflectionCache[$cacheKey] = $schema;
-
-        return $schema;
+        return SchemaGenerator::fromNamedType($namedType);
     }
 
     /**
      * Convert a builtin PHP type to OpenAPI type
+     *
+     * Delegates to SchemaGenerator helper.
      *
      * @param  string  $typeName  The builtin type name (int, float, bool, string, array, object)
      * @return array OpenAPI schema array
      */
     protected static function builtinTypeToSchema(string $typeName): array
     {
-        return match ($typeName) {
-            'int' => ['type' => 'integer'],
-            'float' => ['type' => 'number'],
-            'bool' => ['type' => 'boolean'],
-            'array' => ['type' => 'array'],
-            'object' => ['type' => 'object'],
-            default => ['type' => 'string'],
-        };
+        return SchemaGenerator::forBuiltinType($typeName);
     }
 
     /**
      * Convert an enum type to OpenAPI schema format
      *
-     * Handles both backed enums (with scalar values) and unit enums (name only).
+     * Delegates to SchemaGenerator helper.
      *
      * @param  string  $enumClassName  The fully qualified enum class name
      * @return array OpenAPI schema with type and enum values
      */
     protected static function enumTypeToSchema(string $enumClassName): array
     {
-        $reflectionEnum = new ReflectionEnum($enumClassName);
-        $cases = $reflectionEnum->getCases();
-        $values = [];
-        $schemaType = 'string';
-
-        if ($reflectionEnum->isBacked()) {
-            $backingType = $reflectionEnum->getBackingType()->getName();
-            $schemaType = $backingType === 'int' ? 'integer' : 'string';
-            $values = array_map(fn ($case) => $case->getBackingValue(), $cases);
-        } else {
-            $values = array_map(fn ($case) => $case->getName(), $cases);
-        }
-
-        return [
-            'type' => $schemaType,
-            'enum' => $values,
-        ];
+        return SchemaGenerator::forEnum($enumClassName);
     }
 
     /**
      * Convert a DataModel class to OpenAPI schema format
+     *
+     * Delegates to SchemaGenerator helper.
      *
      * @param  string  $dataModelClassName  The fully qualified DataModel class name
      * @return array OpenAPI schema (nested object schema)
      */
     protected static function dataModelTypeToSchema(string $dataModelClassName): array
     {
-        if (method_exists($dataModelClassName, 'generateSchema')) {
-            return $dataModelClassName::generateSchema();
-        }
-
-        try {
-            $instance = (new ReflectionClass($dataModelClassName))->newInstanceWithoutConstructor();
-
-            return $instance->toSchema();
-        } catch (\Throwable $e) {
-            return ['type' => 'object'];
-        }
+        return SchemaGenerator::forDataModel($dataModelClassName);
     }
 
     /**
      * Convert a type name string to OpenAPI schema format
      *
-     * This is a convenience method for cases where we only have a type name string
-     * (typically from older reflection code or simple type hints).
+     * Delegates to SchemaGenerator helper.
      *
      * @param  string  $typeName  The type name (e.g., 'string', 'int', or class name)
      * @return array|string OpenAPI schema array or simple type string
      */
     protected static function typeNameToSchema(string $typeName): array|string
     {
-        // Check if it's an enum
-        if (enum_exists($typeName)) {
-            return static::enumTypeToSchema($typeName);
-        }
-
-        // Check if it's a DataModel
-        if (is_subclass_of($typeName, DataModelContract::class)) {
-            return static::dataModelTypeToSchema($typeName);
-        }
-
-        // Handle builtin types - return simple string for backward compatibility
-        return match ($typeName) {
-            'string' => 'string',
-            'int' => 'integer',
-            'float' => 'number',
-            'bool' => 'boolean',
-            'array' => 'array',
-            'object' => 'object',
-            default => 'string',
-        };
+        return SchemaGenerator::fromTypeName($typeName);
     }
 
     /**
@@ -600,23 +333,16 @@ trait UsesCachedReflection
         // Handle union types
         if ($type instanceof ReflectionUnionType) {
             $schemas = [];
-            $enumClasses = [];
-            $dataModelClasses = [];
+            $enumClasses = TypeInfoExtractor::getEnumClasses($type);
+            $dataModelClasses = TypeInfoExtractor::getClassesOfType($type, DataModelContract::class);
 
+            // Build schemas for each non-null type
             foreach ($type->getTypes() as $subType) {
                 // Skip null type
                 if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
                     continue;
                 }
-
-                $subInfo = static::getTypeInfo($subType);
-                $schemas[] = $subInfo['schema'];
-                if ($subInfo['enumClass']) {
-                    $enumClasses[] = $subInfo['enumClass'];
-                }
-                if ($subInfo['dataModelClass']) {
-                    $dataModelClasses[] = $subInfo['dataModelClass'];
-                }
+                $schemas[] = SchemaGenerator::fromReflectionType($subType);
             }
 
             if (count($schemas) > 1) {
@@ -645,7 +371,7 @@ trait UsesCachedReflection
         // Handle named types
         if ($type instanceof ReflectionNamedType) {
             $typeName = $type->getName();
-            $schema = static::namedTypeToSchema($type);
+            $schema = SchemaGenerator::fromNamedType($type);
 
             // Check if it's an enum
             if (enum_exists($typeName)) {
@@ -712,6 +438,7 @@ trait UsesCachedReflection
     /**
      * Clear the reflection cache
      *
+     * Clears both the trait's local cache and the helper classes' caches.
      * Useful for testing or when type definitions change at runtime.
      *
      * @return void
@@ -719,5 +446,6 @@ trait UsesCachedReflection
     protected static function clearReflectionCache(): void
     {
         static::$reflectionCache = [];
+        SchemaGenerator::clearCache();
     }
 }
