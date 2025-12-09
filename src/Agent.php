@@ -54,7 +54,7 @@ class Agent
     /** @var string */
     protected $instructions;
 
-    /** @var array */
+    /** @var array|string|\LarAgent\Core\Contracts\DataModel|null - Array schema, DataModel class name, or DataModel instance */
     protected $responseSchema = [];
 
     /** @var array */
@@ -107,9 +107,6 @@ class Agent
      * @var bool
      */
     protected $storeMeta;
-
-    /** @var bool */
-    protected $saveChatKeys;
 
     /**
      * Name of the agent
@@ -635,7 +632,22 @@ class Agent
      */
     public function structuredOutput()
     {
-        return $this->responseSchema ?? null;
+        if (empty($this->responseSchema)) {
+            return null;
+        }
+
+        // If it's a DataModel instance, call toSchema()
+        if ($this->responseSchema instanceof \LarAgent\Core\Contracts\DataModel) {
+            return $this->responseSchema->toSchema();
+        }
+
+        // If it's a DataModel class name, call generateSchema() statically
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+            return $this->responseSchema::generateSchema();
+        }
+
+        // Otherwise, return the array schema as-is if it's an array, otherwise return null
+        return is_array($this->responseSchema) ? $this->responseSchema : null;
     }
 
     /**
@@ -1307,7 +1319,7 @@ class Agent
         return $this;
     }
 
-    public function responseSchema(?array $schema): static
+    public function responseSchema(null|array|string|\LarAgent\Core\Contracts\DataModel $schema): static
     {
         $this->responseSchema = $schema;
 
@@ -1452,9 +1464,6 @@ class Agent
         }
         if (! isset($this->storeMeta) && isset($providerData['store_meta'])) {
             $this->storeMeta = $providerData['store_meta'];
-        }
-        if (! isset($this->saveChatKeys) && isset($providerData['save_chat_keys'])) {
-            $this->saveChatKeys = $providerData['save_chat_keys'];
         }
         if (! isset($this->temperature) && isset($providerData['default_temperature'])) {
             $this->temperature = $providerData['default_temperature'];
