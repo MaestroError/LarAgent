@@ -642,11 +642,8 @@ class Agent
         }
 
         // If it's a DataModel class name, call generateSchema() statically
-        if (is_string($this->responseSchema) && class_exists($this->responseSchema)) {
-            $reflection = new \ReflectionClass($this->responseSchema);
-            if ($reflection->implementsInterface(\LarAgent\Core\Contracts\DataModel::class)) {
-                return $this->responseSchema::generateSchema();
-            }
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+            return $this->responseSchema::generateSchema();
         }
 
         // Otherwise, return the array schema as-is
