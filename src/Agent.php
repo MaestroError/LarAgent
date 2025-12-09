@@ -1704,7 +1704,7 @@ class Agent
                         if ($typeInfo['enumClass']) {
                             $tool->addEnumType($param->getName(), $typeInfo['enumClass']);
                         }
-                    } elseif ($typeInfo['dataModelClass'] || ($schema['type'] ?? '') === 'object' && isset($schema['properties'])) {
+                    } elseif ($typeInfo['dataModelClass'] || ( ($schema['type'] ?? '') === 'object' && isset($schema['properties']) )) {
                         // For DataModels/objects with nested properties, use the full schema
                         $type = $schema;
                     }
