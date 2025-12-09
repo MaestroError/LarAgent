@@ -2,14 +2,14 @@
 
 /**
  * Manual Test: UsesCachedReflection Trait
- * 
+ *
  * This test demonstrates how the UsesCachedReflection trait works
  * and how it provides cached reflection-based type resolution.
- * 
+ *
  * Run this test with: php testsManual/UsesCachedReflectionTest.php
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Traits\UsesCachedReflection;
@@ -35,21 +35,27 @@ enum Status
 class Address extends DataModel
 {
     public string $street;
+
     public string $city;
+
     public string $zipCode;
 }
 
 class Person extends DataModel
 {
     public string $name;
+
     public int $age;
+
     public ?Address $address = null;
 }
 
 class Task extends DataModel
 {
     public string $title;
+
     public Priority $priority;
+
     public Status $status;
 }
 
@@ -64,44 +70,44 @@ class SchemaGenerator
 
         // 1. Builtin Types
         echo "1. Builtin Type Resolution:\n";
-        echo "   - string: " . json_encode(self::builtinTypeToSchema('string')) . "\n";
-        echo "   - int: " . json_encode(self::builtinTypeToSchema('int')) . "\n";
-        echo "   - float: " . json_encode(self::builtinTypeToSchema('float')) . "\n";
-        echo "   - bool: " . json_encode(self::builtinTypeToSchema('bool')) . "\n";
-        echo "   - array: " . json_encode(self::builtinTypeToSchema('array')) . "\n\n";
+        echo '   - string: '.json_encode(self::builtinTypeToSchema('string'))."\n";
+        echo '   - int: '.json_encode(self::builtinTypeToSchema('int'))."\n";
+        echo '   - float: '.json_encode(self::builtinTypeToSchema('float'))."\n";
+        echo '   - bool: '.json_encode(self::builtinTypeToSchema('bool'))."\n";
+        echo '   - array: '.json_encode(self::builtinTypeToSchema('array'))."\n\n";
 
         // 2. Enum Types
         echo "2. Enum Type Resolution:\n";
         $prioritySchema = self::enumTypeToSchema(Priority::class);
-        echo "   - Priority (backed enum): " . json_encode($prioritySchema, JSON_PRETTY_PRINT) . "\n";
+        echo '   - Priority (backed enum): '.json_encode($prioritySchema, JSON_PRETTY_PRINT)."\n";
         $statusSchema = self::enumTypeToSchema(Status::class);
-        echo "   - Status (unit enum): " . json_encode($statusSchema, JSON_PRETTY_PRINT) . "\n\n";
+        echo '   - Status (unit enum): '.json_encode($statusSchema, JSON_PRETTY_PRINT)."\n\n";
 
         // 3. DataModel Types
         echo "3. DataModel Type Resolution:\n";
         $addressSchema = self::dataModelTypeToSchema(Address::class);
-        echo "   - Address: " . json_encode($addressSchema, JSON_PRETTY_PRINT) . "\n";
+        echo '   - Address: '.json_encode($addressSchema, JSON_PRETTY_PRINT)."\n";
         $personSchema = self::dataModelTypeToSchema(Person::class);
-        echo "   - Person: " . json_encode($personSchema, JSON_PRETTY_PRINT) . "\n\n";
+        echo '   - Person: '.json_encode($personSchema, JSON_PRETTY_PRINT)."\n\n";
 
         // 4. Union Types (using ReflectionType)
         echo "4. Union Type Resolution:\n";
-        $reflection = new ReflectionParameter([function(string|int $param) {}, '__invoke'], 'param');
+        $reflection = new ReflectionParameter([function (string|int $param) {}, '__invoke'], 'param');
         $unionType = $reflection->getType();
         $unionSchema = self::reflectionTypeToSchema($unionType);
-        echo "   - string|int: " . json_encode($unionSchema, JSON_PRETTY_PRINT) . "\n";
+        echo '   - string|int: '.json_encode($unionSchema, JSON_PRETTY_PRINT)."\n";
 
-        $reflection2 = new ReflectionParameter([function(Priority|Status $param) {}, '__invoke'], 'param');
+        $reflection2 = new ReflectionParameter([function (Priority|Status $param) {}, '__invoke'], 'param');
         $unionEnumType = $reflection2->getType();
         $unionEnumSchema = self::reflectionTypeToSchema($unionEnumType);
-        echo "   - Priority|Status: " . json_encode($unionEnumSchema, JSON_PRETTY_PRINT) . "\n\n";
+        echo '   - Priority|Status: '.json_encode($unionEnumSchema, JSON_PRETTY_PRINT)."\n\n";
 
         // 5. Type Name to Schema (convenience method)
         echo "5. Type Name to Schema (String-based resolution):\n";
-        echo "   - 'string': " . json_encode(self::typeNameToSchema('string')) . "\n";
-        echo "   - 'int': " . json_encode(self::typeNameToSchema('int')) . "\n";
-        echo "   - Priority::class: " . json_encode(self::typeNameToSchema(Priority::class)) . "\n";
-        echo "   - Task::class: " . json_encode(self::typeNameToSchema(Task::class), JSON_PRETTY_PRINT) . "\n\n";
+        echo "   - 'string': ".json_encode(self::typeNameToSchema('string'))."\n";
+        echo "   - 'int': ".json_encode(self::typeNameToSchema('int'))."\n";
+        echo '   - Priority::class: '.json_encode(self::typeNameToSchema(Priority::class))."\n";
+        echo '   - Task::class: '.json_encode(self::typeNameToSchema(Task::class), JSON_PRETTY_PRINT)."\n\n";
     }
 
     public static function demonstrateCaching(): void
@@ -114,7 +120,7 @@ class SchemaGenerator
 
         // Measure performance with caching
         echo "Resolving type 1000 times with caching:\n";
-        $reflection = new ReflectionParameter([function(string $param) {}, '__invoke'], 'param');
+        $reflection = new ReflectionParameter([function (string $param) {}, '__invoke'], 'param');
         $type = $reflection->getType();
 
         $start = microtime(true);
@@ -122,7 +128,7 @@ class SchemaGenerator
             self::namedTypeToSchema($type);
         }
         $withCache = microtime(true) - $start;
-        echo "   Time: " . number_format($withCache * 1000, 4) . "ms\n\n";
+        echo '   Time: '.number_format($withCache * 1000, 4)."ms\n\n";
 
         // Clear cache and measure again
         self::clearReflectionCache();
@@ -135,10 +141,10 @@ class SchemaGenerator
             self::namedTypeToSchema($type);
         }
         $withoutCache = microtime(true) - $start;
-        echo "   Time: " . number_format($withoutCache * 1000, 4) . "ms\n\n";
+        echo '   Time: '.number_format($withoutCache * 1000, 4)."ms\n\n";
 
         $improvement = (($withoutCache - $withCache) / $withoutCache) * 100;
-        echo "Caching provides ~" . number_format($improvement, 1) . "% performance improvement!\n\n";
+        echo 'Caching provides ~'.number_format($improvement, 1)."% performance improvement!\n\n";
     }
 
     public static function demonstrateRealWorldUsage(): void
@@ -155,10 +161,10 @@ class SchemaGenerator
         foreach ($parameters as $param) {
             $type = $param->getType();
             $schema = $type ? self::reflectionTypeToSchema($type) : ['type' => 'string'];
-            
-            echo "   - {$param->getName()}: " . json_encode($schema) . "\n";
+
+            echo "   - {$param->getName()}: ".json_encode($schema)."\n";
         }
-        
+
         echo "\nComplete Tool Schema:\n";
         $toolSchema = [
             'name' => 'exampleToolMethod',
@@ -174,13 +180,13 @@ class SchemaGenerator
             $type = $param->getType();
             $schema = $type ? self::reflectionTypeToSchema($type) : ['type' => 'string'];
             $toolSchema['parameters']['properties'][$param->getName()] = $schema;
-            
-            if (!$param->isOptional()) {
+
+            if (! $param->isOptional()) {
                 $toolSchema['parameters']['required'][] = $param->getName();
             }
         }
 
-        echo json_encode($toolSchema, JSON_PRETTY_PRINT) . "\n\n";
+        echo json_encode($toolSchema, JSON_PRETTY_PRINT)."\n\n";
     }
 
     /**
@@ -194,7 +200,7 @@ class SchemaGenerator
         ?string $description = null,
         array $tags = []
     ): string {
-        return "Tool executed";
+        return 'Tool executed';
     }
 }
 
@@ -207,7 +213,7 @@ try {
 
     echo "=== All Tests Completed Successfully! ===\n";
 } catch (Exception $e) {
-    echo "ERROR: " . $e->getMessage() . "\n";
-    echo "Trace: " . $e->getTraceAsString() . "\n";
+    echo 'ERROR: '.$e->getMessage()."\n";
+    echo 'Trace: '.$e->getTraceAsString()."\n";
     exit(1);
 }

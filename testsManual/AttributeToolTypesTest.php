@@ -39,7 +39,9 @@ enum TaskPriority: string
 class TaskDetails extends DataModel
 {
     public string $title;
+
     public int $estimatedMinutes;
+
     public ?string $description = null;
 }
 
@@ -49,7 +51,9 @@ class TaskDetails extends DataModel
 class EventDetails extends DataModel
 {
     public string $eventName;
+
     public string $location;
+
     public ?int $attendees = null;
 }
 
@@ -105,7 +109,9 @@ function config(string $key): mixed
 class AttributeToolTestAgent extends Agent
 {
     protected $provider = 'openai';
+
     protected $model = 'gpt-4o-mini';
+
     protected $history = 'in_memory';
 
     // Store results for verification
@@ -210,7 +216,7 @@ INSTRUCTIONS;
         TaskDetails|EventDetails|TaskPriority|TaskStatus $item
     ): string {
         // Store result for verification
-        $type = match(true) {
+        $type = match (true) {
             $item instanceof TaskDetails => 'TaskDetails',
             $item instanceof EventDetails => 'EventDetails',
             $item instanceof TaskPriority => 'TaskPriority',
@@ -297,57 +303,57 @@ try {
     );
 
     echo "2. Agent Response:\n";
-    echo "   " . (is_array($response) ? json_encode($response, JSON_PRETTY_PRINT) : $response) . "\n\n";
+    echo '   '.(is_array($response) ? json_encode($response, JSON_PRETTY_PRINT) : $response)."\n\n";
 
     echo "3. Verifying Tool Arguments:\n";
     $results = AttributeToolTestAgent::$lastToolResults;
 
     if (empty($results)) {
-        throw new Exception("Tool was not called - no results captured!");
+        throw new Exception('Tool was not called - no results captured!');
     }
 
     // Verify DataModel
     echo "\n   [DataModel - TaskDetails]\n";
-    echo "   - Is TaskDetails instance: " . ($results['taskData']['isDataModel'] ? '✓ YES' : '✗ NO') . "\n";
-    echo "   - Title: " . $results['taskData']['title'] . "\n";
-    echo "   - Estimated Minutes: " . $results['taskData']['estimatedMinutes'] . "\n";
-    echo "   - Description: " . ($results['taskData']['description'] ?? 'null') . "\n";
+    echo '   - Is TaskDetails instance: '.($results['taskData']['isDataModel'] ? '✓ YES' : '✗ NO')."\n";
+    echo '   - Title: '.$results['taskData']['title']."\n";
+    echo '   - Estimated Minutes: '.$results['taskData']['estimatedMinutes']."\n";
+    echo '   - Description: '.($results['taskData']['description'] ?? 'null')."\n";
 
-    if (!$results['taskData']['isDataModel']) {
-        throw new Exception("taskData is not a TaskDetails instance!");
+    if (! $results['taskData']['isDataModel']) {
+        throw new Exception('taskData is not a TaskDetails instance!');
     }
 
     // Verify Enum
     echo "\n   [Enum - TaskPriority]\n";
-    echo "   - Is TaskPriority instance: " . ($results['priority']['isEnum'] ? '✓ YES' : '✗ NO') . "\n";
-    echo "   - Enum Name: " . $results['priority']['name'] . "\n";
-    echo "   - Enum Value: " . $results['priority']['value'] . "\n";
+    echo '   - Is TaskPriority instance: '.($results['priority']['isEnum'] ? '✓ YES' : '✗ NO')."\n";
+    echo '   - Enum Name: '.$results['priority']['name']."\n";
+    echo '   - Enum Value: '.$results['priority']['value']."\n";
 
-    if (!$results['priority']['isEnum']) {
-        throw new Exception("priority is not a TaskPriority enum instance!");
+    if (! $results['priority']['isEnum']) {
+        throw new Exception('priority is not a TaskPriority enum instance!');
     }
 
     // Verify Union Type (string|int)
     echo "\n   [Union Type - string|int]\n";
-    echo "   - Value: " . $results['tags']['value'] . "\n";
-    echo "   - Type: " . $results['tags']['type'] . "\n";
+    echo '   - Value: '.$results['tags']['value']."\n";
+    echo '   - Type: '.$results['tags']['type']."\n";
 
-    if (!in_array($results['tags']['type'], ['string', 'integer'])) {
-        throw new Exception("tags is neither string nor integer!");
+    if (! in_array($results['tags']['type'], ['string', 'integer'])) {
+        throw new Exception('tags is neither string nor integer!');
     }
 
     // Verify Simple String
     echo "\n   [Simple Type - string]\n";
-    echo "   - Value: " . $results['assignee']['value'] . "\n";
-    echo "   - Type: " . $results['assignee']['type'] . "\n";
+    echo '   - Value: '.$results['assignee']['value']."\n";
+    echo '   - Type: '.$results['assignee']['type']."\n";
 
     if ($results['assignee']['type'] !== 'string') {
-        throw new Exception("assignee is not a string!");
+        throw new Exception('assignee is not a string!');
     }
 
-    echo "\n" . str_repeat("=", 50) . "\n";
+    echo "\n".str_repeat('=', 50)."\n";
     echo "✓ ALL TESTS PASSED!\n";
-    echo str_repeat("=", 50) . "\n";
+    echo str_repeat('=', 50)."\n";
 
     // Test 2: Try with numeric tag to test union type
     echo "\n\n=== Test 2: Union Type with Integer ===\n\n";
@@ -362,20 +368,20 @@ try {
     );
 
     echo "2. Agent Response:\n";
-    echo "   " . (is_array($response2) ? json_encode($response2, JSON_PRETTY_PRINT) : $response2) . "\n\n";
+    echo '   '.(is_array($response2) ? json_encode($response2, JSON_PRETTY_PRINT) : $response2)."\n\n";
 
     $results2 = AttributeToolTestAgent::$lastToolResults;
 
-    if (!empty($results2)) {
+    if (! empty($results2)) {
         echo "3. Tag Type Verification:\n";
-        echo "   - Value: " . $results2['tags']['value'] . "\n";
-        echo "   - Type: " . $results2['tags']['type'] . "\n";
+        echo '   - Value: '.$results2['tags']['value']."\n";
+        echo '   - Type: '.$results2['tags']['type']."\n";
         echo "   - Union type correctly handled: ✓ YES\n";
     }
 
-    echo "\n" . str_repeat("=", 50) . "\n";
+    echo "\n".str_repeat('=', 50)."\n";
     echo "✓ Test 2 Passed!\n";
-    echo str_repeat("=", 50) . "\n";
+    echo str_repeat('=', 50)."\n";
 
     // Test 3: Complex Union Type with DataModel (TaskDetails)
     echo "\n\n=== Test 3: Complex Union Type (DataModel|DataModel|Enum|Enum) ===\n\n";
@@ -385,13 +391,13 @@ try {
     $response3a = $agent3a->respond(
         'Process a task with title "Review PR" that takes 45 minutes'
     );
-    echo "Response: " . (is_array($response3a) ? json_encode($response3a) : $response3a) . "\n";
+    echo 'Response: '.(is_array($response3a) ? json_encode($response3a) : $response3a)."\n";
     $result3a = AttributeToolTestAgent::$lastComplexUnionResult;
-    if (!empty($result3a)) {
-        echo "Type received: " . $result3a['type'] . "\n";
-        echo "Is DataModel: " . ($result3a['isDataModel'] ? 'YES' : 'NO') . "\n";
+    if (! empty($result3a)) {
+        echo 'Type received: '.$result3a['type']."\n";
+        echo 'Is DataModel: '.($result3a['isDataModel'] ? 'YES' : 'NO')."\n";
         if ($result3a['type'] !== 'TaskDetails') {
-            throw new Exception("Expected TaskDetails but got " . $result3a['type']);
+            throw new Exception('Expected TaskDetails but got '.$result3a['type']);
         }
         echo "✓ TaskDetails correctly resolved\n";
     }
@@ -401,13 +407,13 @@ try {
     $response3b = $agent3b->respond(
         'Process an event named "Team Meeting" at location "Conference Room A" with 10 attendees'
     );
-    echo "Response: " . (is_array($response3b) ? json_encode($response3b) : $response3b) . "\n";
+    echo 'Response: '.(is_array($response3b) ? json_encode($response3b) : $response3b)."\n";
     $result3b = AttributeToolTestAgent::$lastComplexUnionResult;
-    if (!empty($result3b)) {
-        echo "Type received: " . $result3b['type'] . "\n";
-        echo "Is DataModel: " . ($result3b['isDataModel'] ? 'YES' : 'NO') . "\n";
+    if (! empty($result3b)) {
+        echo 'Type received: '.$result3b['type']."\n";
+        echo 'Is DataModel: '.($result3b['isDataModel'] ? 'YES' : 'NO')."\n";
         if ($result3b['type'] !== 'EventDetails') {
-            throw new Exception("Expected EventDetails but got " . $result3b['type']);
+            throw new Exception('Expected EventDetails but got '.$result3b['type']);
         }
         echo "✓ EventDetails correctly resolved\n";
     }
@@ -417,13 +423,13 @@ try {
     $response3c = $agent3c->respond(
         'Process the critical priority level'
     );
-    echo "Response: " . (is_array($response3c) ? json_encode($response3c) : $response3c) . "\n";
+    echo 'Response: '.(is_array($response3c) ? json_encode($response3c) : $response3c)."\n";
     $result3c = AttributeToolTestAgent::$lastComplexUnionResult;
-    if (!empty($result3c)) {
-        echo "Type received: " . $result3c['type'] . "\n";
-        echo "Is Enum: " . ($result3c['isEnum'] ? 'YES' : 'NO') . "\n";
+    if (! empty($result3c)) {
+        echo 'Type received: '.$result3c['type']."\n";
+        echo 'Is Enum: '.($result3c['isEnum'] ? 'YES' : 'NO')."\n";
         if ($result3c['type'] !== 'TaskPriority') {
-            throw new Exception("Expected TaskPriority but got " . $result3c['type']);
+            throw new Exception('Expected TaskPriority but got '.$result3c['type']);
         }
         echo "✓ TaskPriority correctly resolved\n";
     }
@@ -433,25 +439,25 @@ try {
     $response3d = $agent3d->respond(
         'Process the in_progress status'
     );
-    echo "Response: " . (is_array($response3d) ? json_encode($response3d) : $response3d) . "\n";
+    echo 'Response: '.(is_array($response3d) ? json_encode($response3d) : $response3d)."\n";
     $result3d = AttributeToolTestAgent::$lastComplexUnionResult;
-    if (!empty($result3d)) {
-        echo "Type received: " . $result3d['type'] . "\n";
-        echo "Is Enum: " . ($result3d['isEnum'] ? 'YES' : 'NO') . "\n";
+    if (! empty($result3d)) {
+        echo 'Type received: '.$result3d['type']."\n";
+        echo 'Is Enum: '.($result3d['isEnum'] ? 'YES' : 'NO')."\n";
         if ($result3d['type'] !== 'TaskStatus') {
-            throw new Exception("Expected TaskStatus but got " . $result3d['type']);
+            throw new Exception('Expected TaskStatus but got '.$result3d['type']);
         }
         echo "✓ TaskStatus correctly resolved\n";
     }
 
-    echo "\n" . str_repeat("=", 50) . "\n";
+    echo "\n".str_repeat('=', 50)."\n";
     echo "✓ ALL INTEGRATION TESTS COMPLETED SUCCESSFULLY!\n";
-    echo str_repeat("=", 50) . "\n";
+    echo str_repeat('=', 50)."\n";
 
 } catch (Throwable $e) {
     echo "\n✗ TEST FAILED!\n";
-    echo "Error: " . $e->getMessage() . "\n";
-    echo "File: " . $e->getFile() . ":" . $e->getLine() . "\n";
-    echo "Trace:\n" . $e->getTraceAsString() . "\n";
+    echo 'Error: '.$e->getMessage()."\n";
+    echo 'File: '.$e->getFile().':'.$e->getLine()."\n";
+    echo "Trace:\n".$e->getTraceAsString()."\n";
     exit(1);
 }

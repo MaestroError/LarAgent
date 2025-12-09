@@ -29,6 +29,7 @@ enum CachedReflectionTestUnitEnum
 class CachedReflectionTestDataModel extends DataModel
 {
     public string $name;
+
     public int $count;
 }
 
@@ -139,7 +140,7 @@ describe('UsesCachedReflection Trait', function () {
     describe('enumTypeToSchema()', function () {
         it('converts backed string enum to schema with enum values', function () {
             $schema = TestClassUsingTrait::enumTypeToSchema(CachedReflectionTestStringEnum::class);
-            
+
             expect($schema)->toHaveKey('type');
             expect($schema)->toHaveKey('enum');
             expect($schema['type'])->toBe('string');
@@ -148,7 +149,7 @@ describe('UsesCachedReflection Trait', function () {
 
         it('converts backed int enum to schema with integer type', function () {
             $schema = TestClassUsingTrait::enumTypeToSchema(CachedReflectionTestIntEnum::class);
-            
+
             expect($schema)->toHaveKey('type');
             expect($schema)->toHaveKey('enum');
             expect($schema['type'])->toBe('integer');
@@ -157,7 +158,7 @@ describe('UsesCachedReflection Trait', function () {
 
         it('converts unit enum to schema with case names', function () {
             $schema = TestClassUsingTrait::enumTypeToSchema(CachedReflectionTestUnitEnum::class);
-            
+
             expect($schema)->toHaveKey('type');
             expect($schema)->toHaveKey('enum');
             expect($schema['type'])->toBe('string');
@@ -168,7 +169,7 @@ describe('UsesCachedReflection Trait', function () {
     describe('dataModelTypeToSchema()', function () {
         it('generates schema from DataModel class', function () {
             $schema = TestClassUsingTrait::dataModelTypeToSchema(CachedReflectionTestDataModel::class);
-            
+
             expect($schema)->toHaveKey('type');
             expect($schema)->toHaveKey('properties');
             expect($schema['type'])->toBe('object');
@@ -205,39 +206,39 @@ describe('UsesCachedReflection Trait', function () {
 
     describe('namedTypeToSchema()', function () {
         it('handles builtin type correctly', function () {
-            $reflection = new ReflectionParameter([fn(string $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (string $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::namedTypeToSchema($type);
             expect($schema)->toBe(['type' => 'string']);
         });
 
         it('caches builtin types', function () {
-            $reflection = new ReflectionParameter([fn(int $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (int $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             // First call
             $schema1 = TestClassUsingTrait::namedTypeToSchema($type);
             // Second call should use cache
             $schema2 = TestClassUsingTrait::namedTypeToSchema($type);
-            
+
             expect($schema1)->toBe(['type' => 'integer']);
             expect($schema2)->toBe(['type' => 'integer']);
         });
 
         it('handles enum types', function () {
-            $reflection = new ReflectionParameter([fn(CachedReflectionTestStringEnum $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (CachedReflectionTestStringEnum $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::namedTypeToSchema($type);
             expect($schema)->toHaveKey('enum');
             expect($schema['enum'])->toBe(['first', 'second', 'third']);
         });
 
         it('handles DataModel types', function () {
-            $reflection = new ReflectionParameter([fn(CachedReflectionTestDataModel $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (CachedReflectionTestDataModel $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::namedTypeToSchema($type);
             expect($schema)->toHaveKey('type');
             expect($schema['type'])->toBe('object');
@@ -246,11 +247,11 @@ describe('UsesCachedReflection Trait', function () {
 
     describe('unionTypeToSchema()', function () {
         it('handles union types with oneOf', function () {
-            $reflection = new ReflectionParameter([fn(string|int $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (string|int $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::unionTypeToSchema($type);
-            
+
             expect($schema)->toHaveKey('oneOf');
             expect($schema['oneOf'])->toHaveCount(2);
             expect($schema['oneOf'][0])->toBe(['type' => 'string']);
@@ -260,22 +261,22 @@ describe('UsesCachedReflection Trait', function () {
         it('filters out null types from union', function () {
             // Note: string|null in PHP is internally ?string (ReflectionNamedType, not ReflectionUnionType)
             // So we need to use a three-way union with null to test this behavior
-            $reflection = new ReflectionParameter([fn(string|int|null $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (string|int|null $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::unionTypeToSchema($type);
-            
+
             // Should filter out null and return oneOf with string and int
             expect($schema)->toHaveKey('oneOf');
             expect($schema['oneOf'])->toHaveCount(2);
         });
 
         it('handles three-way union', function () {
-            $reflection = new ReflectionParameter([fn(string|int|bool $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (string|int|bool $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::unionTypeToSchema($type);
-            
+
             expect($schema)->toHaveKey('oneOf');
             expect($schema['oneOf'])->toHaveCount(3);
         });
@@ -288,28 +289,28 @@ describe('UsesCachedReflection Trait', function () {
         });
 
         it('handles named types', function () {
-            $reflection = new ReflectionParameter([fn(int $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (int $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::reflectionTypeToSchema($type);
             expect($schema)->toBe(['type' => 'integer']);
         });
 
         it('handles union types', function () {
-            $reflection = new ReflectionParameter([fn(string|int $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (string|int $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::reflectionTypeToSchema($type);
             expect($schema)->toHaveKey('oneOf');
         });
 
         it('handles complex union with enum and DataModel', function () {
             $reflection = new ReflectionParameter([
-                fn(CachedReflectionTestStringEnum|CachedReflectionTestDataModel $param) => null, 
-                '__invoke'
+                fn (CachedReflectionTestStringEnum|CachedReflectionTestDataModel $param) => null,
+                '__invoke',
             ], 'param');
             $type = $reflection->getType();
-            
+
             $schema = TestClassUsingTrait::reflectionTypeToSchema($type);
             expect($schema)->toHaveKey('oneOf');
             expect($schema['oneOf'])->toHaveCount(2);
@@ -318,28 +319,28 @@ describe('UsesCachedReflection Trait', function () {
 
     describe('Cache management', function () {
         it('caches repeated type resolutions', function () {
-            $reflection = new ReflectionParameter([fn(int $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (int $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             // Call multiple times
             TestClassUsingTrait::namedTypeToSchema($type);
             TestClassUsingTrait::namedTypeToSchema($type);
             TestClassUsingTrait::namedTypeToSchema($type);
-            
+
             // Verify it worked (implicitly tests caching works without errors)
             expect(true)->toBeTrue();
         });
 
         it('clears cache correctly', function () {
-            $reflection = new ReflectionParameter([fn(string $param) => null, '__invoke'], 'param');
+            $reflection = new ReflectionParameter([fn (string $param) => null, '__invoke'], 'param');
             $type = $reflection->getType();
-            
+
             // Populate cache
             TestClassUsingTrait::namedTypeToSchema($type);
-            
+
             // Clear cache
             TestClassUsingTrait::clearReflectionCache();
-            
+
             // Should still work after clearing
             $schema = TestClassUsingTrait::namedTypeToSchema($type);
             expect($schema)->toBe(['type' => 'string']);

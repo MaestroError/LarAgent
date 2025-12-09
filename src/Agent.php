@@ -1686,11 +1686,11 @@ class Agent
                 foreach ($method->getParameters() as $param) {
                     $typeInfo = static::getTypeInfo($param->getType());
                     $schema = $typeInfo['schema'];
-                    
+
                     // Extract type and enum values from schema
                     $type = $schema['type'] ?? 'string';
                     $enum = [];
-                    
+
                     if (isset($schema['enum'])) {
                         $enum = [
                             'values' => $schema['enum'],
@@ -1699,21 +1699,21 @@ class Agent
                     } elseif (isset($schema['oneOf'])) {
                         // For union types, use the schema as-is
                         $type = $schema;
-                        
+
                         // Store enum classes for union types (can be array of classes)
                         if ($typeInfo['enumClass']) {
                             $tool->addEnumType($param->getName(), $typeInfo['enumClass']);
                         }
-                    } elseif ($typeInfo['dataModelClass'] || ( ($schema['type'] ?? '') === 'object' && isset($schema['properties']) )) {
+                    } elseif ($typeInfo['dataModelClass'] || (($schema['type'] ?? '') === 'object' && isset($schema['properties']))) {
                         // For DataModels/objects with nested properties, use the full schema
                         $type = $schema;
                     }
-                    
+
                     // Store DataModel class if present (can be array for union types)
                     if ($typeInfo['dataModelClass']) {
                         $tool->addDataModelType($param->getName(), $typeInfo['dataModelClass']);
                     }
-                    
+
                     $tool->addProperty(
                         $param->getName(),
                         $type,
@@ -1737,5 +1737,4 @@ class Agent
 
         return $tools;
     }
-
 }

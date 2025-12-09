@@ -21,8 +21,6 @@ use ReflectionUnionType;
  *   $schema = SchemaGenerator::fromTypeName('string');
  *   $schema = SchemaGenerator::forEnum(MyEnum::class);
  *   $schema = SchemaGenerator::forDataModel(MyDataModel::class);
- *
- * @package LarAgent\Core\Helpers
  */
 class SchemaGenerator
 {
@@ -240,8 +238,6 @@ class SchemaGenerator
      * Clear the schema cache
      *
      * Useful for testing or when type definitions change at runtime.
-     *
-     * @return void
      */
     public static function clearCache(): void
     {

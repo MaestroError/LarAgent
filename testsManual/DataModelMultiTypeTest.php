@@ -220,11 +220,11 @@ $container1 = ItemContainer::fromArray([
 
 $isTaskInfo1 = $container1->item instanceof TaskInfo;
 echo "Input: item = TaskInfo data (title, estimatedMinutes, description)\n";
-echo "Result: item is " . get_class($container1->item) . "\n";
+echo 'Result: item is '.get_class($container1->item)."\n";
 echo "  - title: {$container1->item->title}\n";
 echo "  - estimatedMinutes: {$container1->item->estimatedMinutes}\n";
-echo "  - description: " . ($container1->item->description ?? 'null') . "\n";
-echo "flexibleItem is " . gettype($container1->flexibleItem) . ": {$container1->flexibleItem}\n";
+echo '  - description: '.($container1->item->description ?? 'null')."\n";
+echo 'flexibleItem is '.gettype($container1->flexibleItem).": {$container1->flexibleItem}\n";
 if ($isTaskInfo1) {
     echo "✓ TaskInfo correctly resolved\n\n";
 } else {
@@ -248,11 +248,11 @@ $container2 = ItemContainer::fromArray([
 $isEventInfo2 = $container2->item instanceof EventInfo;
 $isEventInfoFlex2 = $container2->flexibleItem instanceof EventInfo;
 echo "Input: item = EventInfo data (name, location, durationHours)\n";
-echo "Result: item is " . get_class($container2->item) . "\n";
+echo 'Result: item is '.get_class($container2->item)."\n";
 echo "  - name: {$container2->item->name}\n";
 echo "  - location: {$container2->item->location}\n";
-echo "  - durationHours: " . ($container2->item->durationHours ?? 'null') . "\n";
-echo "flexibleItem is " . get_debug_type($container2->flexibleItem) . "\n";
+echo '  - durationHours: '.($container2->item->durationHours ?? 'null')."\n";
+echo 'flexibleItem is '.get_debug_type($container2->flexibleItem)."\n";
 if ($container2->flexibleItem instanceof EventInfo) {
     echo "  - name: {$container2->flexibleItem->name}\n";
     echo "  - location: {$container2->flexibleItem->location}\n";
@@ -260,7 +260,7 @@ if ($container2->flexibleItem instanceof EventInfo) {
 if ($isEventInfo2 && $isEventInfoFlex2) {
     echo "✓ EventInfo correctly resolved for both\n\n";
 } else {
-    echo "✗ FAILED: Expected EventInfo for item=" . ($isEventInfo2 ? "OK" : "FAIL") . ", flexibleItem=" . ($isEventInfoFlex2 ? "OK" : "FAIL") . "\n\n";
+    echo '✗ FAILED: Expected EventInfo for item='.($isEventInfo2 ? 'OK' : 'FAIL').', flexibleItem='.($isEventInfoFlex2 ? 'OK' : 'FAIL')."\n\n";
 }
 
 echo "--- Test 4c: Enum in complex union ---\n";
@@ -275,12 +275,12 @@ $container3 = ItemContainer::fromArray([
 
 $isEnum3 = $container3->flexibleItem instanceof ItemType;
 echo "Input: flexibleItem = 'event' (should resolve to ItemType::EVENT)\n";
-echo "Result: flexibleItem is " . get_debug_type($container3->flexibleItem) . "\n";
+echo 'Result: flexibleItem is '.get_debug_type($container3->flexibleItem)."\n";
 if ($isEnum3) {
     echo "  - Enum value: {$container3->flexibleItem->value}\n";
     echo "✓ ItemType enum correctly resolved\n\n";
 } else {
-    echo "✗ FAILED: Expected ItemType enum, got " . gettype($container3->flexibleItem) . "\n\n";
+    echo '✗ FAILED: Expected ItemType enum, got '.gettype($container3->flexibleItem)."\n\n";
 }
 
 echo "--- Test 4d: TaskInfo in complex union ---\n";
@@ -298,7 +298,7 @@ $container4 = ItemContainer::fromArray([
 
 $isTaskInfo4 = $container4->flexibleItem instanceof TaskInfo;
 echo "Input: flexibleItem = TaskInfo data (title, estimatedMinutes)\n";
-echo "Result: flexibleItem is " . get_debug_type($container4->flexibleItem) . "\n";
+echo 'Result: flexibleItem is '.get_debug_type($container4->flexibleItem)."\n";
 if ($container4->flexibleItem instanceof TaskInfo) {
     echo "  - title: {$container4->flexibleItem->title}\n";
     echo "  - estimatedMinutes: {$container4->flexibleItem->estimatedMinutes}\n";
@@ -353,7 +353,7 @@ $enumContainer1 = EnumUnionContainer::fromArray([
 
 $isStatusEnum = $enumContainer1->statusOrCategory instanceof StatusEnum;
 echo "Input: statusOrCategory = 'active' (should resolve to StatusEnum::ACTIVE)\n";
-echo "Result: statusOrCategory is " . get_debug_type($enumContainer1->statusOrCategory) . "\n";
+echo 'Result: statusOrCategory is '.get_debug_type($enumContainer1->statusOrCategory)."\n";
 if ($enumContainer1->statusOrCategory instanceof StatusEnum) {
     echo "  - Enum value: {$enumContainer1->statusOrCategory->value}\n";
     echo "✓ StatusEnum correctly resolved\n\n";
@@ -361,7 +361,7 @@ if ($enumContainer1->statusOrCategory instanceof StatusEnum) {
     echo "  - (wrongly resolved as CategoryEnum)\n";
     echo "✗ FAILED: Expected StatusEnum\n\n";
 } else {
-    echo "✗ FAILED: Expected StatusEnum, got " . gettype($enumContainer1->statusOrCategory) . "\n\n";
+    echo '✗ FAILED: Expected StatusEnum, got '.gettype($enumContainer1->statusOrCategory)."\n\n";
 }
 
 echo "--- Test 5b: CategoryEnum value ---\n";
@@ -372,7 +372,7 @@ $enumContainer2 = EnumUnionContainer::fromArray([
 
 $isCategoryEnum = $enumContainer2->statusOrCategory instanceof CategoryEnum;
 echo "Input: statusOrCategory = 'work' (should resolve to CategoryEnum::WORK)\n";
-echo "Result: statusOrCategory is " . get_debug_type($enumContainer2->statusOrCategory) . "\n";
+echo 'Result: statusOrCategory is '.get_debug_type($enumContainer2->statusOrCategory)."\n";
 if ($enumContainer2->statusOrCategory instanceof CategoryEnum) {
     echo "  - Enum value: {$enumContainer2->statusOrCategory->value}\n";
     echo "✓ CategoryEnum correctly resolved\n\n";
@@ -380,7 +380,7 @@ if ($enumContainer2->statusOrCategory instanceof CategoryEnum) {
     echo "  - (wrongly resolved as StatusEnum)\n";
     echo "✗ FAILED: Expected CategoryEnum\n\n";
 } else {
-    echo "✗ FAILED: Expected CategoryEnum, got " . gettype($enumContainer2->statusOrCategory) . "\n\n";
+    echo '✗ FAILED: Expected CategoryEnum, got '.gettype($enumContainer2->statusOrCategory)."\n\n";
 }
 
 echo "--- Test 5c: Ambiguous value (exists in neither) ---\n";
@@ -426,7 +426,7 @@ $complex1 = ComplexUnionContainer::fromArray([
 ]);
 
 echo "Input: complexItem = TaskInfo data (title, estimatedMinutes)\n";
-echo "Result: complexItem is " . get_debug_type($complex1->complexItem) . "\n";
+echo 'Result: complexItem is '.get_debug_type($complex1->complexItem)."\n";
 if ($complex1->complexItem instanceof TaskInfo) {
     echo "  - title: {$complex1->complexItem->title}\n";
     echo "  - estimatedMinutes: {$complex1->complexItem->estimatedMinutes}\n";
@@ -445,7 +445,7 @@ $complex2 = ComplexUnionContainer::fromArray([
 ]);
 
 echo "Input: complexItem = EventInfo data (name, location)\n";
-echo "Result: complexItem is " . get_debug_type($complex2->complexItem) . "\n";
+echo 'Result: complexItem is '.get_debug_type($complex2->complexItem)."\n";
 if ($complex2->complexItem instanceof EventInfo) {
     echo "  - name: {$complex2->complexItem->name}\n";
     echo "  - location: {$complex2->complexItem->location}\n";
@@ -461,14 +461,14 @@ $complex3 = ComplexUnionContainer::fromArray([
 ]);
 
 echo "Input: complexItem = 'pending' (should resolve to StatusEnum::PENDING)\n";
-echo "Result: complexItem is " . get_debug_type($complex3->complexItem) . "\n";
+echo 'Result: complexItem is '.get_debug_type($complex3->complexItem)."\n";
 if ($complex3->complexItem instanceof StatusEnum) {
     echo "  - Enum value: {$complex3->complexItem->value}\n";
     echo "✓ StatusEnum correctly resolved\n\n";
 } elseif ($complex3->complexItem instanceof CategoryEnum) {
     echo "✗ FAILED: Expected StatusEnum, got CategoryEnum\n\n";
 } else {
-    echo "✗ FAILED: Expected StatusEnum, got " . get_debug_type($complex3->complexItem) . "\n\n";
+    echo '✗ FAILED: Expected StatusEnum, got '.get_debug_type($complex3->complexItem)."\n\n";
 }
 
 echo "--- Test 6d: CategoryEnum (second Enum) ---\n";
@@ -478,14 +478,14 @@ $complex4 = ComplexUnionContainer::fromArray([
 ]);
 
 echo "Input: complexItem = 'personal' (should resolve to CategoryEnum::PERSONAL)\n";
-echo "Result: complexItem is " . get_debug_type($complex4->complexItem) . "\n";
+echo 'Result: complexItem is '.get_debug_type($complex4->complexItem)."\n";
 if ($complex4->complexItem instanceof CategoryEnum) {
     echo "  - Enum value: {$complex4->complexItem->value}\n";
     echo "✓ CategoryEnum correctly resolved\n\n";
 } elseif ($complex4->complexItem instanceof StatusEnum) {
     echo "✗ FAILED: Expected CategoryEnum, got StatusEnum\n\n";
 } else {
-    echo "✗ FAILED: Expected CategoryEnum, got " . get_debug_type($complex4->complexItem) . "\n\n";
+    echo '✗ FAILED: Expected CategoryEnum, got '.get_debug_type($complex4->complexItem)."\n\n";
 }
 
 echo "=== Complex Union Tests Complete ===\n";

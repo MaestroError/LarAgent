@@ -43,7 +43,7 @@ abstract class Tool implements ToolInterface
                 'type' => $type,
             ];
         }
-        
+
         if ($description) {
             $property['description'] = $description;
         }

@@ -26,8 +26,6 @@ trait UsesCachedReflection
 {
     /**
      * Main reflection cache for DataModel configurations and type schemas
-     *
-     * @var array
      */
     protected static array $reflectionCache = [];
 
@@ -440,8 +438,6 @@ trait UsesCachedReflection
      *
      * Clears both the trait's local cache and the helper classes' caches.
      * Useful for testing or when type definitions change at runtime.
-     *
-     * @return void
      */
     protected static function clearReflectionCache(): void
     {

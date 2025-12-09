@@ -23,8 +23,6 @@ use UnitEnum;
  *   $typed = TypeCaster::cast($value, $reflectionType);
  *   $canCast = TypeCaster::canCast($value, $reflectionType);
  *   $isValid = TypeCaster::isValidForType($value, $reflectionType);
- *
- * @package LarAgent\Core\Helpers
  */
 class TypeCaster
 {

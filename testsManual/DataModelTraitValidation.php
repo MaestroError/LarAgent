@@ -5,10 +5,10 @@
  * works correctly with DataModel
  */
 
-require_once __DIR__ . '/../vendor/autoload.php';
+require_once __DIR__.'/../vendor/autoload.php';
 
-use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use LarAgent\Core\Abstractions\DataModel;
 
 // Test fixtures from the original DataModel tests
 enum TestUnitEnum
@@ -50,7 +50,7 @@ class TestMainModel extends DataModel
 class TestMultiTypeModel extends DataModel
 {
     public string|int $flexible;
-    
+
     public string|TestBackedEnum $mixed;
 }
 
@@ -60,13 +60,13 @@ try {
     // Test 1: Basic schema generation
     echo "Test 1: Basic schema generation\n";
     $schema = TestMainModel::generateSchema();
-    if (!isset($schema['type']) || $schema['type'] !== 'object') {
-        throw new Exception("Schema type is not object");
+    if (! isset($schema['type']) || $schema['type'] !== 'object') {
+        throw new Exception('Schema type is not object');
     }
-    if (!isset($schema['properties']['name'])) {
+    if (! isset($schema['properties']['name'])) {
         throw new Exception("Missing 'name' property in schema");
     }
-    if (!isset($schema['properties']['age'])) {
+    if (! isset($schema['properties']['age'])) {
         throw new Exception("Missing 'age' property in schema");
     }
     echo "✓ Basic schema generation works\n\n";
@@ -74,23 +74,23 @@ try {
     // Test 2: Enum handling
     echo "Test 2: Enum handling in schema\n";
     $unitEnumSchema = $schema['properties']['unitEnum'];
-    if (!isset($unitEnumSchema['enum']) || !in_array('OptionA', $unitEnumSchema['enum'])) {
-        throw new Exception("Unit enum schema incorrect");
+    if (! isset($unitEnumSchema['enum']) || ! in_array('OptionA', $unitEnumSchema['enum'])) {
+        throw new Exception('Unit enum schema incorrect');
     }
     $backedEnumSchema = $schema['properties']['backedEnum'];
-    if (!isset($backedEnumSchema['enum']) || !in_array('value_1', $backedEnumSchema['enum'])) {
-        throw new Exception("Backed enum schema incorrect");
+    if (! isset($backedEnumSchema['enum']) || ! in_array('value_1', $backedEnumSchema['enum'])) {
+        throw new Exception('Backed enum schema incorrect');
     }
     echo "✓ Enum handling works correctly\n\n";
 
     // Test 3: Nested DataModel
     echo "Test 3: Nested DataModel handling\n";
     $nestedSchema = $schema['properties']['nested'];
-    if (!isset($nestedSchema['type']) || $nestedSchema['type'] !== 'object') {
-        throw new Exception("Nested model schema type incorrect");
+    if (! isset($nestedSchema['type']) || $nestedSchema['type'] !== 'object') {
+        throw new Exception('Nested model schema type incorrect');
     }
-    if (!isset($nestedSchema['properties']['nestedProp'])) {
-        throw new Exception("Nested property missing");
+    if (! isset($nestedSchema['properties']['nestedProp'])) {
+        throw new Exception('Nested property missing');
     }
     echo "✓ Nested DataModel handling works\n\n";
 
@@ -98,14 +98,14 @@ try {
     echo "Test 4: Union type (multitype) handling\n";
     $multiTypeSchema = TestMultiTypeModel::generateSchema();
     $flexibleSchema = $multiTypeSchema['properties']['flexible'];
-    if (!isset($flexibleSchema['oneOf'])) {
-        throw new Exception("Union type should use oneOf: " . json_encode($flexibleSchema));
+    if (! isset($flexibleSchema['oneOf'])) {
+        throw new Exception('Union type should use oneOf: '.json_encode($flexibleSchema));
     }
     if (count($flexibleSchema['oneOf']) !== 2) {
-        throw new Exception("Union type should have 2 options");
+        throw new Exception('Union type should have 2 options');
     }
     echo "✓ Union type handling works correctly\n";
-    echo "   Schema: " . json_encode($flexibleSchema, JSON_PRETTY_PRINT) . "\n\n";
+    echo '   Schema: '.json_encode($flexibleSchema, JSON_PRETTY_PRINT)."\n\n";
 
     // Test 5: Fill and toArray still work
     echo "Test 5: fill() and toArray() methods\n";
@@ -117,37 +117,37 @@ try {
         'unitEnum' => 'OptionA',
         'backedEnum' => 'value_2',
         'nested' => [
-            'nestedProp' => 'test value'
-        ]
+            'nestedProp' => 'test value',
+        ],
     ];
-    
-    $model = new TestMainModel();
+
+    $model = new TestMainModel;
     $model->fill($data);
-    
+
     if ($model->name !== 'John Doe') {
-        throw new Exception("fill() failed for name");
+        throw new Exception('fill() failed for name');
     }
     if ($model->age !== 30) {
-        throw new Exception("fill() failed for age");
+        throw new Exception('fill() failed for age');
     }
     if ($model->unitEnum !== TestUnitEnum::OptionA) {
-        throw new Exception("fill() failed for unit enum");
+        throw new Exception('fill() failed for unit enum');
     }
     if ($model->backedEnum !== TestBackedEnum::Value2) {
-        throw new Exception("fill() failed for backed enum");
+        throw new Exception('fill() failed for backed enum');
     }
-    
+
     $array = $model->toArray();
     if ($array['name'] !== 'John Doe') {
-        throw new Exception("toArray() failed for name");
+        throw new Exception('toArray() failed for name');
     }
     if ($array['unitEnum'] !== 'OptionA') {
-        throw new Exception("toArray() failed for unit enum");
+        throw new Exception('toArray() failed for unit enum');
     }
     if ($array['backedEnum'] !== 'value_2') {
-        throw new Exception("toArray() failed for backed enum");
+        throw new Exception('toArray() failed for backed enum');
     }
-    
+
     echo "✓ fill() and toArray() work correctly\n\n";
 
     // Test 6: Caching
@@ -164,7 +164,7 @@ try {
     exit(0);
 
 } catch (Exception $e) {
-    echo "✗ FAILED: " . $e->getMessage() . "\n";
-    echo "Trace: " . $e->getTraceAsString() . "\n";
+    echo '✗ FAILED: '.$e->getMessage()."\n";
+    echo 'Trace: '.$e->getTraceAsString()."\n";
     exit(1);
 }
