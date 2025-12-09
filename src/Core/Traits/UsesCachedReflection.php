@@ -161,30 +161,9 @@ trait UsesCachedReflection
      */
     protected static function castValue(mixed $value, ?ReflectionType $type): mixed
     {
-        // Handle union types by trying each type in order
+        // Handle union types with smart DataModel matching
         if ($type instanceof ReflectionUnionType) {
-            foreach ($type->getTypes() as $subType) {
-                // Skip null type
-                if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
-                    continue;
-                }
-
-                // Check if this type is potentially compatible before trying to cast
-                if (! static::canCastToType($value, $subType)) {
-                    continue;
-                }
-
-                // Try to cast to this type
-                $castValue = static::castValue($value, $subType);
-
-                // If casting was successful (value changed or is valid for the type), return it
-                if ($castValue !== $value || static::isValueValidForType($value, $subType)) {
-                    return $castValue;
-                }
-            }
-
-            // If no casting worked, return original value
-            return $value;
+            return static::castUnionType($value, $type);
         }
 
         if ($type instanceof ReflectionNamedType && ! $type->isBuiltin()) {
@@ -208,6 +187,119 @@ trait UsesCachedReflection
         }
 
         return $value;
+    }
+
+    /**
+     * Cast a value for a union type with smart DataModel matching
+     *
+     * When multiple DataModels are in a union, selects the best match based on
+     * which DataModel's required properties best match the input array keys.
+     *
+     * @param  mixed  $value  The value to cast
+     * @param  ReflectionUnionType  $type  The union type
+     * @return mixed The cast value
+     */
+    protected static function castUnionType(mixed $value, ReflectionUnionType $type): mixed
+    {
+        // Collect DataModel classes from the union for smart matching
+        $dataModelClasses = [];
+        $otherTypes = [];
+
+        foreach ($type->getTypes() as $subType) {
+            // Skip null type
+            if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
+                continue;
+            }
+
+            if ($subType instanceof ReflectionNamedType && ! $subType->isBuiltin()) {
+                $typeName = $subType->getName();
+                if (is_subclass_of($typeName, DataModelContract::class)) {
+                    $dataModelClasses[] = $typeName;
+
+                    continue;
+                }
+            }
+
+            $otherTypes[] = $subType;
+        }
+
+        // If value is an array and we have multiple DataModel classes, use smart matching
+        if (is_array($value) && count($dataModelClasses) > 1) {
+            $bestMatch = static::findBestDataModelMatch($value, $dataModelClasses);
+            if ($bestMatch) {
+                return $bestMatch::fromArray($value);
+            }
+        }
+
+        // If value is an array and we have exactly one DataModel, use it
+        if (is_array($value) && count($dataModelClasses) === 1) {
+            return $dataModelClasses[0]::fromArray($value);
+        }
+
+        // For non-array values or no DataModels, try each type in order
+        foreach ($type->getTypes() as $subType) {
+            // Skip null type
+            if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
+                continue;
+            }
+
+            // Check if this type is potentially compatible before trying to cast
+            if (! static::canCastToType($value, $subType)) {
+                continue;
+            }
+
+            // Try to cast to this type
+            $castValue = static::castValue($value, $subType);
+
+            // If casting was successful (value changed or is valid for the type), return it
+            if ($castValue !== $value || static::isValueValidForType($value, $subType)) {
+                return $castValue;
+            }
+        }
+
+        // If no casting worked, return original value
+        return $value;
+    }
+
+    /**
+     * Find the best matching DataModel class for an array value
+     *
+     * Compares input array keys against each DataModel's required properties
+     * and returns the class with the highest match score.
+     *
+     * @param  array  $value  The input array
+     * @param  array  $dataModelClasses  Array of DataModel class names
+     * @return string|null The best matching class name, or null if no match
+     */
+    protected static function findBestDataModelMatch(array $value, array $dataModelClasses): ?string
+    {
+        $bestMatch = null;
+        $bestScore = -1;
+        $inputKeys = array_keys($value);
+
+        foreach ($dataModelClasses as $class) {
+            // Get required properties from the DataModel's schema
+            $schema = $class::generateSchema();
+            $requiredProps = $schema['required'] ?? [];
+
+            // Calculate match score: required properties present in input
+            $matchCount = count(array_intersect($requiredProps, $inputKeys));
+
+            // Also check if all required properties are present (for better accuracy)
+            $allRequiredPresent = empty(array_diff($requiredProps, $inputKeys));
+
+            // Prefer classes where all required properties are present
+            if ($allRequiredPresent && $matchCount > $bestScore) {
+                $bestScore = $matchCount;
+                $bestMatch = $class;
+            } elseif ($bestMatch === null && $matchCount > $bestScore) {
+                // Fallback: use partial match if no full match found
+                $bestScore = $matchCount;
+                $bestMatch = $class;
+            }
+        }
+
+        return $bestMatch;
     }
 
     /**

@@ -1717,7 +1717,7 @@ class Agent
                     $tool->addProperty(
                         $param->getName(),
                         $type,
-                        isset($toolAttribute->parameterDescriptions[$param->getName()]) ? $toolAttribute->parameterDescriptions[$param->getName()] : '',
+                        $toolAttribute->parameterDescriptions[$param->getName()] ?? '',
                         $enum
                     );
                     if (! $param->isOptional()) {
