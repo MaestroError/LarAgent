@@ -81,7 +81,15 @@ class GeminiDriver extends LlmDriver
             $toolCalls = $this->extractToolCalls($responseData);
 
             if (! empty($toolCalls)) {
-                $message = $this->toolCallsToMessage($toolCalls);
+                // Use original parts to preserve any 'thought' or 'thought_signature' fields
+                // required by Gemini 3.0 and newer models
+                $parts = $responseData['candidates'][0]['content']['parts'] ?? [];
+
+                $message = [
+                    'role' => 'assistant',
+                    'parts' => $parts,
+                ];
+
                 $metaData = [
                     'usage' => $this->extractUsage($responseData),
                     'tool_calls' => $toolCalls,
@@ -99,12 +107,31 @@ class GeminiDriver extends LlmDriver
                 return new AssistantMessage($content, $metaData);
             }
 
+            // Handle cases where finishReason is MAX_TOKENS or not strictly STOP but content exists.
+            // This prevents "Unexpected response format" errors when the model returns valid content
+            // with a different finish reason.
+            $contentParts = $responseData['candidates'][0]['content']['parts'] ?? [];
+            if ($finishReason === 'MAX_TOKENS' || !empty($contentParts)) {
+                $content = '';
+                foreach ($contentParts as $part) {
+                    $content .= $part['text'] ?? '';
+                }
+
+                $metaData = [
+                    'usage' => $this->extractUsage($responseData),
+                    'finish_reason' => $finishReason,
+                ];
+
+                return new AssistantMessage($content, $metaData);
+            }
+
             if ($finishReason === 'RECITATION' || $finishReason === 'SAFETY') {
                 throw new RuntimeException("Gemini API finished with reason: {$finishReason}");
             }
         }
 
-        throw new RuntimeException('Unexpected response format from Gemini API');
+        // [Debug Aid] Include response data in exception for better debugging
+        throw new RuntimeException('Unexpected response format from Gemini API: ' . json_encode($responseData));
     }
 
     /**
@@ -183,39 +210,40 @@ class GeminiDriver extends LlmDriver
                         $finishReason = $responseData['candidates'][0]['finishReason'];
                     }
 
-                    // Check for tool calls (function calls in Gemini)
-                    if (isset($responseData['candidates'][0]['content']['parts'])) {
-                        foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
-                            // Handle function calls
-                            if (isset($part['functionCall'])) {
-                                $functionCall = $part['functionCall'];
-                                $toolCallId = 'tool_call_'.uniqid();
+            // Check for tool calls (function calls in Gemini)
+            if (isset($responseData['candidates'][0]['content']['parts'])) {
+                $parts = $responseData['candidates'][0]['content']['parts'];
+                foreach ($parts as $part) {
+                    // Handle function calls
+                    if (isset($part['functionCall'])) {
+                        $functionCall = $part['functionCall'];
+                        $toolCallId = 'tool_call_'.uniqid();
 
-                                // Store complete tool call
-                                $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(
-                                    $toolCallId,
-                                    $functionCall['name'] ?? '',
-                                    json_encode($functionCall['args'] ?? [])
-                                );
-                            }
-                            // Handle text content
-                            elseif (isset($part['text'])) {
-                                $delta = $part['text'];
-                                $streamedMessage->appendContent($delta);
-
-                                // Execute callback if provided
-                                if ($callback) {
-                                    $callback($streamedMessage);
-                                }
-
-                                // Yield the streamed message
-                                yield $streamedMessage;
-                            }
-                        }
-                    } else {
-                        // No parts in this chunk, reset last chunk
-                        $streamedMessage->resetLastChunk();
+                        // Store complete tool call
+                        $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(
+                            $toolCallId,
+                            $functionCall['name'] ?? '',
+                            json_encode($functionCall['args'] ?? [])
+                        );
                     }
+                    // Handle text content
+                    elseif (isset($part['text'])) {
+                        $delta = $part['text'];
+                        $streamedMessage->appendContent($delta);
+
+                        // Execute callback if provided
+                        if ($callback) {
+                            $callback($streamedMessage);
+                        }
+
+                        // Yield the streamed message
+                        yield $streamedMessage;
+                    }
+                }
+            } else {
+                // No parts in this chunk, reset last chunk
+                $streamedMessage->resetLastChunk();
+            }
                 }
             }
 
@@ -299,6 +327,8 @@ class GeminiDriver extends LlmDriver
                         $parts[] = ['text' => $contentPart['text']];
                     } elseif (isset($contentPart['type']) && $contentPart['type'] === 'text') {
                         $parts[] = ['text' => $contentPart['text'] ?? ''];
+                    } elseif (isset($contentPart['inlineData'])) {
+                        $parts[] = ['inlineData' => $contentPart['inlineData']];
                     }
                 }
             }
