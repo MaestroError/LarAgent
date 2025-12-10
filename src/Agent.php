@@ -75,6 +75,21 @@ class Agent
     /** @var array */
     protected $storage;
 
+    /**
+     * Track usage statistics
+     *
+     * @var bool
+     */
+    protected $trackUsage = false;
+
+    /**
+     * Storage drivers configuration for usage tracking
+     * Can be overridden per agent or will use defaultStorageDrivers
+     *
+     * @var string|array|null
+     */
+    protected $usageStorage = null;
+
     /** @var string */
     protected $driver;
 
@@ -223,6 +238,11 @@ class Agent
 
         if ($this->forceReadHistory) {
             $this->chatHistory()->read();
+        }
+
+        // Setup usage storage if tracking is enabled
+        if ($this->trackUsage) {
+            $this->setupUsageStorage();
         }
 
         $this->setupToolCaching();
@@ -1102,6 +1122,113 @@ class Agent
     }
 
     /**
+     * Setup usage storage if tracking is enabled
+     */
+    protected function setupUsageStorage(): void
+    {
+        $this->setUsageStorage($this->createUsageStorage());
+    }
+
+    /**
+     * Create a new usage storage instance
+     *
+     * @return \LarAgent\Usage\Storages\UsageStorage The created usage storage instance
+     */
+    public function createUsageStorage()
+    {
+        $usageStorageDrivers = $this->usageStorageDrivers();
+
+        $usageStorage = new \LarAgent\Usage\Storages\UsageStorage(
+            $this->context()->getIdentity(),
+            $usageStorageDrivers
+        );
+
+        return $usageStorage;
+    }
+
+    /**
+     * Get the storage drivers configuration for usage tracking
+     */
+    protected function usageStorageDrivers(): string|array
+    {
+        // If explicit usage storage config is set, use it
+        if ($this->usageStorage !== null) {
+            if (is_string($this->usageStorage)) {
+                return $this->builtInHistories[$this->usageStorage] ?? $this->usageStorage;
+            }
+
+            return $this->usageStorage;
+        }
+
+        // Otherwise, use defaultStorageDrivers
+        return $this->defaultStorageDrivers();
+    }
+
+    /**
+     * Get the usage storage instance
+     *
+     * @return \LarAgent\Usage\Storages\UsageStorage|null
+     */
+    public function usageStorage(): ?\LarAgent\Usage\Storages\UsageStorage
+    {
+        $storages = $this->context()->getStorages();
+        $prefix = \LarAgent\Usage\Storages\UsageStorage::getStoragePrefix();
+
+        return $storages[$prefix] ?? null;
+    }
+
+    /**
+     * Set the usage storage instance
+     *
+     * @param  \LarAgent\Usage\Storages\UsageStorage  $usageStorage  The usage storage instance
+     */
+    public function setUsageStorage(\LarAgent\Usage\Storages\UsageStorage $usageStorage): static
+    {
+        $this->context()->register($usageStorage);
+
+        return $this;
+    }
+
+    /**
+     * Track usage from a message response
+     *
+     * @param  \LarAgent\Core\Contracts\Message  $message  The message with usage data
+     */
+    protected function trackUsageFromMessage(\LarAgent\Core\Contracts\Message $message): void
+    {
+        $usageStorage = $this->usageStorage();
+
+        if ($usageStorage === null) {
+            return;
+        }
+
+        // Get usage from message
+        $messageUsage = method_exists($message, 'getUsage') ? $message->getUsage() : null;
+
+        if ($messageUsage === null) {
+            return;
+        }
+
+        // Create a new Usage instance with metadata
+        $identity = $this->context()->getIdentity();
+        $usage = new \LarAgent\Usage\DataModels\Usage(
+            promptTokens: $messageUsage->promptTokens,
+            completionTokens: $messageUsage->completionTokens,
+            totalTokens: $messageUsage->totalTokens,
+            userId: $identity->getUserId(),
+            group: $identity->getGroup(),
+            chatName: $identity->getChatName(),
+            model: $this->model(),
+            provider: $this->providerName(),
+            agent: $this->name()
+        );
+
+        // Add to storage
+        $usageStorage->addUsage($usage);
+        $usageStorage->save();
+    }
+
+    /**
      * Save the context manually.
      * Useful for explicitly saving mid-request.
      * Events are dispatched safely (skipped if app is shutting down).
@@ -1594,6 +1721,11 @@ class Agent
         });
 
         $this->agent->afterResponse(function ($agent, $message) use ($instance) {
+            // Track usage if enabled
+            if ($instance->trackUsage && $message->getUsage() !== null) {
+                $instance->trackUsageFromMessage($message);
+            }
+
             $returnValue = $instance->callEvent('afterResponse', [$message]);
 
             // Explicitly check for false
