@@ -1,7 +1,9 @@
 <?php
 
-namespace Tests\LarAgent\Context;
 declare(strict_types=1);
+
+namespace Tests\LarAgent\Context;
+
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use LarAgent\Agent;
 use LarAgent\Context\Drivers\EloquentStorage;
@@ -10,6 +12,7 @@ use LarAgent\Context\Drivers\SimpleEloquentStorage;
 use LarAgent\Context\Models\LaragentMessage;
 use LarAgent\Context\Models\LaragentStorage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
+use ReflectionClass;
 
 uses(RefreshDatabase::class);
 
