@@ -159,6 +159,8 @@ class Agent
         'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
         'file' => \LarAgent\Context\Drivers\FileStorage::class,
         'json' => \LarAgent\Context\Drivers\FileStorage::class,
+        'database' => \LarAgent\Context\Drivers\EloquentStorage::class,
+        'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
     ];
 
     /** @var array */
