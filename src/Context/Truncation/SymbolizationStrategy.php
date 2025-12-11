@@ -140,6 +140,15 @@ class SymbolizationStrategy extends TruncationStrategy
     protected function createSymbol(string $role, string $content, string $agentClass, int $index): string
     {
         try {
+            // Verify agent class exists and has the make method
+            if (! class_exists($agentClass)) {
+                throw new \InvalidArgumentException("Agent class {$agentClass} does not exist");
+            }
+
+            if (! method_exists($agentClass, 'make')) {
+                throw new \InvalidArgumentException("Agent class {$agentClass} must have a static 'make' method");
+            }
+
             $agent = $agentClass::make();
             $prompt = "Create a very brief 1-sentence symbol/summary for this {$role} message: {$content}";
             $symbol = $agent->respond($prompt);
@@ -152,6 +161,11 @@ class SymbolizationStrategy extends TruncationStrategy
             return "- [{$role}] ".(string) $symbol;
         } catch (\Throwable $e) {
             // If symbolization fails, create a basic symbol
+            // Log the error if logging is available
+            if (function_exists('logger')) {
+                logger()->warning("Truncation symbolization failed: {$e->getMessage()}");
+            }
+
             $preview = substr($content, 0, 50);
             if (strlen($content) > 50) {
                 $preview .= '...';

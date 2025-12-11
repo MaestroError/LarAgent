@@ -124,6 +124,15 @@ class SummarizationStrategy extends TruncationStrategy
 
         // Create agent instance and get summary
         try {
+            // Verify agent class exists and has the make method
+            if (! class_exists($agentClass)) {
+                throw new \InvalidArgumentException("Agent class {$agentClass} does not exist");
+            }
+
+            if (! method_exists($agentClass, 'make')) {
+                throw new \InvalidArgumentException("Agent class {$agentClass} must have a static 'make' method");
+            }
+
             $agent = $agentClass::make();
             $prompt = "Please provide a concise summary of the following conversation:\n\n{$conversationText}";
             $summary = $agent->respond($prompt);
@@ -136,6 +145,11 @@ class SummarizationStrategy extends TruncationStrategy
             return (string) $summary;
         } catch (\Throwable $e) {
             // If summarization fails, return a basic summary
+            // Log the error if logging is available
+            if (function_exists('logger')) {
+                logger()->warning("Truncation summarization failed: {$e->getMessage()}");
+            }
+
             return 'Previous conversation contained '.count($messages).' messages.';
         }
     }

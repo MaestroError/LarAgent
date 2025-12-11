@@ -1476,21 +1476,32 @@ class Agent
             return;
         }
 
-        // Get current tokens from last assistant message
-        $lastMessage = $this->chatHistory()->getLastMessage();
+        // Calculate total tokens from all messages in history
+        $messages = $this->chatHistory()->getMessages();
         $currentTokens = 0;
 
-        if ($lastMessage !== null) {
+        foreach ($messages->toArray() as $message) {
             // Try to get usage from message metadata first
-            $metadata = $lastMessage->getMetadata();
+            $metadata = $message->getMetadata();
             if (isset($metadata['usage']['total_tokens'])) {
-                $currentTokens = (int) $metadata['usage']['total_tokens'];
-            } elseif (method_exists($lastMessage, 'getUsage')) {
+                $currentTokens += (int) $metadata['usage']['total_tokens'];
+            } elseif (isset($metadata['usage']['prompt_tokens'])) {
+                // Use prompt_tokens as fallback
+                $currentTokens += (int) $metadata['usage']['prompt_tokens'];
+            } elseif (method_exists($message, 'getUsage')) {
                 // Try getUsage method (for AssistantMessage)
-                $usage = $lastMessage->getUsage();
-                if ($usage !== null && isset($usage->totalTokens)) {
-                    $currentTokens = $usage->totalTokens;
+                $usage = $message->getUsage();
+                if ($usage !== null) {
+                    if (isset($usage->totalTokens)) {
+                        $currentTokens += $usage->totalTokens;
+                    } elseif (isset($usage->promptTokens)) {
+                        $currentTokens += $usage->promptTokens;
+                    }
                 }
+            } else {
+                // Fallback: rough estimate (1 token ≈ 4 characters)
+                $content = $message->getContentAsString();
+                $currentTokens += (int) ceil(strlen($content) / 4);
             }
         }
 

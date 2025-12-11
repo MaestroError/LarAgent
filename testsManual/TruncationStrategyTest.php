@@ -6,7 +6,7 @@
  * This test demonstrates how truncation strategies work with real API calls.
  *
  * Prerequisites:
- * - Set up your API key in a openai-api-key.php file
+ * - Set OPENAI_API_KEY environment variable
  * - Run: ./vendor/bin/pest testsManual/TruncationStrategyTest.php
  *
  * The test will:
@@ -25,7 +25,12 @@ use LarAgent\Tests\TestCase;
 uses(TestCase::class);
 
 beforeEach(function () {
-    $yourApiKey = include __DIR__.'/openai-api-key.php';
+    // Get API key from environment variable
+    $yourApiKey = env('OPENAI_API_KEY');
+    
+    if (empty($yourApiKey)) {
+        $this->markTestSkipped('OPENAI_API_KEY environment variable not set');
+    }
 
     config()->set('laragent.fallback_provider', 'openai');
 

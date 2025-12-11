@@ -385,7 +385,7 @@ class Context implements ContextContract
      * Apply truncation to the chat history if a strategy is configured.
      *
      * @param  ChatHistoryStorage  $chatHistory  The chat history storage to truncate
-     * @param  int  $currentTokens  Current total token count
+     * @param  int  $currentTokens  Current total token count from all messages
      */
     public function applyTruncation(ChatHistoryStorage $chatHistory, int $currentTokens): void
     {
@@ -394,8 +394,12 @@ class Context implements ContextContract
             return;
         }
 
+        // Reserve 20% of context window for the upcoming request and response
+        // This ensures we don't fill the entire context and have room for new content
+        $effectiveWindowSize = (int) ($this->contextWindowSize * 0.8);
+
         // Check if truncation is needed
-        if ($currentTokens <= $this->contextWindowSize) {
+        if ($currentTokens <= $effectiveWindowSize) {
             return;
         }
 
@@ -405,7 +409,7 @@ class Context implements ContextContract
         // Apply truncation strategy
         $truncatedMessages = $this->truncationStrategy->truncate(
             $messages,
-            $this->contextWindowSize,
+            $effectiveWindowSize,
             $currentTokens
         );
 

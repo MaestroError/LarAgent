@@ -55,16 +55,17 @@ class TokenBasedTruncationStrategy extends TruncationStrategy
             }
         }
 
-        // Add system messages first (they're always preserved)
+        // Calculate tokens for system messages (always preserved)
         $estimatedTokens = 0;
         foreach ($systemMessages as $message) {
-            $newMessages->add($message);
             $estimatedTokens += $this->estimateMessageTokens($message);
         }
 
-        // Add regular messages from the end (most recent) while staying under target
-        $regularMessages = array_reverse($regularMessages);
-        foreach ($regularMessages as $message) {
+        // Add regular messages from most recent to oldest, staying under target
+        // Build array in correct order to avoid multiple reversals
+        $keptRegularMessages = [];
+        for ($i = count($regularMessages) - 1; $i >= 0; $i--) {
+            $message = $regularMessages[$i];
             $messageTokens = $this->estimateMessageTokens($message);
 
             // Check if adding this message would exceed target
@@ -72,34 +73,32 @@ class TokenBasedTruncationStrategy extends TruncationStrategy
                 break;
             }
 
-            $newMessages->add($message);
+            // Add to front of array (since we're iterating backwards)
+            array_unshift($keptRegularMessages, $message);
             $estimatedTokens += $messageTokens;
         }
 
-        // Reverse the regular messages to maintain chronological order
-        // (system messages are first, then regular messages in order)
-        $finalMessages = new MessageArray();
-        $systemCount = count($systemMessages);
-        $allNewMessages = $newMessages->toArray();
-
-        // Add system messages
-        for ($i = 0; $i < $systemCount; $i++) {
-            $finalMessages->add($allNewMessages[$i]);
+        // Build final message array: system messages first, then regular messages in chronological order
+        foreach ($systemMessages as $message) {
+            $newMessages->add($message);
+        }
+        foreach ($keptRegularMessages as $message) {
+            $newMessages->add($message);
         }
 
-        // Add regular messages in reverse (to restore chronological order)
-        $regularNewMessages = array_slice($allNewMessages, $systemCount);
-        $regularNewMessages = array_reverse($regularNewMessages);
-        foreach ($regularNewMessages as $message) {
-            $finalMessages->add($message);
-        }
-
-        return $finalMessages;
+        return $newMessages;
     }
 
     /**
      * Estimate token count for a message.
-     * This is a rough estimate based on content length.
+     * 
+     * Note: This uses promptTokens from usage metadata when available, which represents
+     * the tokens used for this message in the API request, not necessarily the exact
+     * token count of the message content alone. This is an approximation and may
+     * include additional tokens from formatting, system prompts, etc.
+     * 
+     * For messages without usage data, falls back to a rough estimate based on
+     * character count (1 token ≈ 4 characters).
      *
      * @param  \LarAgent\Core\Contracts\Message  $message  The message to estimate
      * @return int Estimated token count
@@ -107,6 +106,7 @@ class TokenBasedTruncationStrategy extends TruncationStrategy
     protected function estimateMessageTokens($message): int
     {
         // Check if message has usage metadata with prompt_tokens
+        // Note: This is an approximation as prompt_tokens includes the full prompt
         $metadata = $message->getMetadata();
         if (isset($metadata['usage']['prompt_tokens'])) {
             return (int) $metadata['usage']['prompt_tokens'];
@@ -121,6 +121,7 @@ class TokenBasedTruncationStrategy extends TruncationStrategy
         }
 
         // Fallback: rough estimate (1 token ≈ 4 characters)
+        // This is a conservative estimate and may not be accurate for all content types
         $content = $message->getContentAsString();
 
         return (int) ceil(strlen($content) / 4);
