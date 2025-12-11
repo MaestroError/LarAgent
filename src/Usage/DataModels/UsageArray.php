@@ -3,11 +3,10 @@
 namespace LarAgent\Usage\DataModels;
 
 use LarAgent\Core\Abstractions\DataModelArray;
-use LarAgent\Core\Contracts\DataModel as DataModelContract;
 
 /**
  * Array container for UsageRecord DataModels.
- * 
+ *
  * Provides filtering and aggregation methods for usage analytics.
  */
 class UsageArray extends DataModelArray
@@ -94,10 +93,10 @@ class UsageArray extends DataModelArray
      */
     public function filterByDate($date): static
     {
-        $targetDate = $date instanceof \DateTimeImmutable 
-            ? $date 
-            : ($date instanceof \DateTimeInterface 
-                ? \DateTimeImmutable::createFromInterface($date) 
+        $targetDate = $date instanceof \DateTimeImmutable
+            ? $date
+            : ($date instanceof \DateTimeInterface
+                ? \DateTimeImmutable::createFromInterface($date)
                 : new \DateTimeImmutable($date));
         $startOfDay = $targetDate->setTime(0, 0, 0);
         $endOfDay = $targetDate->setTime(23, 59, 59);
@@ -107,8 +106,6 @@ class UsageArray extends DataModelArray
 
     /**
      * Get total prompt tokens.
-     *
-     * @return int
      */
     public function getTotalPromptTokens(): int
     {
@@ -118,13 +115,12 @@ class UsageArray extends DataModelArray
                 $total += $record->promptTokens;
             }
         }
+
         return $total;
     }
 
     /**
      * Get total completion tokens.
-     *
-     * @return int
      */
     public function getTotalCompletionTokens(): int
     {
@@ -134,13 +130,12 @@ class UsageArray extends DataModelArray
                 $total += $record->completionTokens;
             }
         }
+
         return $total;
     }
 
     /**
      * Get total tokens (prompt + completion).
-     *
-     * @return int
      */
     public function getTotalTokens(): int
     {
@@ -150,6 +145,7 @@ class UsageArray extends DataModelArray
                 $total += $record->totalTokens;
             }
         }
+
         return $total;
     }
 
@@ -187,7 +183,7 @@ class UsageArray extends DataModelArray
         $property = $propertyMap[$field] ?? $field;
 
         foreach ($this->items as $record) {
-            if (!$record instanceof UsageRecord) {
+            if (! $record instanceof UsageRecord) {
                 continue;
             }
             $key = $record->{$property} ?? 'unknown';

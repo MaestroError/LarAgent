@@ -1,8 +1,6 @@
 <?php
 
 use LarAgent\Agent;
-use LarAgent\Core\Contracts\Message as MessageInterface;
-use LarAgent\Messages\AssistantMessage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Usage\UsageStorage;

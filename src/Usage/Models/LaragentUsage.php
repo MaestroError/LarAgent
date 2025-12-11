@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 /**
  * Eloquent model for storing usage records.
- * 
+ *
  * Can be used with EloquentStorage driver for persistent usage tracking.
  */
 class LaragentUsage extends Model
@@ -145,7 +145,7 @@ class LaragentUsage extends Model
     public function scopeBetweenDates($query, $from, $to = null)
     {
         $query->where('recorded_at', '>=', $from);
-        
+
         if ($to !== null) {
             $query->where('recorded_at', '<=', $to);
         }
@@ -173,7 +173,7 @@ class LaragentUsage extends Model
     public static function aggregate($query = null)
     {
         $query = $query ?? static::query();
-        
+
         return [
             'total_prompt_tokens' => (int) $query->sum('prompt_tokens'),
             'total_completion_tokens' => (int) $query->sum('completion_tokens'),
@@ -192,7 +192,7 @@ class LaragentUsage extends Model
     public static function groupByColumn(string $column, $query = null)
     {
         $query = $query ?? static::query();
-        
+
         return $query->groupBy($column)
             ->selectRaw("{$column}, SUM(prompt_tokens) as total_prompt_tokens, SUM(completion_tokens) as total_completion_tokens, SUM(total_tokens) as total_tokens, COUNT(*) as record_count")
             ->get()

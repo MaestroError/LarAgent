@@ -10,7 +10,7 @@ use LarAgent\Usage\DataModels\UsageRecord;
 
 /**
  * Storage for tracking usage statistics per identity.
- * 
+ *
  * Similar to ChatHistoryStorage, but stores UsageRecord objects.
  */
 class UsageStorage extends Storage
@@ -73,7 +73,7 @@ class UsageStorage extends Storage
             $this->modelName,
             $this->providerName
         );
-        
+
         $this->add($record);
     }
 
@@ -87,19 +87,18 @@ class UsageStorage extends Storage
 
     /**
      * Get all usage records.
-     *
-     * @return UsageArray
      */
     public function getUsageRecords(): UsageArray
     {
         /** @var UsageArray $records */
         $records = $this->get();
+
         return $records;
     }
 
     /**
      * Get usage records filtered by criteria.
-     * 
+     *
      * @param  array  $filters  Associative array of filters
      *                          Supported: agent_name, user_id, group, model_name, provider_name, date_from, date_to, date
      */
@@ -160,13 +159,12 @@ class UsageStorage extends Storage
 
     /**
      * Get the last usage record.
-     *
-     * @return UsageRecord|null
      */
     public function getLastUsage(): ?UsageRecord
     {
         /** @var UsageRecord|null $record */
         $record = $this->getLast();
+
         return $record;
     }
 

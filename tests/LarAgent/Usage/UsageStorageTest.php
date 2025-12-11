@@ -111,7 +111,7 @@ describe('UsageRecord DataModel', function () {
 
     it('converts Carbon instance to string in fromArray', function () {
         $carbonDate = \Carbon\Carbon::parse('2024-01-15T10:30:00+00:00');
-        
+
         $data = [
             'record_id' => 'usage_carbon_test',
             'prompt_tokens' => 100,
@@ -126,14 +126,14 @@ describe('UsageRecord DataModel', function () {
         // Should be converted to ISO 8601 string
         expect($record->recordedAt)->toBeString();
         expect($record->recordedAt)->toBe('2024-01-15T10:30:00+00:00');
-        
+
         // getRecordedAtDateTime should still work for comparisons
         expect($record->getRecordedAtDateTime())->toBeInstanceOf(DateTimeImmutable::class);
     });
 
     it('converts DateTimeImmutable to string in fromArray', function () {
         $dateTime = new \DateTimeImmutable('2024-01-15T10:30:00+00:00');
-        
+
         $data = [
             'record_id' => 'usage_datetime_test',
             'prompt_tokens' => 100,
@@ -187,7 +187,7 @@ describe('UsageRecord DataModel', function () {
 // Test UsageArray DataModel
 describe('UsageArray DataModel', function () {
     it('can store and retrieve usage records', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $record1 = new UsageRecord(promptTokens: 100, completionTokens: 50);
         $record2 = new UsageRecord(promptTokens: 200, completionTokens: 100);
 
@@ -200,7 +200,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can filter by agent name', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, completionTokens: 50, agentName: 'Agent1'));
         $array->add(new UsageRecord(promptTokens: 200, completionTokens: 100, agentName: 'Agent2'));
         $array->add(new UsageRecord(promptTokens: 150, completionTokens: 75, agentName: 'Agent1'));
@@ -212,7 +212,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can filter by user id', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, userId: 'user1'));
         $array->add(new UsageRecord(promptTokens: 200, userId: 'user2'));
         $array->add(new UsageRecord(promptTokens: 150, userId: 'user1'));
@@ -224,7 +224,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can filter by model name', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, modelName: 'gpt-4'));
         $array->add(new UsageRecord(promptTokens: 200, modelName: 'gpt-3.5'));
         $array->add(new UsageRecord(promptTokens: 150, modelName: 'gpt-4'));
@@ -236,7 +236,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can filter by provider name', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, providerName: 'openai'));
         $array->add(new UsageRecord(promptTokens: 200, providerName: 'anthropic'));
         $array->add(new UsageRecord(promptTokens: 150, providerName: 'openai'));
@@ -248,7 +248,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can filter by date range', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, recordedAt: '2024-01-10T10:00:00+00:00'));
         $array->add(new UsageRecord(promptTokens: 200, recordedAt: '2024-01-15T10:00:00+00:00'));
         $array->add(new UsageRecord(promptTokens: 150, recordedAt: '2024-01-20T10:00:00+00:00'));
@@ -274,7 +274,7 @@ describe('UsageArray DataModel', function () {
             'recorded_at' => \Carbon\Carbon::parse('2024-01-20T10:00:00+00:00'),
         ]);
 
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add($record1);
         $array->add($record2);
         $array->add($record3);
@@ -290,7 +290,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can filter by specific date', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, recordedAt: '2024-01-15T08:00:00+00:00'));
         $array->add(new UsageRecord(promptTokens: 200, recordedAt: '2024-01-15T16:00:00+00:00'));
         $array->add(new UsageRecord(promptTokens: 150, recordedAt: '2024-01-16T10:00:00+00:00'));
@@ -302,7 +302,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can aggregate token totals', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, completionTokens: 50, totalTokens: 150));
         $array->add(new UsageRecord(promptTokens: 200, completionTokens: 100, totalTokens: 300));
         $array->add(new UsageRecord(promptTokens: 150, completionTokens: 75, totalTokens: 225));
@@ -319,7 +319,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can group by field', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, completionTokens: 50, totalTokens: 150, agentName: 'Agent1'));
         $array->add(new UsageRecord(promptTokens: 200, completionTokens: 100, totalTokens: 300, agentName: 'Agent2'));
         $array->add(new UsageRecord(promptTokens: 150, completionTokens: 75, totalTokens: 225, agentName: 'Agent1'));
@@ -335,7 +335,7 @@ describe('UsageArray DataModel', function () {
     });
 
     it('can combine multiple filters', function () {
-        $array = new UsageArray();
+        $array = new UsageArray;
         $array->add(new UsageRecord(promptTokens: 100, agentName: 'Agent1', userId: 'user1', modelName: 'gpt-4'));
         $array->add(new UsageRecord(promptTokens: 200, agentName: 'Agent1', userId: 'user2', modelName: 'gpt-4'));
         $array->add(new UsageRecord(promptTokens: 150, agentName: 'Agent2', userId: 'user1', modelName: 'gpt-4'));

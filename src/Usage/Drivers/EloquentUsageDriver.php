@@ -7,7 +7,7 @@ use LarAgent\Usage\Models\LaragentUsage;
 
 /**
  * Eloquent-based storage driver for usage records.
- * 
+ *
  * Uses the LaragentUsage model by default.
  */
 class EloquentUsageDriver extends EloquentStorage

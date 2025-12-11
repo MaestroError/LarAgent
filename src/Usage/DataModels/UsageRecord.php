@@ -8,7 +8,7 @@ use LarAgent\Context\Contracts\SessionIdentity;
 
 /**
  * Extended Usage DataModel that captures metadata for tracking and analytics.
- * 
+ *
  * This class extends the base Usage to include:
  * - Identity information (user, group, agent name)
  * - Provider/model information
@@ -70,7 +70,7 @@ class UsageRecord extends Usage
      */
     protected function generateId(): string
     {
-        return 'usage_' . bin2hex(random_bytes(12));
+        return 'usage_'.bin2hex(random_bytes(12));
     }
 
     /**
@@ -138,10 +138,10 @@ class UsageRecord extends Usage
     {
         $promptTokens = (int) ($data['prompt_tokens'] ?? 0);
         $completionTokens = (int) ($data['completion_tokens'] ?? 0);
-        
+
         // If total_tokens is not provided, calculate from prompt + completion
-        $totalTokens = isset($data['total_tokens']) 
-            ? (int) $data['total_tokens'] 
+        $totalTokens = isset($data['total_tokens'])
+            ? (int) $data['total_tokens']
             : $promptTokens + $completionTokens;
 
         // Handle recorded_at - convert DateTimeInterface (including Carbon) to string

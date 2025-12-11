@@ -1240,8 +1240,6 @@ class Agent
     /**
      * Create a new usage storage instance.
      * Can be overridden in child classes for custom behavior.
-     *
-     * @return \LarAgent\Usage\UsageStorage
      */
     public function createUsageStorage(): \LarAgent\Usage\UsageStorage
     {
@@ -1304,7 +1302,6 @@ class Agent
      * Get usage records filtered by criteria.
      *
      * @param  array  $filters  Optional filters (agent_name, user_id, model_name, provider_name, date, etc.)
-     * @return \LarAgent\Usage\DataModels\UsageArray|null
      */
     public function getUsage(array $filters = []): ?\LarAgent\Usage\DataModels\UsageArray
     {
@@ -1320,7 +1317,6 @@ class Agent
      * Get aggregated usage statistics.
      *
      * @param  array  $filters  Optional filters
-     * @return array|null
      */
     public function getUsageAggregate(array $filters = []): ?array
     {
@@ -1337,7 +1333,6 @@ class Agent
      *
      * @param  string  $field  Field to group by (agent_name, user_id, model_name, provider_name)
      * @param  array  $filters  Optional filters
-     * @return array|null
      */
     public function getUsageGroupedBy(string $field, array $filters = []): ?array
     {
@@ -1351,8 +1346,6 @@ class Agent
 
     /**
      * Get usage identities tracked for this agent class.
-     *
-     * @return \LarAgent\Context\DataModels\SessionIdentityArray
      */
     public function getUsageIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
     {
