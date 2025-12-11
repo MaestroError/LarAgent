@@ -199,6 +199,36 @@ class Agent
      */
     protected $forceReadContext = false;
 
+    /**
+     * Enable usage tracking to store token usage per response.
+     * When enabled, usage is stored after each response via afterResponse hook.
+     * Set to true/false to override config, or leave null to use config.
+     *
+     * @var bool|null
+     */
+    protected $trackUsage = null;
+
+    /**
+     * Storage drivers configuration for usage storage.
+     * Can be array of driver classes or string alias from builtInUsageStorages.
+     * If not set, uses provider's usage_storage, then default_usage_storage config, then defaultStorageDrivers.
+     *
+     * @var array|string|null
+     */
+    protected $usageStorage = null;
+
+    /**
+     * Built-in usage storage driver aliases.
+     */
+    private array $builtInUsageStorages = [
+        'in_memory' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+        'session' => \LarAgent\Context\Drivers\SessionStorage::class,
+        'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
+        'file' => \LarAgent\Context\Drivers\FileStorage::class,
+        'database' => \LarAgent\Usage\Drivers\EloquentUsageDriver::class,
+        'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
+    ];
+
     public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
         $this->usesUserId = $usesUserId;
@@ -223,6 +253,11 @@ class Agent
 
         if ($this->forceReadHistory) {
             $this->chatHistory()->read();
+        }
+
+        // Setup usage tracking if enabled
+        if ($this->shouldTrackUsage()) {
+            $this->setupUsageStorage();
         }
 
         $this->setupToolCaching();
@@ -1132,6 +1167,214 @@ class Agent
         return $this->history;
     }
 
+    // ========== Usage Storage Methods ==========
+
+    /**
+     * Check if usage tracking is enabled.
+     * Priority: Agent property > Provider config > Global config
+     */
+    public function shouldTrackUsage(): bool
+    {
+        // Check agent property first (if explicitly set to true/false)
+        if ($this->trackUsage !== null) {
+            return $this->trackUsage;
+        }
+
+        // Check provider-specific config
+        $providerConfig = config("laragent.providers.{$this->provider}.track_usage");
+        if ($providerConfig !== null) {
+            return (bool) $providerConfig;
+        }
+
+        // Fall back to global config
+        return config('laragent.track_usage', false);
+    }
+
+    /**
+     * Enable or disable usage tracking.
+     */
+    public function trackUsage(bool $enabled = true): static
+    {
+        $this->trackUsage = $enabled;
+
+        // Setup storage if enabling tracking after construction
+        if ($enabled && ! $this->context()->has(\LarAgent\Usage\UsageStorage::class)) {
+            $this->setupUsageStorage();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the usage storage instance.
+     *
+     * @return \LarAgent\Usage\UsageStorage|null Returns null if tracking is disabled
+     */
+    public function usageStorage(): ?\LarAgent\Usage\UsageStorage
+    {
+        if (! $this->shouldTrackUsage()) {
+            return null;
+        }
+
+        return $this->context()->getStorage(\LarAgent\Usage\UsageStorage::class);
+    }
+
+    /**
+     * Set usage storage instance.
+     */
+    public function setUsageStorage(\LarAgent\Usage\UsageStorage $usageStorage): static
+    {
+        $this->context()->register($usageStorage);
+
+        return $this;
+    }
+
+    /**
+     * Setup usage storage.
+     */
+    protected function setupUsageStorage(): void
+    {
+        $this->setUsageStorage($this->createUsageStorage());
+    }
+
+    /**
+     * Create a new usage storage instance.
+     * Can be overridden in child classes for custom behavior.
+     *
+     * @return \LarAgent\Usage\UsageStorage
+     */
+    public function createUsageStorage(): \LarAgent\Usage\UsageStorage
+    {
+        $usageStorageDrivers = $this->usageStorageDrivers();
+
+        return new \LarAgent\Usage\UsageStorage(
+            $this->context()->getIdentity(),
+            $usageStorageDrivers,
+            $this->model(),
+            $this->providerName
+        );
+    }
+
+    /**
+     * Get usage storage drivers configuration.
+     * Priority: agent property > provider config > default_usage_storage config > defaultStorageDrivers
+     * Note: Provider and global config are resolved in setupProviderData()
+     */
+    protected function usageStorageDrivers(): string|array
+    {
+        if (is_string($this->usageStorage)) {
+            return $this->builtInUsageStorages[$this->usageStorage] ?? $this->usageStorage;
+        }
+        if (isset($this->usageStorage) && is_array($this->usageStorage)) {
+            return $this->usageStorage;
+        }
+
+        return $this->defaultStorageDrivers();
+    }
+
+    /**
+     * Track usage from a message response.
+     * Called automatically in afterResponse hook.
+     */
+    protected function trackUsageFromMessage(\LarAgent\Core\Contracts\Message $message): void
+    {
+        if (! $this->shouldTrackUsage()) {
+            return;
+        }
+
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return;
+        }
+
+        // Update model and provider name in case they changed
+        $storage->setModelName($this->model());
+        $storage->setProviderName($this->providerName);
+
+        // Check if message has usage data
+        if (method_exists($message, 'getUsage')) {
+            $usage = $message->getUsage();
+            if ($usage !== null) {
+                $storage->addUsage($usage);
+            }
+        }
+    }
+
+    /**
+     * Get usage records filtered by criteria.
+     *
+     * @param  array  $filters  Optional filters (agent_name, user_id, model_name, provider_name, date, etc.)
+     * @return \LarAgent\Usage\DataModels\UsageArray|null
+     */
+    public function getUsage(array $filters = []): ?\LarAgent\Usage\DataModels\UsageArray
+    {
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return null;
+        }
+
+        return $storage->getFilteredUsage($filters);
+    }
+
+    /**
+     * Get aggregated usage statistics.
+     *
+     * @param  array  $filters  Optional filters
+     * @return array|null
+     */
+    public function getUsageAggregate(array $filters = []): ?array
+    {
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return null;
+        }
+
+        return $storage->aggregate($filters);
+    }
+
+    /**
+     * Get usage grouped by a field.
+     *
+     * @param  string  $field  Field to group by (agent_name, user_id, model_name, provider_name)
+     * @param  array  $filters  Optional filters
+     * @return array|null
+     */
+    public function getUsageGroupedBy(string $field, array $filters = []): ?array
+    {
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return null;
+        }
+
+        return $storage->groupBy($field, $filters);
+    }
+
+    /**
+     * Get usage identities tracked for this agent class.
+     *
+     * @return \LarAgent\Context\DataModels\SessionIdentityArray
+     */
+    public function getUsageIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
+    {
+        return $this->context()->getTrackedIdentitiesByScope(\LarAgent\Usage\UsageStorage::getStoragePrefix());
+    }
+
+    /**
+     * Clear all usage records for this identity.
+     */
+    public function clearUsage(): static
+    {
+        $storage = $this->usageStorage();
+        if ($storage !== null) {
+            $storage->clear();
+            $storage->save();
+        }
+
+        return $this;
+    }
+
+    // ========== End Usage Storage Methods ==========
+
     protected function defaultStorageDrivers(): array
     {
         if (! isset($this->storage)) {
@@ -1501,10 +1744,13 @@ class Agent
         if (! isset($this->history)) {
             $this->history = $provider['history'] ?? config('laragent.default_history_storage');
         }
+        if (! isset($this->usageStorage)) {
+            $this->usageStorage = $provider['usage_storage'] ?? config('laragent.default_usage_storage');
+        }
         if (! isset($this->storage)) {
             $this->storage = $provider['storage'] ?? config('laragent.default_storage');
         }
-        $this->providerName = $provider['name'] ?? '';
+        $this->providerName = $provider['label'] ?? $this->provider ?? '';
 
         // Extract provider settings into agent properties
         $this->setupDriverConfigs($provider);
@@ -1594,6 +1840,9 @@ class Agent
         });
 
         $this->agent->afterResponse(function ($agent, $message) use ($instance) {
+            // Track usage if enabled and message has usage data
+            $instance->trackUsageFromMessage($message);
+
             $returnValue = $instance->callEvent('afterResponse', [$message]);
 
             // Explicitly check for false
