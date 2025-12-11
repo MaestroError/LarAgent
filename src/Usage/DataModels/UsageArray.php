@@ -26,7 +26,7 @@ class UsageArray extends DataModelArray
      */
     public function discriminator(): string
     {
-        return 'id';
+        return 'recordId';
     }
 
     /**
