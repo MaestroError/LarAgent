@@ -1445,9 +1445,11 @@ class Agent
 
         $strategy = $this->truncationStrategy();
         $windowSize = $this->getContextWindowSize();
+        $buffer = config('laragent.context_window_buffer', 0.2);
 
         $this->context()->setTruncationStrategy($strategy);
         $this->context()->setContextWindowSize($windowSize);
+        $this->context()->setContextWindowBuffer($buffer);
     }
 
     /**
@@ -1477,23 +1479,29 @@ class Agent
         }
 
         // Calculate total tokens from all messages in history
+        // Note: We estimate per-message tokens using a conservative approach to avoid over-counting
         $messages = $this->chatHistory()->getMessages();
         $currentTokens = 0;
 
         foreach ($messages->toArray() as $message) {
             // Try to get usage from message metadata first
             $metadata = $message->getMetadata();
-            if (isset($metadata['usage']['total_tokens'])) {
-                $currentTokens += (int) $metadata['usage']['total_tokens'];
-            } elseif (isset($metadata['usage']['prompt_tokens'])) {
-                // Use prompt_tokens as fallback
+            
+            // Use completion_tokens for assistant messages (this is the actual message content)
+            if ($message->getRole() === 'assistant' && isset($metadata['usage']['completion_tokens'])) {
+                $currentTokens += (int) $metadata['usage']['completion_tokens'];
+            } 
+            // For other messages, try to use stored prompt tokens if available
+            elseif (isset($metadata['usage']['prompt_tokens'])) {
+                // Note: This is an approximation as prompt_tokens includes formatting overhead
                 $currentTokens += (int) $metadata['usage']['prompt_tokens'];
             } elseif (method_exists($message, 'getUsage')) {
                 // Try getUsage method (for AssistantMessage)
                 $usage = $message->getUsage();
                 if ($usage !== null) {
-                    if (isset($usage->totalTokens)) {
-                        $currentTokens += $usage->totalTokens;
+                    // Use completion tokens for assistant messages
+                    if ($message->getRole() === 'assistant' && isset($usage->completionTokens)) {
+                        $currentTokens += $usage->completionTokens;
                     } elseif (isset($usage->promptTokens)) {
                         $currentTokens += $usage->promptTokens;
                     }

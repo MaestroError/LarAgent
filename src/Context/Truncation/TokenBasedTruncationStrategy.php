@@ -92,32 +92,52 @@ class TokenBasedTruncationStrategy extends TruncationStrategy
     /**
      * Estimate token count for a message.
      * 
-     * Note: This uses promptTokens from usage metadata when available, which represents
-     * the tokens used for this message in the API request, not necessarily the exact
-     * token count of the message content alone. This is an approximation and may
-     * include additional tokens from formatting, system prompts, etc.
+     * Important Notes on Token Estimation:
+     * 1. For assistant messages: Uses completion_tokens when available, which accurately
+     *    represents the tokens in the assistant's response.
      * 
-     * For messages without usage data, falls back to a rough estimate based on
-     * character count (1 token ≈ 4 characters).
+     * 2. For other messages: Uses prompt_tokens when available, but this is an
+     *    APPROXIMATION. The prompt_tokens value from an API response includes the
+     *    total prompt (all previous messages + system prompt + formatting), not just
+     *    the individual message's tokens.
+     * 
+     * 3. To avoid over-counting, this strategy should ideally be used when:
+     *    - Messages store individual token counts (not full prompt tokens)
+     *    - OR as a conservative approximation knowing it may trigger truncation earlier
+     *    - OR when using character-based fallback estimation
+     * 
+     * 4. For most accurate token counting, consider:
+     *    - Using SimpleTruncationStrategy if token precision is critical
+     *    - Implementing a custom token counter (e.g., tiktoken)
+     *    - Storing per-message token counts during message creation
+     * 
+     * Fallback: Uses rough estimate (1 token ≈ 4 characters) when no usage data available.
      *
      * @param  \LarAgent\Core\Contracts\Message  $message  The message to estimate
      * @return int Estimated token count
      */
     protected function estimateMessageTokens($message): int
     {
-        // Check if message has usage metadata with prompt_tokens
-        // Note: This is an approximation as prompt_tokens includes the full prompt
-        $metadata = $message->getMetadata();
-        if (isset($metadata['usage']['prompt_tokens'])) {
-            return (int) $metadata['usage']['prompt_tokens'];
+        // For assistant messages, use completion_tokens (accurate for the response)
+        if ($message->getRole() === 'assistant') {
+            if (method_exists($message, 'getUsage')) {
+                $usage = $message->getUsage();
+                if ($usage !== null && isset($usage->completionTokens)) {
+                    return $usage->completionTokens;
+                }
+            }
+            
+            $metadata = $message->getMetadata();
+            if (isset($metadata['usage']['completion_tokens'])) {
+                return (int) $metadata['usage']['completion_tokens'];
+            }
         }
 
-        // Check if message has getUsage method (AssistantMessage)
-        if (method_exists($message, 'getUsage')) {
-            $usage = $message->getUsage();
-            if ($usage !== null && isset($usage->promptTokens)) {
-                return $usage->promptTokens;
-            }
+        // For other messages, use prompt_tokens with caution (see note above)
+        $metadata = $message->getMetadata();
+        if (isset($metadata['usage']['prompt_tokens'])) {
+            // This is an approximation - may include overhead from formatting
+            return (int) $metadata['usage']['prompt_tokens'];
         }
 
         // Fallback: rough estimate (1 token ≈ 4 characters)

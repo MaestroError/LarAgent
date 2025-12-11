@@ -69,6 +69,12 @@ class Context implements ContextContract
     protected ?int $contextWindowSize = null;
 
     /**
+     * Buffer percentage to reserve for new requests (0.0 to 1.0)
+     * Default: 0.2 (20% reserved for new content)
+     */
+    protected float $contextWindowBuffer = 0.2;
+
+    /**
      * Create a new Context instance
      *
      * @param  SessionIdentityContract  $identity  The base identity for this context
@@ -382,6 +388,31 @@ class Context implements ContextContract
     }
 
     /**
+     * Set the context window buffer percentage.
+     * This reserves a portion of the context window for new requests.
+     *
+     * @param  float  $buffer  Buffer percentage (0.0 to 1.0, default: 0.2 = 20%)
+     */
+    public function setContextWindowBuffer(float $buffer): static
+    {
+        if ($buffer < 0.0 || $buffer > 1.0) {
+            throw new \InvalidArgumentException('Context window buffer must be between 0.0 and 1.0');
+        }
+
+        $this->contextWindowBuffer = $buffer;
+
+        return $this;
+    }
+
+    /**
+     * Get the context window buffer percentage.
+     */
+    public function getContextWindowBuffer(): float
+    {
+        return $this->contextWindowBuffer;
+    }
+
+    /**
      * Apply truncation to the chat history if a strategy is configured.
      *
      * @param  ChatHistoryStorage  $chatHistory  The chat history storage to truncate
@@ -394,9 +425,9 @@ class Context implements ContextContract
             return;
         }
 
-        // Reserve 20% of context window for the upcoming request and response
+        // Reserve buffer percentage of context window for upcoming request and response
         // This ensures we don't fill the entire context and have room for new content
-        $effectiveWindowSize = (int) ($this->contextWindowSize * 0.8);
+        $effectiveWindowSize = (int) ($this->contextWindowSize * (1.0 - $this->contextWindowBuffer));
 
         // Check if truncation is needed
         if ($currentTokens <= $effectiveWindowSize) {

@@ -78,6 +78,18 @@ return [
     ],
 
     /**
+     * Context window buffer percentage (0.0 to 1.0).
+     * Reserves this percentage of the context window for new requests and responses.
+     * Default: 0.2 (20% reserved, 80% available for history)
+     * 
+     * Examples:
+     * - 0.1 (10%): More aggressive truncation, allows more history
+     * - 0.2 (20%): Balanced approach (default)
+     * - 0.3 (30%): Conservative, reserves more space for responses
+     */
+    'context_window_buffer' => 0.2,
+
+    /**
      * Autodiscovery namespaces for Agent classes.
      * Used by `agent:chat` to locate agents.
      */
