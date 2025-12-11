@@ -148,7 +148,7 @@ describe('UsageRecord DataModel', function () {
 
     it('calculates total tokens from prompt and completion when not provided', function () {
         $data = [
-            'id' => 'usage_test456',
+            'record_id' => 'usage_test456',
             'prompt_tokens' => 250,
             'completion_tokens' => 100,
             // total_tokens is intentionally omitted
@@ -169,7 +169,7 @@ describe('UsageRecord DataModel', function () {
 
     it('uses provided total tokens even when different from sum', function () {
         $data = [
-            'id' => 'usage_test789',
+            'record_id' => 'usage_test789',
             'prompt_tokens' => 100,
             'completion_tokens' => 50,
             'total_tokens' => 200, // Explicitly provided, even though sum is 150
