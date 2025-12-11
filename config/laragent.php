@@ -31,6 +31,26 @@ return [
     ],
 
     /**
+     * Enable usage tracking globally for all agents.
+     * Can be overridden per-provider (in providers array) or per-agent via $trackUsage property.
+     * Priority: Agent property > Provider config > Global config
+     */
+    'track_usage' => false,
+
+    /**
+     * Default storage drivers for usage tracking.
+     * Used when agent or provider doesn't set usage_storage.
+     * If not set, uses 'default_storage' configuration.
+     * 
+     * Must be an array of driver classes (e.g., [CacheStorage::class, FileStorage::class])
+     * or null to use default_storage.
+     * 
+     * Note: Per-provider configuration can be set in the providers array
+     * using 'usage_storage' key with an array of driver classes.
+     */
+    'default_usage_storage' => null,
+
+    /**
      * Autodiscovery namespaces for Agent classes.
      * Used by `agent:chat` to locate agents.
      */

@@ -6,7 +6,7 @@ use Illuminate\Console\Command;
 
 class PublishCommand extends Command
 {
-    protected $signature = 'la:publish {type : The type of resource to publish (simple-eloquent-storage, eloquent-storage, eloquent-storage-messages, eloquent-storage-sessions)}';
+    protected $signature = 'la:publish {type : The type of resource to publish (simple-eloquent-storage, eloquent-storage, eloquent-storage-messages, eloquent-storage-sessions, usage-storage)}';
 
     protected $description = 'Publish LarAgent resources (migrations, etc.)';
 
@@ -17,16 +17,24 @@ class PublishCommand extends Command
         return match ($type) {
             'simple-eloquent-storage' => $this->publishMigration(
                 'create_laragent_storage_table.php',
-                'SimpleEloquentStorage'
+                'SimpleEloquentStorage',
+                __DIR__.'/../Context/Database/migrations/'
             ),
             'eloquent-storage' => $this->publishBothEloquentMigrations(),
             'eloquent-storage-messages' => $this->publishMigration(
                 'create_laragent_messages_table.php',
-                'EloquentStorage (Messages)'
+                'EloquentStorage (Messages)',
+                __DIR__.'/../Context/Database/migrations/'
             ),
             'eloquent-storage-sessions' => $this->publishMigration(
                 'create_laragent_session_identities_table.php',
-                'EloquentStorage (SessionIdentities)'
+                'EloquentStorage (SessionIdentities)',
+                __DIR__.'/../Context/Database/migrations/'
+            ),
+            'usage-storage' => $this->publishMigration(
+                'create_laragent_usage_table.php',
+                'UsageStorage',
+                __DIR__.'/../Usage/Database/migrations/'
             ),
             default => $this->invalidType($type),
         };
@@ -39,9 +47,12 @@ class PublishCommand extends Command
      */
     protected function publishBothEloquentMigrations(): int
     {
+        $basePath = __DIR__.'/../Context/Database/migrations/';
+
         $result1 = $this->publishMigration(
             'create_laragent_messages_table.php',
-            'EloquentStorage (Messages)'
+            'EloquentStorage (Messages)',
+            $basePath
         );
 
         if ($result1 !== 0) {
@@ -53,7 +64,8 @@ class PublishCommand extends Command
 
         return $this->publishMigration(
             'create_laragent_session_identities_table.php',
-            'EloquentStorage (SessionIdentities)'
+            'EloquentStorage (SessionIdentities)',
+            $basePath
         );
     }
 
@@ -62,15 +74,16 @@ class PublishCommand extends Command
      *
      * @param  string  $migrationFile  The migration filename
      * @param  string  $name  Human-readable name for output
+     * @param  string  $sourcePath  Path to the source migration directory
      * @return int Exit code
      */
-    protected function publishMigration(string $migrationFile, string $name): int
+    protected function publishMigration(string $migrationFile, string $name, string $sourcePath): int
     {
-        $sourcePath = __DIR__.'/../Context/Database/migrations/'.$migrationFile;
+        $fullSourcePath = $sourcePath.$migrationFile;
         $timestamp = date('Y_m_d_His');
         $destinationPath = database_path("migrations/{$timestamp}_{$migrationFile}");
 
-        if (! file_exists($sourcePath)) {
+        if (! file_exists($fullSourcePath)) {
             $this->error("Source migration file not found: {$migrationFile}");
 
             return 1;
@@ -88,7 +101,7 @@ class PublishCommand extends Command
         }
 
         // Copy migration file
-        copy($sourcePath, $destinationPath);
+        copy($fullSourcePath, $destinationPath);
 
         $this->info("{$name} migration published successfully!");
         $this->line('Location: '.$destinationPath);
@@ -110,6 +123,7 @@ class PublishCommand extends Command
         $this->line('  - eloquent-storage           : Publishes both EloquentStorage migrations (messages + sessions)');
         $this->line('  - eloquent-storage-messages  : Publishes migration for LaragentMessage model only');
         $this->line('  - eloquent-storage-sessions  : Publishes migration for LaragentSessionIdentity model only');
+        $this->line('  - usage-storage              : Publishes migration for UsageStorage (token usage tracking)');
 
         return 1;
     }
