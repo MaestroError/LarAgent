@@ -336,4 +336,96 @@ describe('Agent Usage Storage Configuration', function () {
         expect($agent->customStorageCreated)->toBeTrue();
         expect($agent->usageStorage())->not->toBeNull();
     });
+
+    it('supports string alias for usage_storage in provider config', function () {
+        // Set provider-level config with string alias
+        config()->set('laragent.providers.default.usage_storage', 'in_memory');
+        config()->set('laragent.providers.default.track_usage', true);
+
+        $agent = new class('test-session') extends Agent
+        {
+            protected $model = 'gpt-4';
+
+            protected $history = 'in_memory';
+
+            protected $driver = FakeLlmDriver::class;
+
+            // No usageStorage property - should use provider config
+
+            public function instructions()
+            {
+                return 'Test agent';
+            }
+
+            protected function onInitialize()
+            {
+                $this->llmDriver->addMockResponse('stop', [
+                    'content' => 'Hello!',
+                    'metaData' => [
+                        'usage' => [
+                            'prompt_tokens' => 100,
+                            'completion_tokens' => 50,
+                            'total_tokens' => 150,
+                        ],
+                    ],
+                ]);
+            }
+        };
+
+        // Should resolve 'in_memory' string to InMemoryStorage driver
+        expect($agent->shouldTrackUsage())->toBeTrue();
+        expect($agent->usageStorage())->not->toBeNull();
+
+        $agent->respond('Test');
+        expect($agent->getUsage()->count())->toBe(1);
+
+        // Clean up
+        config()->set('laragent.providers.default.usage_storage', null);
+        config()->set('laragent.providers.default.track_usage', null);
+    });
+
+    it('supports string alias for default_usage_storage in global config', function () {
+        // Set global config with string alias
+        config()->set('laragent.default_usage_storage', 'in_memory');
+
+        $agent = new class('test-session') extends Agent
+        {
+            protected $model = 'gpt-4';
+
+            protected $history = 'in_memory';
+
+            protected $driver = FakeLlmDriver::class;
+
+            protected $trackUsage = true;
+
+            // No usageStorage property - should use global config
+
+            public function instructions()
+            {
+                return 'Test agent';
+            }
+
+            protected function onInitialize()
+            {
+                $this->llmDriver->addMockResponse('stop', [
+                    'content' => 'Hello!',
+                    'metaData' => [
+                        'usage' => [
+                            'prompt_tokens' => 100,
+                            'completion_tokens' => 50,
+                            'total_tokens' => 150,
+                        ],
+                    ],
+                ]);
+            }
+        };
+
+        expect($agent->usageStorage())->not->toBeNull();
+
+        $agent->respond('Test');
+        expect($agent->getUsage()->count())->toBe(1);
+
+        // Clean up
+        config()->set('laragent.default_usage_storage', null);
+    });
 });

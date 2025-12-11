@@ -37,7 +37,7 @@ return new class extends Migration
             $table->string('provider_name')->nullable()->index();
 
             // Timestamp when usage was recorded
-            $table->string('recorded_at', 50)->nullable()->index();
+            $table->timestamp('recorded_at')->nullable()->index();
 
             // Composite indexes for efficient filtering
             $table->index(['session_key', 'position']);

@@ -1258,10 +1258,10 @@ class Agent
     /**
      * Get usage storage drivers configuration.
      * Priority: agent property > provider config > default_usage_storage config > defaultStorageDrivers
+     * Note: Provider and global config are resolved in setupProviderData()
      */
     protected function usageStorageDrivers(): string|array
     {
-        // 1. Check agent property (can be string alias or array of drivers)
         if (is_string($this->usageStorage)) {
             return $this->builtInUsageStorages[$this->usageStorage] ?? $this->usageStorage;
         }
@@ -1269,19 +1269,6 @@ class Agent
             return $this->usageStorage;
         }
 
-        // 2. Check provider-specific config
-        $providerConfig = $this->getProviderData();
-        if (isset($providerConfig['usage_storage']) && is_array($providerConfig['usage_storage'])) {
-            return $providerConfig['usage_storage'];
-        }
-
-        // 3. Fall back to default_usage_storage config (must be array, not string alias)
-        $configDrivers = config('laragent.default_usage_storage');
-        if (is_array($configDrivers)) {
-            return $configDrivers;
-        }
-
-        // 4. Fall back to default storage drivers
         return $this->defaultStorageDrivers();
     }
 
@@ -1756,6 +1743,9 @@ class Agent
         }
         if (! isset($this->history)) {
             $this->history = $provider['history'] ?? config('laragent.default_history_storage');
+        }
+        if (! isset($this->usageStorage)) {
+            $this->usageStorage = $provider['usage_storage'] ?? config('laragent.default_usage_storage');
         }
         if (! isset($this->storage)) {
             $this->storage = $provider['storage'] ?? config('laragent.default_storage');
