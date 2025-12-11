@@ -98,7 +98,13 @@ class Agent
     /** @var string */
     protected $apiUrl;
 
-    /** @var int */
+    /**
+     * Context window size for this agent.
+     * If not set, uses provider's default_context_window config.
+     * Used for truncation when enabled.
+     *
+     * @var int|null
+     */
     protected $contextWindowSize;
 
     /**
@@ -237,14 +243,6 @@ class Agent
      * @var bool|null
      */
     protected $enableTruncation = null;
-
-    /**
-     * Context window size for this agent.
-     * If not set, uses provider's default_context_window config.
-     *
-     * @var int|null
-     */
-    protected $contextWindowSize = null;
 
     public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
