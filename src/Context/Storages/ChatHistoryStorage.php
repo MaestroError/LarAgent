@@ -201,4 +201,19 @@ class ChatHistoryStorage extends Storage implements ChatHistoryInterface
             $this->storageManager->save($this->identity, $this->items->toArray());
         }
     }
+
+    /**
+     * Replace all messages with a new MessageArray.
+     * Used by truncation strategies.
+     *
+     * @param  MessageArray  $messages  The new messages to replace existing ones
+     */
+    public function replaceMessages(MessageArray $messages): void
+    {
+        $this->items = $messages;
+        $this->dirty = true;
+
+        // Dispatch event
+        $this->dispatchEvent(new \LarAgent\Events\ChatHistory\ChatHistoryTruncated($this, $messages));
+    }
 }

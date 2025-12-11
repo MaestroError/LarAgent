@@ -229,6 +229,23 @@ class Agent
         'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
     ];
 
+    /**
+     * Enable context window truncation.
+     * When enabled, truncation is applied before sending messages to LLM.
+     * Priority: Agent property > Provider config > Global config
+     *
+     * @var bool|null
+     */
+    protected $enableTruncation = null;
+
+    /**
+     * Context window size for this agent.
+     * If not set, uses provider's default_context_window config.
+     *
+     * @var int|null
+     */
+    protected $contextWindowSize = null;
+
     public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
         $this->usesUserId = $usesUserId;
@@ -258,6 +275,11 @@ class Agent
         // Setup usage tracking if enabled
         if ($this->shouldTrackUsage()) {
             $this->setupUsageStorage();
+        }
+
+        // Setup truncation if enabled
+        if ($this->shouldTruncate()) {
+            $this->setupTruncation();
         }
 
         $this->setupToolCaching();
@@ -1368,6 +1390,118 @@ class Agent
 
     // ========== End Usage Storage Methods ==========
 
+    // ========== Truncation Methods ==========
+
+    /**
+     * Check if truncation is enabled.
+     * Priority: Agent property > Provider config > Global config
+     */
+    public function shouldTruncate(): bool
+    {
+        if ($this->enableTruncation !== null) {
+            return $this->enableTruncation;
+        }
+
+        $providerConfig = config("laragent.providers.{$this->provider}.enable_truncation");
+        if ($providerConfig !== null) {
+            return (bool) $providerConfig;
+        }
+
+        return config('laragent.enable_truncation', false);
+    }
+
+    /**
+     * Enable or disable truncation.
+     */
+    public function enableTruncation(bool $enabled = true): static
+    {
+        $this->enableTruncation = $enabled;
+        if ($enabled) {
+            $this->setupTruncation();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the truncation strategy for this agent.
+     * Override this method to provide custom strategy configuration.
+     */
+    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
+    {
+        // Default: Simple truncation keeping last 10 messages
+        return new \LarAgent\Context\Truncation\SimpleTruncationStrategy([
+            'keep_messages' => 10,
+            'preserve_system' => true,
+        ]);
+    }
+
+    /**
+     * Setup truncation on context.
+     */
+    protected function setupTruncation(): void
+    {
+        if (! $this->shouldTruncate()) {
+            return;
+        }
+
+        $strategy = $this->truncationStrategy();
+        $windowSize = $this->getContextWindowSize();
+
+        $this->context()->setTruncationStrategy($strategy);
+        $this->context()->setContextWindowSize($windowSize);
+    }
+
+    /**
+     * Get context window size.
+     * Priority: Agent property > Provider config > Default
+     */
+    public function getContextWindowSize(): int
+    {
+        if ($this->contextWindowSize !== null) {
+            return $this->contextWindowSize;
+        }
+
+        return config(
+            "laragent.providers.{$this->provider}.default_context_window",
+            128000
+        );
+    }
+
+    /**
+     * Apply truncation to chat history if needed.
+     * Called before sending messages to the LLM.
+     */
+    protected function applyTruncationIfNeeded(): void
+    {
+        if (! $this->shouldTruncate()) {
+            return;
+        }
+
+        // Get current tokens from last assistant message
+        $lastMessage = $this->chatHistory()->getLastMessage();
+        $currentTokens = 0;
+
+        if ($lastMessage !== null) {
+            // Try to get usage from message metadata first
+            $metadata = $lastMessage->getMetadata();
+            if (isset($metadata['usage']['total_tokens'])) {
+                $currentTokens = (int) $metadata['usage']['total_tokens'];
+            } elseif (method_exists($lastMessage, 'getUsage')) {
+                // Try getUsage method (for AssistantMessage)
+                $usage = $lastMessage->getUsage();
+                if ($usage !== null && isset($usage->totalTokens)) {
+                    $currentTokens = $usage->totalTokens;
+                }
+            }
+        }
+
+        // Apply truncation via context
+        $this->context()->applyTruncation($this->chatHistory(), $currentTokens);
+    }
+
+    // ========== End Truncation Methods ==========
+
     protected function defaultStorageDrivers(): array
     {
         if (! isset($this->storage)) {
@@ -1900,6 +2034,9 @@ class Agent
 
     protected function prepareAgent(MessageInterface $message): void
     {
+        // Apply truncation before preparing agent
+        $this->applyTruncationIfNeeded();
+
         $this->agent
             ->withInstructions($this->instructions(), $this->developerRoleForInstructions)
             ->withMessage($message)

@@ -8,6 +8,7 @@ use LarAgent\Commands\AgentChatCommand;
 use LarAgent\Commands\AgentChatRemoveCommand;
 use LarAgent\Commands\MakeAgentCommand;
 use LarAgent\Commands\MakeAgentToolCommand;
+use LarAgent\Commands\MakeTruncationStrategyCommand;
 use LarAgent\Commands\PublishCommand;
 use LarAgent\Context\ContextManager;
 use LarAgent\Core\Contracts\ChatHistory;
@@ -30,6 +31,7 @@ class LarAgentServiceProvider extends PackageServiceProvider
             ->hasCommands([
                 MakeAgentCommand::class,
                 MakeAgentToolCommand::class,
+                MakeTruncationStrategyCommand::class,
                 AgentChatCommand::class,
                 AgentChatClearCommand::class,
                 AgentChatRemoveCommand::class,

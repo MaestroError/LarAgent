@@ -51,6 +51,33 @@ return [
     'default_usage_storage' => null,
 
     /**
+     * Enable context window truncation globally for all agents.
+     * Can be overridden per-provider (in providers array) or per-agent via $enableTruncation property.
+     * Priority: Agent property > Provider config > Global config
+     */
+    'enable_truncation' => false,
+
+    /**
+     * Default truncation strategy class to use.
+     * Can be overridden per-provider or per-agent by overriding truncationStrategy() method.
+     * Available strategies:
+     * - \LarAgent\Context\Truncation\SimpleTruncationStrategy (keeps last N messages)
+     * - \LarAgent\Context\Truncation\TokenBasedTruncationStrategy (truncates to target token percentage)
+     * - \LarAgent\Context\Truncation\SummarizationStrategy (summarizes removed messages)
+     * - \LarAgent\Context\Truncation\SymbolizationStrategy (creates brief symbols for removed messages)
+     */
+    'default_truncation_strategy' => \LarAgent\Context\Truncation\SimpleTruncationStrategy::class,
+
+    /**
+     * Default configuration for truncation strategies.
+     * Can be overridden per-provider or per-agent.
+     */
+    'default_truncation_config' => [
+        'keep_messages' => 10,
+        'preserve_system' => true,
+    ],
+
+    /**
      * Autodiscovery namespaces for Agent classes.
      * Used by `agent:chat` to locate agents.
      */
