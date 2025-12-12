@@ -230,7 +230,7 @@ return [
     /**
      * Enable context window truncation globally for all agents.
      * Can be overridden per-provider (in providers array) or per-agent via $enableTruncation property.
-     * If enbaled, agents will use truncation strategies as soon as history exceeds $contextWindowSize.
+     * If enabled, agents will use truncation strategies as soon as history exceeds $contextWindowSize.
      * Priority: Agent property -> Provider config -> Global config
      */
     'enable_truncation' => false,
