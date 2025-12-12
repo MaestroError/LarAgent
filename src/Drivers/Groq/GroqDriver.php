@@ -301,18 +301,12 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         // Structured output support
         if ($this->structuredOutputEnabled()) {
             $schema = $this->getResponseSchema();
+            $wrapped = $this->wrapResponseSchema($schema);
 
-            if (is_array($schema) && isset($schema['schema']) && isset($schema['name'])) {
-                $payload['response_format'] = [
-                    'type' => 'json_schema',
-                    'json_schema' => [
-                        'name' => $schema['name'],
-                        'schema' => $schema['schema'],
-                    ],
-                ];
-            } elseif (is_array($schema) && ($schema['type'] ?? null) === 'json_object') {
-                $payload['response_format'] = ['type' => 'json_object'];
-            }
+            $payload['response_format'] = [
+                'type' => 'json_schema',
+                'json_schema' => $wrapped,
+            ];
         }
 
         if (! empty($this->tools)) {
@@ -320,5 +314,52 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
 
         return $payload;
+    }
+
+    /**
+     * Wrap a JSON schema in the required format with name and schema.
+     * Groq uses similar format to OpenAI but without strict mode.
+     * Preserves existing name if already set via title or name key.
+     *
+     * @param  array  $schema  The schema to wrap (can be raw or already wrapped)
+     * @return array The wrapped schema ready for Groq API
+     */
+    protected function wrapResponseSchema(array $schema): array
+    {
+        // If already wrapped with name and schema keys, preserve existing values
+        if (isset($schema['name']) && isset($schema['schema'])) {
+            return [
+                'name' => $schema['name'],
+                'schema' => $schema['schema'],
+            ];
+        }
+
+        // Raw schema - wrap it, using title as name if available
+        return [
+            'name' => $schema['title'] ?? $this->generateSchemaName($schema),
+            'schema' => $schema,
+        ];
+    }
+
+    /**
+     * Generate a schema name from the schema structure.
+     *
+     * @param  array  $schema  The schema to generate name from
+     * @return string Generated schema name
+     */
+    protected function generateSchemaName(array $schema): string
+    {
+        if (isset($schema['title'])) {
+            return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', str_replace(' ', '_', $schema['title'])));
+        }
+
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            $keys = array_slice(array_keys($schema['properties']), 0, 3);
+            if (! empty($keys)) {
+                return 'response_'.implode('_', $keys);
+            }
+        }
+
+        return 'structured_response';
     }
 }

@@ -1,0 +1,38 @@
+<?php
+
+namespace App\TruncationStrategies;
+
+use LarAgent\Context\Abstract\TruncationStrategy;
+use LarAgent\Messages\DataModels\MessageArray;
+
+class {{ class }} extends TruncationStrategy
+{
+    /**
+     * Get the default configuration for this strategy.
+     *
+     * @return array Default configuration
+     */
+    protected function defaultConfig(): array
+    {
+        return [
+            'preserve_system' => true,
+            // Add your custom configuration here
+        ];
+    }
+
+    /**
+     * Apply truncation to messages array.
+     *
+     * @param  MessageArray  $messages  Current chat history
+     * @param  int  $contextWindowSize  Maximum allowed tokens
+     * @param  int  $currentTokens  Current total token count
+     * @return MessageArray Truncated messages
+     */
+    public function truncate(MessageArray $messages, int $contextWindowSize, int $currentTokens): MessageArray
+    {
+        // Implement your truncation logic here
+
+        // Example: return original messages if no truncation needed
+        return $messages;
+    }
+}

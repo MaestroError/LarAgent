@@ -5,6 +5,8 @@ namespace LarAgent\Context;
 use LarAgent\Context\Contracts\Context as ContextContract;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\Contracts\Storage as StorageContract;
+use LarAgent\Context\Contracts\TruncationStrategy as TruncationStrategyContract;
+use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Context\Storages\IdentityStorage;
 use LarAgent\Core\Traits\SafeEventDispatch;
 use LarAgent\Events\Context\ContextCleared;
@@ -55,6 +57,22 @@ class Context implements ContextContract
      * Default driver configuration
      */
     protected array $driversConfig;
+
+    /**
+     * Truncation strategy instance
+     */
+    protected ?TruncationStrategyContract $truncationStrategy = null;
+
+    /**
+     * Context window size for truncation
+     */
+    protected ?int $contextWindowSize = null;
+
+    /**
+     * Buffer percentage to reserve for new requests (0.0 to 1.0)
+     * Default: 0.2 (20% reserved for new content)
+     */
+    protected float $contextWindowBuffer = 0.2;
 
     /**
      * Create a new Context instance
@@ -325,5 +343,108 @@ class Context implements ContextContract
     public function __get(string $prefix): ?StorageContract
     {
         return $this->getStorage($prefix);
+    }
+
+    // ========== Truncation Methods ==========
+
+    /**
+     * Set the truncation strategy for this context.
+     *
+     * @param  TruncationStrategyContract|null  $strategy  The truncation strategy to use
+     */
+    public function setTruncationStrategy(?TruncationStrategyContract $strategy): static
+    {
+        $this->truncationStrategy = $strategy;
+
+        return $this;
+    }
+
+    /**
+     * Get the truncation strategy for this context.
+     */
+    public function getTruncationStrategy(): ?TruncationStrategyContract
+    {
+        return $this->truncationStrategy;
+    }
+
+    /**
+     * Set the context window size for truncation.
+     *
+     * @param  int|null  $size  The context window size in tokens
+     */
+    public function setContextWindowSize(?int $size): static
+    {
+        $this->contextWindowSize = $size;
+
+        return $this;
+    }
+
+    /**
+     * Get the context window size for truncation.
+     */
+    public function getContextWindowSize(): ?int
+    {
+        return $this->contextWindowSize;
+    }
+
+    /**
+     * Set the context window buffer percentage.
+     * This reserves a portion of the context window for new requests.
+     *
+     * @param  float  $buffer  Buffer percentage (0.0 to 1.0, default: 0.2 = 20%)
+     */
+    public function setContextWindowBuffer(float $buffer): static
+    {
+        if ($buffer < 0.0 || $buffer > 1.0) {
+            throw new \InvalidArgumentException('Context window buffer must be between 0.0 and 1.0');
+        }
+
+        $this->contextWindowBuffer = $buffer;
+
+        return $this;
+    }
+
+    /**
+     * Get the context window buffer percentage.
+     */
+    public function getContextWindowBuffer(): float
+    {
+        return $this->contextWindowBuffer;
+    }
+
+    /**
+     * Apply truncation to the chat history if a strategy is configured.
+     *
+     * @param  ChatHistoryStorage  $chatHistory  The chat history storage to truncate
+     * @param  int  $currentTokens  Current total token count from all messages
+     */
+    public function applyTruncation(ChatHistoryStorage $chatHistory, int $currentTokens): void
+    {
+        // Check if truncation is configured
+        if ($this->truncationStrategy === null || $this->contextWindowSize === null) {
+            return;
+        }
+
+        // Reserve buffer percentage of context window for upcoming request and response
+        // This ensures we don't fill the entire context and have room for new content
+        $effectiveWindowSize = (int) ($this->contextWindowSize * (1.0 - $this->contextWindowBuffer));
+
+        // Check if truncation is needed
+        if ($currentTokens <= $effectiveWindowSize) {
+            return;
+        }
+
+        // Get current messages
+        $messages = $chatHistory->getMessages();
+
+        // Apply truncation strategy
+        $truncatedMessages = $this->truncationStrategy->truncate(
+            $messages,
+            $effectiveWindowSize,
+            $currentTokens
+        );
+
+        // Replace messages in chat history
+        $chatHistory->replaceMessages($truncatedMessages);
     }
 }

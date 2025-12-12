@@ -392,7 +392,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         if ($this->structuredOutputEnabled()) {
             $payload['response_format'] = [
                 'type' => 'json_schema',
-                'json_schema' => $this->getResponseSchema(),
+                'json_schema' => $this->wrapResponseSchema($this->getResponseSchema()),
             ];
         }
 
@@ -402,5 +402,123 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         }
 
         return $payload;
+    }
+
+    /**
+     * Wrap a JSON schema in OpenAI's required format with name, strict, and schema.
+     * Also ensures additionalProperties: false is set on all objects for strict mode.
+     * Preserves existing values for name, strict, and additionalProperties if already set.
+     *
+     * @param  array  $schema  The schema to wrap (can be raw or already wrapped)
+     * @return array The wrapped schema ready for OpenAI API
+     */
+    protected function wrapResponseSchema(array $schema): array
+    {
+        // If already wrapped with name and schema keys, preserve existing values
+        if (isset($schema['name']) && isset($schema['schema'])) {
+            return [
+                'name' => $schema['name'],
+                'schema' => $this->ensureAdditionalPropertiesFalse($schema['schema']),
+                'strict' => $schema['strict'] ?? true,
+            ];
+        }
+
+        // Raw schema - wrap it, preserving any existing additionalProperties settings
+        $wrappedSchema = $this->ensureAdditionalPropertiesFalse($schema);
+
+        return [
+            'name' => $schema['title'] ?? $this->generateSchemaName($schema),
+            'schema' => $wrappedSchema,
+            'strict' => true,
+        ];
+    }
+
+    /**
+     * Generate a schema name from the schema structure.
+     *
+     * @param  array  $schema  The schema to generate name from
+     * @return string Generated schema name
+     */
+    protected function generateSchemaName(array $schema): string
+    {
+        // Try to derive name from schema title or properties
+        if (isset($schema['title'])) {
+            return $this->toSnakeCase($schema['title']);
+        }
+
+        // Use first few property names to create a meaningful name
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            $keys = array_slice(array_keys($schema['properties']), 0, 3);
+            if (! empty($keys)) {
+                return 'response_'.implode('_', $keys);
+            }
+        }
+
+        return 'structured_response';
+    }
+
+    /**
+     * Convert a string to snake_case.
+     *
+     * @param  string  $string  The string to convert
+     * @return string Snake case string
+     */
+    protected function toSnakeCase(string $string): string
+    {
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', str_replace(' ', '_', $string)));
+    }
+
+    /**
+     * Recursively ensure additionalProperties: false is set on all objects.
+     * This is required for OpenAI's strict mode.
+     * Preserves existing additionalProperties value if already set.
+     *
+     * @param  array  $schema  The schema to process
+     * @return array Schema with additionalProperties: false on all objects (unless already set)
+     */
+    protected function ensureAdditionalPropertiesFalse(array $schema): array
+    {
+        // If this is an object type, add additionalProperties: false only if not already set
+        if (isset($schema['type']) && $schema['type'] === 'object') {
+            if (! array_key_exists('additionalProperties', $schema)) {
+                $schema['additionalProperties'] = false;
+            }
+        }
+
+        // Process nested properties
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            foreach ($schema['properties'] as $key => $propSchema) {
+                if (is_array($propSchema)) {
+                    $schema['properties'][$key] = $this->ensureAdditionalPropertiesFalse($propSchema);
+                }
+            }
+        }
+
+        // Process array items
+        if (isset($schema['items']) && is_array($schema['items'])) {
+            $schema['items'] = $this->ensureAdditionalPropertiesFalse($schema['items']);
+        }
+
+        // Process oneOf/anyOf/allOf
+        foreach (['oneOf', 'anyOf', 'allOf'] as $combinator) {
+            if (isset($schema[$combinator]) && is_array($schema[$combinator])) {
+                foreach ($schema[$combinator] as $index => $subSchema) {
+                    if (is_array($subSchema)) {
+                        $schema[$combinator][$index] = $this->ensureAdditionalPropertiesFalse($subSchema);
+                    }
+                }
+            }
+        }
+
+        // Process $defs definitions
+        if (isset($schema['$defs']) && is_array($schema['$defs'])) {
+            foreach ($schema['$defs'] as $defName => $defSchema) {
+                if (is_array($defSchema)) {
+                    $schema['$defs'][$defName] = $this->ensureAdditionalPropertiesFalse($defSchema);
+                }
+            }
+        }
+
+        return $schema;
     }
 }

@@ -8,6 +8,7 @@ use LarAgent\Attributes\Tool as ToolAttribute;
 use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Context\Traits\HasContext;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
+use LarAgent\Core\Contracts\DataModel;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
@@ -16,6 +17,7 @@ use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Core\Traits\UsesCachedReflection;
+use LarAgent\Core\Traits\UsesLogger;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
@@ -32,6 +34,7 @@ class Agent
     use Events;
     use HasContext;
     use UsesCachedReflection;
+    use UsesLogger;
 
     // Agent properties
 
@@ -55,7 +58,7 @@ class Agent
     protected $instructions;
 
     /** @var array|string|\LarAgent\Core\Contracts\DataModel|null - Array schema, DataModel class name, or DataModel instance */
-    protected $responseSchema = [];
+    protected $responseSchema = null;
 
     /** @var array */
     protected $tools = [];
@@ -98,7 +101,13 @@ class Agent
     /** @var string */
     protected $apiUrl;
 
-    /** @var int */
+    /**
+     * Context window size for this agent.
+     * If not set, uses provider's default_context_window config.
+     * Used for truncation when enabled.
+     *
+     * @var int|null
+     */
     protected $contextWindowSize;
 
     /**
@@ -229,6 +238,15 @@ class Agent
         'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
     ];
 
+    /**
+     * Enable context window truncation.
+     * When enabled, truncation is applied before sending messages to LLM.
+     * Priority: Agent property > Provider config > Global config
+     *
+     * @var bool|null
+     */
+    protected $enableTruncation = null;
+
     public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
         $this->usesUserId = $usesUserId;
@@ -258,6 +276,11 @@ class Agent
         // Setup usage tracking if enabled
         if ($this->shouldTrackUsage()) {
             $this->setupUsageStorage();
+        }
+
+        // Setup truncation if enabled
+        if ($this->shouldTruncate()) {
+            $this->setupTruncation();
         }
 
         $this->setupToolCaching();
@@ -1368,6 +1391,144 @@ class Agent
 
     // ========== End Usage Storage Methods ==========
 
+    // ========== Truncation Methods ==========
+
+    /**
+     * Check if truncation is enabled.
+     * Priority: Agent property > Provider config > Global config
+     */
+    public function shouldTruncate(): bool
+    {
+        if ($this->enableTruncation !== null) {
+            return $this->enableTruncation;
+        }
+
+        $providerConfig = config("laragent.providers.{$this->provider}.enable_truncation");
+        if ($providerConfig !== null) {
+            return (bool) $providerConfig;
+        }
+
+        return config('laragent.enable_truncation', false);
+    }
+
+    /**
+     * Enable or disable truncation.
+     */
+    public function enableTruncation(bool $enabled = true): static
+    {
+        $this->enableTruncation = $enabled;
+        if ($enabled) {
+            $this->setupTruncation();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the truncation strategy for this agent.
+     * Override this method to provide custom strategy configuration.
+     * Uses config values as defaults when not overridden.
+     */
+    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
+    {
+        $strategyClass = config('laragent.default_truncation_strategy', \LarAgent\Context\Truncation\SimpleTruncationStrategy::class);
+        $strategyConfig = config('laragent.default_truncation_config', [
+            'keep_messages' => 10,
+            'preserve_system' => true,
+        ]);
+
+        return new $strategyClass($strategyConfig);
+    }
+
+    /**
+     * Setup truncation on context.
+     */
+    protected function setupTruncation(): void
+    {
+        if (! $this->shouldTruncate()) {
+            return;
+        }
+
+        $strategy = $this->truncationStrategy();
+        $windowSize = $this->getContextWindowSize();
+        $buffer = config('laragent.context_window_buffer', 0.2);
+
+        $this->context()->setTruncationStrategy($strategy);
+        $this->context()->setContextWindowSize($windowSize);
+        $this->context()->setContextWindowBuffer($buffer);
+    }
+
+    /**
+     * Get context window size.
+     * Priority: Agent property > Provider config > Default
+     */
+    public function getContextWindowSize(): int
+    {
+        if ($this->contextWindowSize !== null) {
+            return $this->contextWindowSize;
+        }
+
+        return config(
+            "laragent.providers.{$this->provider}.default_context_window",
+            128000
+        );
+    }
+
+    /**
+     * Apply truncation to chat history if needed.
+     * Called before sending messages to the LLM.
+     */
+    protected function applyTruncationIfNeeded(): void
+    {
+        if (! $this->shouldTruncate()) {
+            return;
+        }
+
+        // Get total tokens from the last message with usage data
+        // total_tokens represents the cumulative token count of the entire conversation
+        $currentTokens = $this->getLastKnownTotalTokens();
+
+        // Apply truncation via context
+        $this->context()->applyTruncation($this->chatHistory(), $currentTokens);
+    }
+
+    /**
+     * Get total tokens from the last message that has usage data.
+     * Searches messages in reverse order to find the most recent usage information.
+     *
+     * @return int Total tokens from last message with usage, or 0 if none found
+     */
+    protected function getLastKnownTotalTokens(): int
+    {
+        $messages = $this->chatHistory()->getMessages()->all();
+
+        // Search from the end to find the last message with usage data
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            $message = $messages[$i];
+
+            if (method_exists($message, 'getUsage')) {
+                $usage = $message->getUsage();
+                if ($usage !== null && isset($usage->totalTokens)) {
+                    return $usage->totalTokens;
+                }
+            }
+        }
+
+        // Log warning when truncation is enabled but no usage data is available
+        if (count($messages) > 0) {
+            $this->logWarning(
+                'LarAgent: Truncation is enabled but no messages have usage data. '
+                . 'Truncation will not trigger until usage data is available. '
+                . 'Ensure your LLM driver provides usage information in responses.',
+                ['agent' => static::class, 'message_count' => count($messages)]
+            );
+        }
+
+        return 0;
+    }
+
+    // ========== End Truncation Methods ==========
+
     protected function defaultStorageDrivers(): array
     {
         if (! isset($this->storage)) {
@@ -1658,7 +1819,7 @@ class Agent
             message: $this->message,
             tools: array_map(fn (ToolInterface $tool) => $tool->getName(), $this->getTools()),
             instructions: $this->instructions,
-            responseSchema: $this->responseSchema,
+            responseSchema: $this->resolveResponseSchema($this->responseSchema),
             configuration: [
                 'history' => $this->history,
                 'model' => $this->model(),
@@ -1666,6 +1827,29 @@ class Agent
             ],
             driverConfig: $driverConfigs,
         );
+    }
+
+    /**
+     * Resolve responseSchema to array format.
+     */
+    protected function resolveResponseSchema(null|array|string|DataModel $schema): ?array
+    {
+        if (empty($schema)) {
+            return null;
+        }
+
+        // If it's a DataModel instance, call toSchema()
+        if ($schema instanceof DataModel) {
+            return $schema->toSchema();
+        }
+
+        // If it's a DataModel class name, call generateSchema() statically
+        if (is_string($schema) && is_subclass_of($schema, DataModel::class)) {
+            return $schema::generateSchema();
+        }
+
+        // Otherwise, return the array schema as-is
+        return is_array($schema) ? $schema : null;
     }
 
     // Helper methods
@@ -1900,6 +2084,9 @@ class Agent
 
     protected function prepareAgent(MessageInterface $message): void
     {
+        // Apply truncation before preparing agent
+        $this->applyTruncationIfNeeded();
+
         $this->agent
             ->withInstructions($this->instructions(), $this->developerRoleForInstructions)
             ->withMessage($message)

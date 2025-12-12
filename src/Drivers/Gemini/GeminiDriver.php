@@ -320,11 +320,11 @@ class GeminiDriver extends LlmDriver
 
         // Structured output support
         if ($this->structuredOutputEnabled()) {
-            $generationConfig['responseJsonSchema'] = $this->getResponseSchema();
+            $generationConfig['responseJsonSchema'] = $this->unwrapResponseSchema($this->getResponseSchema());
             $generationConfig['responseMimeType'] = 'application/json';
         } elseif ($config->getExtra('response_schema') !== null) {
             // Fallback to config if response schema is passed via settings
-            $generationConfig['responseJsonSchema'] = $config->getExtra('response_schema');
+            $generationConfig['responseJsonSchema'] = $this->unwrapResponseSchema($config->getExtra('response_schema'));
             $generationConfig['responseMimeType'] = 'application/json';
         }
 
@@ -426,6 +426,24 @@ class GeminiDriver extends LlmDriver
             'role' => 'assistant',  // Use 'assistant' instead of 'model' for compatibility
             'parts' => $toolCallsArray,
         ];
+    }
+
+    /**
+     * Unwrap a schema that might be in OpenAI format (with name, schema, strict).
+     * Gemini expects just the raw JSON schema.
+     *
+     * @param  array  $schema  The schema to unwrap
+     * @return array The raw JSON schema
+     */
+    protected function unwrapResponseSchema(array $schema): array
+    {
+        // If wrapped in OpenAI format, extract the inner schema
+        if (isset($schema['schema']) && is_array($schema['schema'])) {
+            return $schema['schema'];
+        }
+
+        // Already a raw schema
+        return $schema;
     }
 
     /**
