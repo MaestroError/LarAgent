@@ -47,6 +47,7 @@ return [
      *
      * You can remove any other providers
      * which your project doesn't need
+     *
      */
     'providers' => [
         'default' => [
@@ -204,8 +205,32 @@ return [
     */
 
     /**
+     * 
+     * IMPORTANT: About 'default_context_window'
+     * -----------------------------------------
+     * The 'default_context_window' setting is NOT the same as the model's official context window.
+     * This is the AGENT's managed context window used for internal truncation and history management.
+     *
+     * It should be set significantly LOWER than the model's actual context window to:
+     * - Reserve space for incoming user messages and assistant responses
+     * - Account for token estimation inaccuracies
+     * - Provide headroom for tool calls and structured outputs
+     * - Keep token usage lower for cost efficiency
+     *
+     * Recommendations:
+     * - Maximum: 80% of model's context window (aggressive, may cause issues with large messages)
+     * - Recommended: 30-50% of model's context window (balanced approach)
+     * - Conservative: 20-30% for agents with large tool outputs or structured responses
+     *
+     * Example for 128K context:
+     * - Model context: 128,000 tokens
+     * - Recommended agent context: 38,000-64,000 tokens (30-50%)
+     */
+
+    /**
      * Enable context window truncation globally for all agents.
      * Can be overridden per-provider (in providers array) or per-agent via $enableTruncation property.
+     * If enbaled, agents will use truncation strategies as soon as history exceeds $contextWindowSize.
      * Priority: Agent property -> Provider config -> Global config
      */
     'enable_truncation' => false,
@@ -239,13 +264,17 @@ return [
 
     /**
      * Context window buffer percentage (0.0 to 1.0).
-     * Reserves this percentage of the context window for new requests and responses.
+     * Reserves this percentage of the AGENT's context window for safety margin.
      * Default: 0.2 (20% reserved, 80% available for history)
      *
+     * Note: This buffer works alongside the agent's context window setting (see 'default_context_window').
+     * Since the agent's context window should already be set lower than the model's limit,
+     * this buffer provides additional protection against edge cases and token estimation variance.
+     *
      * Examples:
-     * - 0.1 (10%): More aggressive truncation, allows more history
+     * - 0.1 (10%): Minimal buffer, use when agent context window is already very conservative
      * - 0.2 (20%): Balanced approach (default)
-     * - 0.3 (30%): Conservative, reserves more space for responses
+     * - 0.3 (30%): Extra safety margin for unpredictable message sizes
      */
     'context_window_buffer' => 0.2,
 ];

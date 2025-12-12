@@ -1424,14 +1424,17 @@ class Agent
     /**
      * Get the truncation strategy for this agent.
      * Override this method to provide custom strategy configuration.
+     * Uses config values as defaults when not overridden.
      */
     protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
     {
-        // Default: Simple truncation keeping last 10 messages
-        return new \LarAgent\Context\Truncation\SimpleTruncationStrategy([
+        $strategyClass = config('laragent.default_truncation_strategy', \LarAgent\Context\Truncation\SimpleTruncationStrategy::class);
+        $strategyConfig = config('laragent.default_truncation_config', [
             'keep_messages' => 10,
             'preserve_system' => true,
         ]);
+
+        return new $strategyClass($strategyConfig);
     }
 
     /**

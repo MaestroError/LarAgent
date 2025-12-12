@@ -8,6 +8,8 @@ class ChatSummarizerAgent extends Agent
 {
     protected $history = 'in_memory';
 
+    protected $enableTruncation = false;
+
     protected $storage = [
         \LarAgent\Context\Drivers\InMemoryStorage::class,
     ];
