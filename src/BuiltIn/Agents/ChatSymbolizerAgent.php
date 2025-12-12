@@ -3,12 +3,15 @@
 namespace LarAgent\BuiltIn\Agents;
 
 use LarAgent\Agent;
+use LarAgent\BuiltIn\DataModels\MessageSymbolsResponse;
 
 class ChatSymbolizerAgent extends Agent
 {
     protected $history = 'in_memory';
 
     protected $enableTruncation = false;
+
+    protected $responseSchema = MessageSymbolsResponse::class;
 
     protected $storage = [
         \LarAgent\Context\Drivers\InMemoryStorage::class,

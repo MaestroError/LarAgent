@@ -8,6 +8,7 @@ use LarAgent\Attributes\Tool as ToolAttribute;
 use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Context\Traits\HasContext;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
+use LarAgent\Core\Contracts\DataModel;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
@@ -57,7 +58,7 @@ class Agent
     protected $instructions;
 
     /** @var array|string|\LarAgent\Core\Contracts\DataModel|null - Array schema, DataModel class name, or DataModel instance */
-    protected $responseSchema = [];
+    protected $responseSchema = null;
 
     /** @var array */
     protected $tools = [];
@@ -1818,7 +1819,7 @@ class Agent
             message: $this->message,
             tools: array_map(fn (ToolInterface $tool) => $tool->getName(), $this->getTools()),
             instructions: $this->instructions,
-            responseSchema: $this->responseSchema,
+            responseSchema: $this->resolveResponseSchema($this->responseSchema),
             configuration: [
                 'history' => $this->history,
                 'model' => $this->model(),
@@ -1826,6 +1827,29 @@ class Agent
             ],
             driverConfig: $driverConfigs,
         );
+    }
+
+    /**
+     * Resolve responseSchema to array format.
+     */
+    protected function resolveResponseSchema(null|array|string|DataModel $schema): ?array
+    {
+        if (empty($schema)) {
+            return null;
+        }
+
+        // If it's a DataModel instance, call toSchema()
+        if ($schema instanceof DataModel) {
+            return $schema->toSchema();
+        }
+
+        // If it's a DataModel class name, call generateSchema() statically
+        if (is_string($schema) && is_subclass_of($schema, DataModel::class)) {
+            return $schema::generateSchema();
+        }
+
+        // Otherwise, return the array schema as-is
+        return is_array($schema) ? $schema : null;
     }
 
     // Helper methods
