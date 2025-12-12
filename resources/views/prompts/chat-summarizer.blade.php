@@ -14,4 +14,4 @@ Guidelines for summarization:
 Output format:
 - Write in clear, concise paragraphs
 - Use bullet points for lists of items or action points
-- Avoid markdown or any special formatting
+- Do not use markdown formatting except for plain text bullet points (lines starting with "-"). Avoid all other special formatting.
