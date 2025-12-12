@@ -39,7 +39,7 @@ abstract class TruncationStrategy implements TruncationStrategyContract
      */
     protected function shouldPreserve(MessageInterface $message): bool
     {
-        if (! $this->config['preserve_system']) {
+        if (! $this->getConfig('preserve_system', false)) {
             return false;
         }
 
