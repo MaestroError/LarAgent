@@ -31,7 +31,7 @@ describe('SimpleTruncationStrategy', function () {
         $result = $strategy->truncate($messages, 100000, 50000);
         
         expect($result->count())->toBe(2);
-        $lastMessages = $result->toArray();
+        $lastMessages = $result->all();
         expect($lastMessages[0]->getContentAsString())->toBe('Response 2');
         expect($lastMessages[1]->getContentAsString())->toBe('Message 3');
     });
@@ -48,11 +48,12 @@ describe('SimpleTruncationStrategy', function () {
         
         $result = $strategy->truncate($messages, 100000, 50000);
         
-        $resultArray = $result->toArray();
+        $resultArray = $result->all();
         expect($result->count())->toBe(3);
         expect($resultArray[0]->getRole())->toBe('system');
-        expect($resultArray[1]->getContentAsString())->toBe('Response 2');
-        expect($resultArray[2]->getContentAsString())->toBe('Message 2');
+        // Last 2 messages in chronological order: Message 2, Response 2
+        expect($resultArray[1]->getContentAsString())->toBe('Message 2');
+        expect($resultArray[2]->getContentAsString())->toBe('Response 2');
     });
 
     it('preserves developer messages when configured', function () {
@@ -67,7 +68,7 @@ describe('SimpleTruncationStrategy', function () {
         
         $result = $strategy->truncate($messages, 100000, 50000);
         
-        $resultArray = $result->toArray();
+        $resultArray = $result->all();
         expect($result->count())->toBe(4);
         expect($resultArray[0]->getRole())->toBe('system');
         expect($resultArray[1]->getRole())->toBe('developer');
@@ -87,7 +88,7 @@ describe('SimpleTruncationStrategy', function () {
         $result = $strategy->truncate($messages, 100000, 50000);
         
         expect($result->count())->toBe(2);
-        $resultArray = $result->toArray();
+        $resultArray = $result->all();
         expect($resultArray[0]->getContentAsString())->toBe('Response 1');
         expect($resultArray[1]->getContentAsString())->toBe('Message 2');
     });

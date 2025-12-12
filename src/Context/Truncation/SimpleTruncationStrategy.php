@@ -40,7 +40,7 @@ class SimpleTruncationStrategy extends TruncationStrategy
         }
 
         $newMessages = new MessageArray();
-        $allMessages = $messages->toArray();
+        $allMessages = $messages->all();
 
         // First, collect all system/developer messages to preserve
         $systemMessages = [];

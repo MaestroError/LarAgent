@@ -24,21 +24,27 @@ describe('TokenBasedTruncationStrategy', function () {
         $strategy = new TokenBasedTruncationStrategy(['target_percentage' => 0.5]);
         
         $messages = new MessageArray();
-        $msg1 = Message::user('Short message');
-        $msg2 = Message::assistant('Response');
         
-        // Create a message with usage data
-        $msg3 = Message::assistant('Long response');
-        $msg3->setUsage(new Usage(promptTokens: 1000, completionTokens: 500));
+        // Create messages with usage data that exceeds target
+        // Target: 100000 * 0.5 = 50000 tokens
+        $msg1 = Message::assistant('First response');
+        $msg1->setUsage(new Usage(promptTokens: 0, completionTokens: 20000));
+        
+        $msg2 = Message::assistant('Second response');
+        $msg2->setUsage(new Usage(promptTokens: 0, completionTokens: 20000));
+        
+        $msg3 = Message::assistant('Third response');
+        $msg3->setUsage(new Usage(promptTokens: 0, completionTokens: 20000));
         
         $messages->add($msg1);
         $messages->add($msg2);
         $messages->add($msg3);
         
-        // Current tokens (60000) > target (50000)
+        // Total estimated tokens: 60000 > target (50000)
         $result = $strategy->truncate($messages, 100000, 60000);
         
         // Should remove some messages to get below target
+        // With 60000 tokens total and 50000 target, we can only keep 2 messages (40000 tokens)
         expect($result->count())->toBeLessThan(3);
     });
 
@@ -56,7 +62,7 @@ describe('TokenBasedTruncationStrategy', function () {
         
         $result = $strategy->truncate($messages, 100000, 90000);
         
-        $resultArray = $result->toArray();
+        $resultArray = $result->all();
         expect($resultArray[0]->getRole())->toBe('system');
     });
 
@@ -92,7 +98,7 @@ describe('TokenBasedTruncationStrategy', function () {
         $result = $strategy->truncate($messages, 100000, 60000);
         
         // Messages should still be in chronological order
-        $resultArray = $result->toArray();
+        $resultArray = $result->all();
         if (count($resultArray) >= 2) {
             // Most recent messages should be at the end
             $lastMsg = end($resultArray);

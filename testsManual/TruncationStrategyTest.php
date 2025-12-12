@@ -4,15 +4,16 @@
  * Manual Test: Truncation Strategy Demo
  *
  * This test demonstrates how truncation strategies work with real API calls.
+ * Messages are pre-populated in history, then a real API call triggers truncation.
  *
  * Prerequisites:
- * - Set OPENAI_API_KEY environment variable
+ * - Set OPENAI_API_KEY in openai-api-key.php
  * - Run: ./vendor/bin/pest testsManual/TruncationStrategyTest.php
  *
  * The test will:
  * 1. Create an agent with truncation enabled
- * 2. Make several API calls to build up history
- * 3. Demonstrate truncation when context window is approached
+ * 2. Pre-populate chat history with fake messages
+ * 3. Send a real message which triggers prepareAgent and truncation
  * 4. Show different truncation strategies
  */
 
@@ -20,16 +21,18 @@ use LarAgent\Agent;
 use LarAgent\Context\Truncation\SimpleTruncationStrategy;
 use LarAgent\Context\Truncation\TokenBasedTruncationStrategy;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
+use LarAgent\Message;
 use LarAgent\Tests\TestCase;
+use LarAgent\Usage\DataModels\Usage;
 
 uses(TestCase::class);
 
 beforeEach(function () {
     // Get API key from environment variable
-    $yourApiKey = env('OPENAI_API_KEY');
+    $yourApiKey = include 'openai-api-key.php';
     
     if (empty($yourApiKey)) {
-        $this->markTestSkipped('OPENAI_API_KEY environment variable not set');
+        $this->markTestSkipped('OPENAI_API_KEY not set in openai-api-key.php');
     }
 
     config()->set('laragent.fallback_provider', 'openai');
@@ -60,7 +63,9 @@ class SimpleTruncationTestAgent extends Agent
 
     protected $contextWindowSize = 5000; // Small window to trigger truncation
 
-    protected $storage = 'in_memory';
+    protected $storage = [
+        \LarAgent\Context\Drivers\InMemoryStorage::class,
+    ];
 
     protected $history = 'in_memory';
 
@@ -72,9 +77,9 @@ class SimpleTruncationTestAgent extends Agent
         ]);
     }
 
-    protected function instructions(): string
+    public function instructions(): string
     {
-        return 'You are a helpful assistant. Keep your responses brief.';
+        return 'You are a helpful assistant. Keep your responses brief (one sentence max).';
     }
 }
 
@@ -91,9 +96,11 @@ class TokenBasedTruncationTestAgent extends Agent
 
     protected $contextWindowSize = 5000;
 
-    protected $storage = 'in_memory';
-
     protected $history = 'in_memory';
+
+    protected $storage = [
+        \LarAgent\Context\Drivers\InMemoryStorage::class,
+    ];
 
     protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
     {
@@ -103,118 +110,188 @@ class TokenBasedTruncationTestAgent extends Agent
         ]);
     }
 
-    protected function instructions(): string
+    public function instructions(): string
     {
-        return 'You are a helpful assistant. Keep your responses brief.';
+        return 'You are a helpful assistant. Keep your responses brief (one sentence max).';
     }
 }
 
-test('simple truncation strategy with real API', function () {
+/**
+ * Helper to create a fake assistant message with usage data.
+ * The totalTokens should represent cumulative conversation tokens at that point.
+ */
+function createAssistantMessage(string $content, int $totalTokens): \LarAgent\Messages\AssistantMessage
+{
+    $message = Message::assistant($content);
+    // totalTokens represents the full prompt + completion for that API call
+    // In real API calls, this grows as the conversation history increases
+    $message->setUsage(new Usage(
+        promptTokens: (int)($totalTokens * 0.8),  // Approximate prompt portion
+        completionTokens: (int)($totalTokens * 0.2),  // Approximate completion portion
+        totalTokens: $totalTokens
+    ));
+    return $message;
+}
+
+test('simple truncation strategy - prepopulate history then send message', function () {
     $agent = SimpleTruncationTestAgent::for('simple-truncation-test');
 
     echo "\n=== Simple Truncation Strategy Test ===\n";
     echo "Context Window: {$agent->getContextWindowSize()} tokens\n";
     echo "Keep Messages: 3\n\n";
 
-    // Make several API calls to build up history
-    echo "Making 5 API calls to build up conversation history...\n\n";
-
-    $questions = [
-        'What is 2+2?',
-        'What is the capital of France?',
-        'What color is the sky?',
-        'How many days in a week?',
-        'What is the largest planet?',
+    // Pre-populate with fake conversation history
+    // Each message's totalTokens represents cumulative token count at that point
+    // Context window is 5000, so we exceed it to trigger truncation
+    $fakeHistory = [
+        ['What is 2+2?', 'The answer is 4.', 500],
+        ['What is the capital of France?', 'Paris is the capital.', 1200],
+        ['What color is the sky?', 'The sky is blue.', 2000],
+        ['How many days in a week?', 'There are 7 days.', 3000],
+        ['What is the largest planet?', 'Jupiter is largest.', 4200],
+        ['What is water made of?', 'H2O molecules.', 5500],  // Exceeds 5000 context window
     ];
 
-    foreach ($questions as $index => $question) {
-        echo "Q".($index + 1).": {$question}\n";
-        $response = $agent->respond($question);
-        echo "A".($index + 1).": {$response}\n\n";
+    echo "Pre-populating chat history with fake messages...\n";
+    echo "Last message has totalTokens=5500 which exceeds context window of 5000\n\n";
 
-        // Show current message count
-        $messageCount = $agent->chatHistory()->getMessages()->count();
-        echo "Current message count: {$messageCount}\n";
-
-        // Show usage if available
-        $lastMessage = $agent->chatHistory()->getLastMessage();
-        if (method_exists($lastMessage, 'getUsage') && $lastMessage->getUsage()) {
-            $usage = $lastMessage->getUsage();
-            echo "Tokens used: {$usage->totalTokens}\n";
-        }
-        echo "---\n\n";
+    foreach ($fakeHistory as $index => [$question, $answer, $totalTokens]) {
+        $agent->chatHistory()->addMessage(Message::user($question));
+        $agent->chatHistory()->addMessage(createAssistantMessage($answer, $totalTokens));
+        echo "Added Q".($index + 1).": totalTokens={$totalTokens}\n";
     }
 
-    echo "Final message count: ".$agent->chatHistory()->getMessages()->count()."\n";
-    echo "Note: With keep_messages=3, we expect around 4-5 messages (system + 3 recent)\n";
+    $countBeforeTruncation = $agent->chatHistory()->getMessages()->count();
+    echo "\nMessages before API call: {$countBeforeTruncation}\n";
+    echo "Sending real API request (triggers truncation in prepareAgent)...\n\n";
 
-    expect($agent->chatHistory()->getMessages()->count())->toBeLessThanOrEqual(6);
-})->skip('Manual test - requires API key');
+    // This will trigger prepareAgent() which calls applyTruncationIfNeeded()
+    $response = $agent->respond('What is 1+1?');
+    
+    echo "Response: {$response}\n\n";
 
-test('token-based truncation strategy with real API', function () {
+    $countAfterTruncation = $agent->chatHistory()->getMessages()->count();
+    echo "Messages after truncation + new exchange: {$countAfterTruncation}\n";
+    echo "With keep_messages=3: system + 3 recent messages kept, then new pair added\n";
+
+    // Should be significantly less than original (12) + 2 new = 14
+    // With keep_messages=3 and preserve_system=true: ~system + 3 + 2 new = ~6-8
+    expect($countAfterTruncation)->toBeLessThan($countBeforeTruncation);
+});
+
+test('token-based truncation strategy - prepopulate history then send message', function () {
     $agent = TokenBasedTruncationTestAgent::for('token-truncation-test');
 
     echo "\n=== Token-Based Truncation Strategy Test ===\n";
     echo "Context Window: {$agent->getContextWindowSize()} tokens\n";
-    echo "Target: 70% of window\n\n";
+    $targetTokens = (int)($agent->getContextWindowSize() * 0.7);
+    echo "Target: 70% of window = {$targetTokens} tokens\n\n";
 
-    echo "Making API calls until truncation occurs...\n\n";
-
-    $questions = [
-        'Explain what PHP is.',
-        'What is Laravel?',
-        'What are design patterns?',
-        'Explain MVC architecture.',
-        'What is dependency injection?',
+    // Pre-populate with messages having cumulative token counts exceeding target
+    $fakeHistory = [
+        ['Explain PHP.', 'PHP is a scripting language.', 1000],
+        ['What is Laravel?', 'Laravel is a PHP framework.', 2000],
+        ['Explain design patterns.', 'Design patterns are solutions.', 3000],
+        ['What is MVC?', 'MVC separates concerns.', 4000],
+        ['What is DI?', 'DI injects dependencies.', 5500],  // Exceeds context window
     ];
 
-    foreach ($questions as $index => $question) {
-        echo "Q".($index + 1).": {$question}\n";
-        $response = $agent->respond($question);
-        echo "A".($index + 1).": ".substr($response, 0, 100)."...\n\n";
+    echo "Pre-populating with messages (last has 5500 tokens, exceeds 5000 window)...\n\n";
 
-        $messageCount = $agent->chatHistory()->getMessages()->count();
-        echo "Current message count: {$messageCount}\n";
-
-        // Show usage if available
-        $lastMessage = $agent->chatHistory()->getLastMessage();
-        if (method_exists($lastMessage, 'getUsage') && $lastMessage->getUsage()) {
-            $usage = $lastMessage->getUsage();
-            $targetTokens = (int) ($agent->getContextWindowSize() * 0.7);
-            echo "Tokens used: {$usage->totalTokens} / Target: {$targetTokens}\n";
-            
-            if ($usage->totalTokens > $targetTokens) {
-                echo "⚠️  Above target - truncation should occur on next request\n";
-            }
-        }
-        echo "---\n\n";
+    foreach ($fakeHistory as $index => [$question, $answer, $totalTokens]) {
+        $agent->chatHistory()->addMessage(Message::user($question));
+        $agent->chatHistory()->addMessage(createAssistantMessage($answer, $totalTokens));
+        echo "Added Q".($index + 1).": totalTokens={$totalTokens}\n";
     }
 
-    echo "Final message count: ".$agent->chatHistory()->getMessages()->count()."\n";
+    $countBeforeTruncation = $agent->chatHistory()->getMessages()->count();
+    echo "\nMessages before: {$countBeforeTruncation}\n";
+    echo "Sending real API request to trigger truncation...\n\n";
 
-    expect($agent->chatHistory()->getMessages()->count())->toBeGreaterThan(0);
-})->skip('Manual test - requires API key');
+    $response = $agent->respond('What is 1+1?');
+    
+    echo "Response: {$response}\n\n";
 
-test('truncation maintains system messages', function () {
+    $countAfterTruncation = $agent->chatHistory()->getMessages()->count();
+    echo "Messages after truncation: {$countAfterTruncation}\n";
+
+    // Token-based truncation removes old messages to get under 70% target (3500 tokens)
+    expect($countAfterTruncation)->toBeLessThan($countBeforeTruncation);
+});
+
+test('truncation preserves system messages', function () {
     $agent = SimpleTruncationTestAgent::for('system-message-test');
 
     echo "\n=== System Message Preservation Test ===\n\n";
 
-    // Make several API calls
-    $questions = ['Question 1?', 'Question 2?', 'Question 3?', 'Question 4?'];
+    // First, add a system message to the history (simulating existing chat with system)
+    $agent->chatHistory()->addMessage(Message::system('You are a helpful assistant from pre-existing chat.'));
 
-    foreach ($questions as $question) {
-        $agent->respond($question);
+    // Pre-populate with many fake messages with high token counts
+    $totalTokens = 500;
+    for ($i = 1; $i <= 8; $i++) {
+        $agent->chatHistory()->addMessage(Message::user("Question {$i}?"));
+        $totalTokens += 700;  // Each exchange adds ~700 tokens
+        $agent->chatHistory()->addMessage(createAssistantMessage("Answer {$i}.", $totalTokens));
     }
+    // Final totalTokens = 500 + 8*700 = 6100 (exceeds 5000 context window)
+
+    echo "Pre-populated with system + 8 pairs (17 messages), last totalTokens={$totalTokens}\n";
+    echo "Messages before: ".$agent->chatHistory()->getMessages()->count()."\n";
+    echo "Sending real API request...\n\n";
+
+    $response = $agent->respond('Final question?');
+    
+    echo "Response: {$response}\n\n";
 
     $messages = $agent->chatHistory()->getMessages();
-    $firstMessage = $messages->toArray()[0] ?? null;
+    $firstMessage = $messages->all()[0] ?? null;
 
+    echo "Messages after: ".$messages->count()."\n";
     echo "First message role: ".($firstMessage ? $firstMessage->getRole() : 'none')."\n";
-    echo "Total messages: ".$messages->count()."\n";
 
-    if ($firstMessage && $firstMessage->getRole() === 'system') {
-        echo "✓ System message preserved!\n";
-        expect($firstMessage->getRole())->toBe('system');
+    // System message should be preserved by truncation strategy (preserve_system=true)
+    expect($firstMessage)->not->toBeNull();
+    expect($firstMessage->getRole())->toBe('system');
+    echo "✓ System message preserved!\n";
+});
+
+test('truncation event is dispatched', function () {
+    $agent = SimpleTruncationTestAgent::for('truncation-event-test');
+    
+    echo "\n=== Truncation Event Test ===\n\n";
+
+    $eventDispatched = false;
+    $messagesInEvent = null;
+
+    // Listen for truncation event (note the correct namespace)
+    Event::listen(\LarAgent\Events\ChatHistory\ChatHistoryTruncated::class, function ($event) use (&$eventDispatched, &$messagesInEvent) {
+        $eventDispatched = true;
+        $messagesInEvent = $event->messages;
+        echo "📢 ChatHistoryTruncated event received!\n";
+        echo "   Messages in event: ".$event->messages->count()."\n";
+    });
+
+    // Pre-populate with many fake messages with high token counts
+    $totalTokens = 500;
+    for ($i = 1; $i <= 10; $i++) {
+        $agent->chatHistory()->addMessage(Message::user("Question {$i}?"));
+        $totalTokens += 600;
+        $agent->chatHistory()->addMessage(createAssistantMessage("Answer {$i}.", $totalTokens));
     }
-})->skip('Manual test - requires API key');
+    // Final totalTokens = 500 + 10*600 = 6500 (exceeds 5000)
+
+    $countBefore = $agent->chatHistory()->getMessages()->count();
+    echo "Pre-populated with 10 pairs ({$countBefore} messages), last totalTokens={$totalTokens}\n";
+    echo "Sending real API request to trigger truncation...\n\n";
+
+    $response = $agent->respond('Trigger truncation please.');
+    
+    echo "\nResponse: {$response}\n\n";
+    
+    $countAfter = $agent->chatHistory()->getMessages()->count();
+    echo "Messages after: {$countAfter}\n";
+
+    expect($eventDispatched)->toBeTrue();
+    expect($countAfter)->toBeLessThan($countBefore);
+});

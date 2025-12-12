@@ -1,6 +1,7 @@
 <?php
 
 use Illuminate\Support\Facades\Event;
+use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Events\ChatHistory\ChatHistoryTruncated;
@@ -12,7 +13,7 @@ describe('ChatHistoryTruncated Event', function () {
         Event::fake([ChatHistoryTruncated::class]);
         
         $identity = new SessionIdentity(chatName: 'test', agentName: 'TestAgent');
-        $storage = new ChatHistoryStorage($identity);
+        $storage = new ChatHistoryStorage($identity, [InMemoryStorage::class]);
         
         // Add some messages
         $storage->addMessage(Message::user('Test message'));
@@ -31,7 +32,7 @@ describe('ChatHistoryTruncated Event', function () {
 
     it('marks storage as dirty after replacing messages', function () {
         $identity = new SessionIdentity(chatName: 'test', agentName: 'TestAgent');
-        $storage = new ChatHistoryStorage($identity);
+        $storage = new ChatHistoryStorage($identity, [InMemoryStorage::class]);
         
         // Add some messages
         $storage->addMessage(Message::user('Test message'));
@@ -46,12 +47,12 @@ describe('ChatHistoryTruncated Event', function () {
         // Storage should be marked as dirty after replacement
         // We can verify this by checking that save() will actually write
         expect($storage->getMessages()->count())->toBe(1);
-        expect($storage->getMessages()->toArray()[0]->getContentAsString())->toBe('New message');
+        expect($storage->getMessages()->all()[0]->getContentAsString())->toBe('New message');
     });
 
     it('replaces all existing messages with new ones', function () {
         $identity = new SessionIdentity(chatName: 'test', agentName: 'TestAgent');
-        $storage = new ChatHistoryStorage($identity);
+        $storage = new ChatHistoryStorage($identity, [InMemoryStorage::class]);
         
         // Add several messages
         $storage->addMessage(Message::user('Message 1'));
@@ -67,6 +68,6 @@ describe('ChatHistoryTruncated Event', function () {
         $storage->replaceMessages($newMessages);
         
         expect($storage->getMessages()->count())->toBe(1);
-        expect($storage->getMessages()->toArray()[0]->getContentAsString())->toBe('New message');
+        expect($storage->getMessages()->all()[0]->getContentAsString())->toBe('New message');
     });
 });

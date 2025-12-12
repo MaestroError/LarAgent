@@ -41,7 +41,7 @@ class TokenBasedTruncationStrategy extends TruncationStrategy
         }
 
         $newMessages = new MessageArray();
-        $allMessages = $messages->toArray();
+        $allMessages = $messages->all();
 
         // Separate system messages and regular messages
         $systemMessages = [];

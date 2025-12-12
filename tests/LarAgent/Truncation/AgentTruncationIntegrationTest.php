@@ -8,8 +8,8 @@ use LarAgent\Message;
 // Test Agent class for truncation testing
 class TruncationTestAgent extends Agent
 {
-    protected ?bool $enableTruncation = true;
-    protected ?int $contextWindowSize = 10000;
+    protected $enableTruncation = true;
+    protected $contextWindowSize = 10000;
     
     protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
     {
@@ -23,8 +23,8 @@ class TruncationTestAgent extends Agent
 // Test Agent with token-based truncation
 class TokenBasedTruncationAgent extends Agent
 {
-    protected ?bool $enableTruncation = true;
-    protected ?int $contextWindowSize = 10000;
+    protected $enableTruncation = true;
+    protected $contextWindowSize = 10000;
     
     protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
     {
