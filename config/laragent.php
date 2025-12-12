@@ -31,26 +31,6 @@ return [
     ],
 
     /**
-     * Enable usage tracking globally for all agents.
-     * Can be overridden per-provider (in providers array) or per-agent via $trackUsage property.
-     * Priority: Agent property > Provider config > Global config
-     */
-    'track_usage' => false,
-
-    /**
-     * Default storage drivers for usage tracking.
-     * Used when agent or provider doesn't set usage_storage.
-     * If not set, uses 'default_storage' configuration.
-     *
-     * Must be an array of driver classes (e.g., [CacheStorage::class, FileStorage::class])
-     * or null to use default_storage.
-     *
-     * Note: Per-provider configuration can be set in the providers array
-     * using 'usage_storage' key with an array of driver classes.
-     */
-    'default_usage_storage' => null,
-
-    /**
      * Autodiscovery namespaces for Agent classes.
      * Used by `agent:chat` to locate agents.
      */
@@ -67,6 +47,7 @@ return [
      *
      * You can remove any other providers
      * which your project doesn't need
+     *
      */
     'providers' => [
         'default' => [
@@ -180,4 +161,119 @@ return [
             'poll_interval' => 20,
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Usage Tracking Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure how LarAgent tracks and stores token usage metrics
+    |
+    */
+
+    /**
+     * Enable usage tracking globally for all agents.
+     * Can be overridden per-provider (in providers array) or per-agent via $trackUsage property.
+     * Priority: Agent property > Provider config > Global config
+     */
+    'track_usage' => false,
+
+    /**
+     * Default storage drivers for usage tracking.
+     * Used when agent or provider doesn't set usage_storage.
+     * If not set, uses 'default_storage' configuration.
+     *
+     * Must be an array of driver classes (e.g., [CacheStorage::class, FileStorage::class])
+     * or null to use default_storage.
+     *
+     * Note: Per-provider configuration can be set in the providers array
+     * using 'usage_storage' key with an array of driver classes.
+     */
+    'default_usage_storage' => null,
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Context Window Management
+    |--------------------------------------------------------------------------
+    |
+    | Configure how LarAgent handles conversations that exceed the defined
+    | context window limit. Various strategies are available to manage
+    | long conversations while preserving important context.
+    |
+    */
+
+    /**
+     * 
+     * IMPORTANT: About 'default_context_window'
+     * -----------------------------------------
+     * The 'default_context_window' setting is NOT the same as the model's official context window.
+     * This is the AGENT's managed context window used for internal truncation and history management.
+     *
+     * It should be set significantly LOWER than the model's actual context window to:
+     * - Reserve space for incoming user messages and assistant responses
+     * - Account for token estimation inaccuracies
+     * - Provide headroom for tool calls and structured outputs
+     * - Keep token usage lower for cost efficiency
+     *
+     * Recommendations:
+     * - Maximum: 80% of model's context window (aggressive, may cause issues with large messages)
+     * - Recommended: 30-50% of model's context window (balanced approach)
+     * - Conservative: 20-30% for agents with large tool outputs or structured responses
+     *
+     * Example for 128K context:
+     * - Model context: 128,000 tokens
+     * - Recommended agent context: 38,000-64,000 tokens (30-50%)
+     */
+
+    /**
+     * Enable context window truncation globally for all agents.
+     * Can be overridden per-provider (in providers array) or per-agent via $enableTruncation property.
+     * If enabled, agents will use truncation strategies as soon as history exceeds $contextWindowSize.
+     * Priority: Agent property -> Provider config -> Global config
+     */
+    'enable_truncation' => false,
+
+    /**
+     * Provider to use for built-in truncation agents (ChatSummarizerAgent, ChatSymbolizerAgent).
+     * These agents are used by SummarizationStrategy and SymbolizationStrategy to process messages.
+     * Set to any provider name from the 'providers' array above.
+     */
+    'truncation_provider' => 'default',
+
+    /**
+     * Default truncation strategy class to use.
+     * Can be overridden per-provider or per-agent by overriding truncationStrategy() method.
+     * Available strategies:
+     * - \LarAgent\Context\Truncation\SimpleTruncationStrategy (keeps last N messages)
+     * - \LarAgent\Context\Truncation\SummarizationStrategy (summarizes removed messages)
+     * - \LarAgent\Context\Truncation\SymbolizationStrategy (creates brief symbols for removed messages)
+     */
+    'default_truncation_strategy' => \LarAgent\Context\Truncation\SimpleTruncationStrategy::class,
+
+    /**
+     * Default configuration for truncation strategies.
+     * Can be overridden per-provider or per-agent.
+     */
+    'default_truncation_config' => [
+        'keep_messages' => 10,
+        'preserve_system' => true,
+    ],
+
+    /**
+     * Context window buffer percentage (0.0 to 1.0).
+     * Reserves this percentage of the AGENT's context window for safety margin.
+     * Default: 0.2 (20% reserved, 80% available for history)
+     *
+     * Note: This buffer works alongside the agent's context window setting (see 'default_context_window').
+     * Since the agent's context window should already be set lower than the model's limit,
+     * this buffer provides additional protection against edge cases and token estimation variance.
+     *
+     * Examples:
+     * - 0.1 (10%): Minimal buffer, use when agent context window is already very conservative
+     * - 0.2 (20%): Balanced approach (default)
+     * - 0.3 (30%): Extra safety margin for unpredictable message sizes
+     */
+    'context_window_buffer' => 0.2,
 ];
