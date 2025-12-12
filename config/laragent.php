@@ -31,65 +31,6 @@ return [
     ],
 
     /**
-     * Enable usage tracking globally for all agents.
-     * Can be overridden per-provider (in providers array) or per-agent via $trackUsage property.
-     * Priority: Agent property > Provider config > Global config
-     */
-    'track_usage' => false,
-
-    /**
-     * Default storage drivers for usage tracking.
-     * Used when agent or provider doesn't set usage_storage.
-     * If not set, uses 'default_storage' configuration.
-     *
-     * Must be an array of driver classes (e.g., [CacheStorage::class, FileStorage::class])
-     * or null to use default_storage.
-     *
-     * Note: Per-provider configuration can be set in the providers array
-     * using 'usage_storage' key with an array of driver classes.
-     */
-    'default_usage_storage' => null,
-
-    /**
-     * Enable context window truncation globally for all agents.
-     * Can be overridden per-provider (in providers array) or per-agent via $enableTruncation property.
-     * Priority: Agent property > Provider config > Global config
-     */
-    'enable_truncation' => false,
-
-    /**
-     * Default truncation strategy class to use.
-     * Can be overridden per-provider or per-agent by overriding truncationStrategy() method.
-     * Available strategies:
-     * - \LarAgent\Context\Truncation\SimpleTruncationStrategy (keeps last N messages)
-     * - \LarAgent\Context\Truncation\TokenBasedTruncationStrategy (truncates to target token percentage)
-     * - \LarAgent\Context\Truncation\SummarizationStrategy (summarizes removed messages)
-     * - \LarAgent\Context\Truncation\SymbolizationStrategy (creates brief symbols for removed messages)
-     */
-    'default_truncation_strategy' => \LarAgent\Context\Truncation\SimpleTruncationStrategy::class,
-
-    /**
-     * Default configuration for truncation strategies.
-     * Can be overridden per-provider or per-agent.
-     */
-    'default_truncation_config' => [
-        'keep_messages' => 10,
-        'preserve_system' => true,
-    ],
-
-    /**
-     * Context window buffer percentage (0.0 to 1.0).
-     * Reserves this percentage of the context window for new requests and responses.
-     * Default: 0.2 (20% reserved, 80% available for history)
-     * 
-     * Examples:
-     * - 0.1 (10%): More aggressive truncation, allows more history
-     * - 0.2 (20%): Balanced approach (default)
-     * - 0.3 (30%): Conservative, reserves more space for responses
-     */
-    'context_window_buffer' => 0.2,
-
-    /**
      * Autodiscovery namespaces for Agent classes.
      * Used by `agent:chat` to locate agents.
      */
@@ -219,4 +160,85 @@ return [
             'poll_interval' => 20,
         ],
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Usage Tracking Configuration
+    |--------------------------------------------------------------------------
+    |
+    | Configure how LarAgent tracks and stores token usage metrics
+    |
+    */
+
+    /**
+     * Enable usage tracking globally for all agents.
+     * Can be overridden per-provider (in providers array) or per-agent via $trackUsage property.
+     * Priority: Agent property > Provider config > Global config
+     */
+    'track_usage' => false,
+
+    /**
+     * Default storage drivers for usage tracking.
+     * Used when agent or provider doesn't set usage_storage.
+     * If not set, uses 'default_storage' configuration.
+     *
+     * Must be an array of driver classes (e.g., [CacheStorage::class, FileStorage::class])
+     * or null to use default_storage.
+     *
+     * Note: Per-provider configuration can be set in the providers array
+     * using 'usage_storage' key with an array of driver classes.
+     */
+    'default_usage_storage' => null,
+
+
+
+    /*
+    |--------------------------------------------------------------------------
+    | Context Window Management
+    |--------------------------------------------------------------------------
+    |
+    | Configure how LarAgent handles conversations that exceed the defined
+    | context window limit. Various strategies are available to manage
+    | long conversations while preserving important context.
+    |
+    */
+
+    /**
+     * Enable context window truncation globally for all agents.
+     * Can be overridden per-provider (in providers array) or per-agent via $enableTruncation property.
+     * Priority: Agent property -> Provider config -> Global config
+     */
+    'enable_truncation' => false,
+
+    /**
+     * Default truncation strategy class to use.
+     * Can be overridden per-provider or per-agent by overriding truncationStrategy() method.
+     * Available strategies:
+     * - \LarAgent\Context\Truncation\SimpleTruncationStrategy (keeps last N messages)
+     * - \LarAgent\Context\Truncation\TokenBasedTruncationStrategy (truncates to target token percentage)
+     * - \LarAgent\Context\Truncation\SummarizationStrategy (summarizes removed messages)
+     * - \LarAgent\Context\Truncation\SymbolizationStrategy (creates brief symbols for removed messages)
+     */
+    'default_truncation_strategy' => \LarAgent\Context\Truncation\SimpleTruncationStrategy::class,
+
+    /**
+     * Default configuration for truncation strategies.
+     * Can be overridden per-provider or per-agent.
+     */
+    'default_truncation_config' => [
+        'keep_messages' => 10,
+        'preserve_system' => true,
+    ],
+
+    /**
+     * Context window buffer percentage (0.0 to 1.0).
+     * Reserves this percentage of the context window for new requests and responses.
+     * Default: 0.2 (20% reserved, 80% available for history)
+     *
+     * Examples:
+     * - 0.1 (10%): More aggressive truncation, allows more history
+     * - 0.2 (20%): Balanced approach (default)
+     * - 0.3 (30%): Conservative, reserves more space for responses
+     */
+    'context_window_buffer' => 0.2,
 ];
