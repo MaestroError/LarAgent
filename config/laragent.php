@@ -211,6 +211,13 @@ return [
     'enable_truncation' => false,
 
     /**
+     * Provider to use for built-in truncation agents (ChatSummarizerAgent, ChatSymbolizerAgent).
+     * These agents are used by SummarizationStrategy and SymbolizationStrategy to process messages.
+     * Set to any provider name from the 'providers' array above.
+     */
+    'truncation_provider' => 'default',
+
+    /**
      * Default truncation strategy class to use.
      * Can be overridden per-provider or per-agent by overriding truncationStrategy() method.
      * Available strategies:

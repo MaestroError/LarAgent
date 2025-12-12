@@ -2,6 +2,7 @@
 
 namespace LarAgent\Context\Truncation;
 
+use LarAgent\BuiltIn\Agents\ChatSymbolizerAgent;
 use LarAgent\Context\Abstract\TruncationStrategy;
 use LarAgent\Message;
 use LarAgent\Messages\DataModels\MessageArray;
@@ -17,7 +18,7 @@ class SymbolizationStrategy extends TruncationStrategy
     {
         return [
             'keep_messages' => 5, // Number of recent messages to keep
-            'summary_agent' => null, // Agent for individual message summarization (required)
+            'summary_agent' => ChatSymbolizerAgent::class, // Agent for individual message summarization
             'symbol_title' => 'Conversation symbols',
             'preserve_system' => true, // Keep system/developer messages
         ];
@@ -38,16 +39,12 @@ class SymbolizationStrategy extends TruncationStrategy
         $keepMessages = $this->getConfig('keep_messages', 5);
         $summaryAgentClass = $this->getConfig('summary_agent');
 
-        if ($summaryAgentClass === null) {
-            throw new \InvalidArgumentException('SymbolizationStrategy requires a summary_agent configuration');
-        }
-
         // If we have fewer messages than keep_messages, no truncation needed
         if ($messages->count() <= $keepMessages) {
             return $messages;
         }
 
-        $allMessages = $messages->toArray();
+        $allMessages = $messages->all();
 
         // Separate messages into categories
         $systemMessages = [];
@@ -139,6 +136,12 @@ class SymbolizationStrategy extends TruncationStrategy
      */
     protected function createSymbol(string $role, string $content, string $agentClass, int $index): string
     {
+        if ($role == 'assistant') {
+            $role = 'You';
+        } elseif ($role == 'user') {
+            $role = 'User';
+        }
+
         try {
             // Verify agent class exists and has the make method
             if (! class_exists($agentClass)) {
@@ -162,8 +165,12 @@ class SymbolizationStrategy extends TruncationStrategy
         } catch (\Throwable $e) {
             // If symbolization fails, create a basic symbol
             // Log the error if logging is available
-            if (function_exists('logger')) {
-                logger()->warning("Truncation symbolization failed: {$e->getMessage()}");
+            try {
+                if (function_exists('logger') && app()->bound('log')) {
+                    logger()->warning("Truncation symbolization failed: {$e->getMessage()}");
+                }
+            } catch (\Throwable $logError) {
+                // Ignore logging errors
             }
 
             $preview = substr($content, 0, 50);

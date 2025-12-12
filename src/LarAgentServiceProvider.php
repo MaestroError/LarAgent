@@ -28,6 +28,7 @@ class LarAgentServiceProvider extends PackageServiceProvider
         $package
             ->name('laragent')
             ->hasConfigFile()
+            ->hasViews()
             ->hasCommands([
                 MakeAgentCommand::class,
                 MakeAgentToolCommand::class,

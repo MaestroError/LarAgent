@@ -2,6 +2,7 @@
 
 namespace LarAgent\Context\Truncation;
 
+use LarAgent\BuiltIn\Agents\ChatSummarizerAgent;
 use LarAgent\Context\Abstract\TruncationStrategy;
 use LarAgent\Message;
 use LarAgent\Messages\DataModels\MessageArray;
@@ -17,7 +18,7 @@ class SummarizationStrategy extends TruncationStrategy
     {
         return [
             'keep_messages' => 5, // Number of recent messages to keep
-            'summary_agent' => null, // Agent class name for summarization (required)
+            'summary_agent' => ChatSummarizerAgent::class, // Agent class name for summarization
             'summary_title' => 'Summary of previous conversation',
             'preserve_system' => true, // Keep system/developer messages
         ];
@@ -37,16 +38,12 @@ class SummarizationStrategy extends TruncationStrategy
         $keepMessages = $this->getConfig('keep_messages', 5);
         $summaryAgentClass = $this->getConfig('summary_agent');
 
-        if ($summaryAgentClass === null) {
-            throw new \InvalidArgumentException('SummarizationStrategy requires a summary_agent configuration');
-        }
-
         // If we have fewer messages than keep_messages, no truncation needed
         if ($messages->count() <= $keepMessages) {
             return $messages;
         }
 
-        $allMessages = $messages->toArray();
+        $allMessages = $messages->all();
 
         // Separate messages into categories
         $systemMessages = [];
@@ -146,8 +143,12 @@ class SummarizationStrategy extends TruncationStrategy
         } catch (\Throwable $e) {
             // If summarization fails, return a basic summary
             // Log the error if logging is available
-            if (function_exists('logger')) {
-                logger()->warning("Truncation summarization failed: {$e->getMessage()}");
+            try {
+                if (function_exists('logger') && app()->bound('log')) {
+                    logger()->warning("Truncation summarization failed: {$e->getMessage()}");
+                }
+            } catch (\Throwable $logError) {
+                // Ignore logging errors
             }
 
             return 'Previous conversation contained '.count($messages).' messages.';
