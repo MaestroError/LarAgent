@@ -1478,43 +1478,37 @@ class Agent
             return;
         }
 
-        // Calculate total tokens from all messages in history
-        // Note: We estimate per-message tokens using a conservative approach to avoid over-counting
-        $messages = $this->chatHistory()->getMessages();
-        $currentTokens = 0;
-
-        foreach ($messages->toArray() as $message) {
-            // Try to get usage from message metadata first
-            $metadata = $message->getMetadata();
-            
-            // Use completion_tokens for assistant messages (this is the actual message content)
-            if ($message->getRole() === 'assistant' && isset($metadata['usage']['completion_tokens'])) {
-                $currentTokens += (int) $metadata['usage']['completion_tokens'];
-            } 
-            // For other messages, try to use stored prompt tokens if available
-            elseif (isset($metadata['usage']['prompt_tokens'])) {
-                // Note: This is an approximation as prompt_tokens includes formatting overhead
-                $currentTokens += (int) $metadata['usage']['prompt_tokens'];
-            } elseif (method_exists($message, 'getUsage')) {
-                // Try getUsage method (for AssistantMessage)
-                $usage = $message->getUsage();
-                if ($usage !== null) {
-                    // Use completion tokens for assistant messages
-                    if ($message->getRole() === 'assistant' && isset($usage->completionTokens)) {
-                        $currentTokens += $usage->completionTokens;
-                    } elseif (isset($usage->promptTokens)) {
-                        $currentTokens += $usage->promptTokens;
-                    }
-                }
-            } else {
-                // Fallback: rough estimate (1 token ≈ 4 characters)
-                $content = $message->getContentAsString();
-                $currentTokens += (int) ceil(strlen($content) / 4);
-            }
-        }
+        // Get total tokens from the last message with usage data
+        // total_tokens represents the cumulative token count of the entire conversation
+        $currentTokens = $this->getLastKnownTotalTokens();
 
         // Apply truncation via context
         $this->context()->applyTruncation($this->chatHistory(), $currentTokens);
+    }
+
+    /**
+     * Get total tokens from the last message that has usage data.
+     * Searches messages in reverse order to find the most recent usage information.
+     *
+     * @return int Total tokens from last message with usage, or 0 if none found
+     */
+    protected function getLastKnownTotalTokens(): int
+    {
+        $messages = $this->chatHistory()->getMessages()->all();
+
+        // Search from the end to find the last message with usage data
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            $message = $messages[$i];
+
+            if (method_exists($message, 'getUsage')) {
+                $usage = $message->getUsage();
+                if ($usage !== null && isset($usage->totalTokens)) {
+                    return $usage->totalTokens;
+                }
+            }
+        }
+
+        return 0;
     }
 
     // ========== End Truncation Methods ==========
