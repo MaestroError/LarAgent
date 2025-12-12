@@ -4,11 +4,13 @@ namespace LarAgent\Context\Truncation;
 
 use LarAgent\BuiltIn\Agents\ChatSummarizerAgent;
 use LarAgent\Context\Abstract\TruncationStrategy;
+use LarAgent\Core\Traits\UsesLogger;
 use LarAgent\Message;
 use LarAgent\Messages\DataModels\MessageArray;
 
 class SummarizationStrategy extends TruncationStrategy
 {
+    use UsesLogger;
     /**
      * Get the default configuration for this strategy.
      *
@@ -142,14 +144,10 @@ class SummarizationStrategy extends TruncationStrategy
             return (string) $summary;
         } catch (\Throwable $e) {
             // If summarization fails, return a basic summary
-            // Log the error if logging is available
-            try {
-                if (function_exists('logger') && app()->bound('log')) {
-                    logger()->warning("Truncation summarization failed: {$e->getMessage()}");
-                }
-            } catch (\Throwable $logError) {
-                // Ignore logging errors
-            }
+            $this->logWarning('Truncation summarization failed: '.$e->getMessage(), [
+                'agent_class' => $agentClass,
+                'message_count' => count($messages),
+            ]);
 
             return 'Previous conversation contained '.count($messages).' messages.';
         }

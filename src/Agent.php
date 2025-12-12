@@ -16,6 +16,7 @@ use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
 use LarAgent\Core\Traits\UsesCachedReflection;
+use LarAgent\Core\Traits\UsesLogger;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
@@ -32,6 +33,7 @@ class Agent
     use Events;
     use HasContext;
     use UsesCachedReflection;
+    use UsesLogger;
 
     // Agent properties
 
@@ -1509,6 +1511,16 @@ class Agent
                     return $usage->totalTokens;
                 }
             }
+        }
+
+        // Log warning when truncation is enabled but no usage data is available
+        if (count($messages) > 0) {
+            $this->logWarning(
+                'LarAgent: Truncation is enabled but no messages have usage data. '
+                . 'Truncation will not trigger until usage data is available. '
+                . 'Ensure your LLM driver provides usage information in responses.',
+                ['agent' => static::class, 'message_count' => count($messages)]
+            );
         }
 
         return 0;

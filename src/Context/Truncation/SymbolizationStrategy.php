@@ -4,11 +4,13 @@ namespace LarAgent\Context\Truncation;
 
 use LarAgent\BuiltIn\Agents\ChatSymbolizerAgent;
 use LarAgent\Context\Abstract\TruncationStrategy;
+use LarAgent\Core\Traits\UsesLogger;
 use LarAgent\Message;
 use LarAgent\Messages\DataModels\MessageArray;
 
 class SymbolizationStrategy extends TruncationStrategy
 {
+    use UsesLogger;
     /**
      * Get the default configuration for this strategy.
      *
@@ -164,14 +166,11 @@ class SymbolizationStrategy extends TruncationStrategy
             return "- [{$role}] ".(string) $symbol;
         } catch (\Throwable $e) {
             // If symbolization fails, create a basic symbol
-            // Log the error if logging is available
-            try {
-                if (function_exists('logger') && app()->bound('log')) {
-                    logger()->warning("Truncation symbolization failed: {$e->getMessage()}");
-                }
-            } catch (\Throwable $logError) {
-                // Ignore logging errors
-            }
+            $this->logWarning('Truncation symbolization failed: '.$e->getMessage(), [
+                'agent_class' => $agentClass,
+                'role' => $role,
+                'index' => $index,
+            ]);
 
             $preview = substr($content, 0, 50);
             if (strlen($content) > 50) {

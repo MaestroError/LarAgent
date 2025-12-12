@@ -26,7 +26,7 @@ describe('ChatHistoryTruncated Event', function () {
         
         Event::assertDispatched(ChatHistoryTruncated::class, function ($event) use ($storage) {
             return $event->chatHistory === $storage 
-                && $event->truncatedMessages->count() === 1;
+                && $event->remainingMessages->count() === 1;
         });
     });
 

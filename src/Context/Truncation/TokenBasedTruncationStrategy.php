@@ -3,6 +3,7 @@
 namespace LarAgent\Context\Truncation;
 
 use LarAgent\Context\Abstract\TruncationStrategy;
+use LarAgent\Core\Enums\Role;
 use LarAgent\Messages\DataModels\MessageArray;
 
 class TokenBasedTruncationStrategy extends TruncationStrategy
@@ -92,56 +93,36 @@ class TokenBasedTruncationStrategy extends TruncationStrategy
     /**
      * Estimate token count for a message.
      * 
-     * Important Notes on Token Estimation:
-     * 1. For assistant messages: Uses completion_tokens when available, which accurately
-     *    represents the tokens in the assistant's response.
+     * Token Estimation Approach:
+     * 1. For assistant messages: Uses completion_tokens from Usage DataModel when available,
+     *    which accurately represents the tokens in the assistant's response.
      * 
-     * 2. For other messages: Uses prompt_tokens when available, but this is an
-     *    APPROXIMATION. The prompt_tokens value from an API response includes the
-     *    total prompt (all previous messages + system prompt + formatting), not just
-     *    the individual message's tokens.
+     * 2. For all other messages (user, system, developer): Uses character-based estimation
+     *    (1 token ≈ 4 characters). We intentionally do NOT use prompt_tokens because:
+     *    - prompt_tokens includes the cumulative token count of ALL previous messages
+     *    - Using it would cause massive over-counting when summing individual messages
+     *    - Character-based estimation is more accurate for individual message sizing
      * 
-     * 3. To avoid over-counting, this strategy should ideally be used when:
-     *    - Messages store individual token counts (not full prompt tokens)
-     *    - OR as a conservative approximation knowing it may trigger truncation earlier
-     *    - OR when using character-based fallback estimation
-     * 
-     * 4. For most accurate token counting, consider:
-     *    - Using SimpleTruncationStrategy if token precision is critical
+     * 3. For most accurate token counting in production, consider:
+     *    - Using SimpleTruncationStrategy if message-count-based truncation is sufficient
      *    - Implementing a custom token counter (e.g., tiktoken)
      *    - Storing per-message token counts during message creation
-     * 
-     * Fallback: Uses rough estimate (1 token ≈ 4 characters) when no usage data available.
      *
      * @param  \LarAgent\Core\Contracts\Message  $message  The message to estimate
      * @return int Estimated token count
      */
     protected function estimateMessageTokens($message): int
     {
-        // For assistant messages, use completion_tokens (accurate for the response)
-        if ($message->getRole() === 'assistant') {
-            if (method_exists($message, 'getUsage')) {
-                $usage = $message->getUsage();
-                if ($usage !== null && isset($usage->completionTokens)) {
-                    return $usage->completionTokens;
-                }
-            }
-            
-            $metadata = $message->getMetadata();
-            if (isset($metadata['usage']['completion_tokens'])) {
-                return (int) $metadata['usage']['completion_tokens'];
+        // For assistant messages, use completion_tokens from Usage DataModel (accurate for the response)
+        if ($message->getRole() === Role::ASSISTANT->value && method_exists($message, 'getUsage')) {
+            $usage = $message->getUsage();
+            if ($usage !== null && isset($usage->completionTokens)) {
+                return $usage->completionTokens;
             }
         }
 
-        // For other messages, use prompt_tokens with caution (see note above)
-        $metadata = $message->getMetadata();
-        if (isset($metadata['usage']['prompt_tokens'])) {
-            // This is an approximation - may include overhead from formatting
-            return (int) $metadata['usage']['prompt_tokens'];
-        }
-
-        // Fallback: rough estimate (1 token ≈ 4 characters)
-        // This is a conservative estimate and may not be accurate for all content types
+        // Character-based estimation for all messages without accurate token data
+        // This is a conservative estimate (1 token ≈ 4 characters)
         $content = $message->getContentAsString();
 
         return (int) ceil(strlen($content) / 4);

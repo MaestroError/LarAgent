@@ -14,11 +14,11 @@ class ChatHistoryTruncated
      * Create a new ChatHistoryTruncated event instance.
      *
      * @param  ChatHistoryStorage  $chatHistory  The chat history storage instance
-     * @param  MessageArray  $truncatedMessages  The truncated messages
+     * @param  MessageArray  $remainingMessages  The messages remaining after truncation
      */
     public function __construct(
         public readonly ChatHistoryStorage $chatHistory,
-        public readonly MessageArray $truncatedMessages
+        public readonly MessageArray $remainingMessages
     ) {
     }
 }
