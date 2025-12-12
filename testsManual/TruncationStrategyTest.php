@@ -19,7 +19,6 @@
 
 use LarAgent\Agent;
 use LarAgent\Context\Truncation\SimpleTruncationStrategy;
-use LarAgent\Context\Truncation\TokenBasedTruncationStrategy;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
 use LarAgent\Message;
 use LarAgent\Tests\TestCase;
@@ -73,39 +72,6 @@ class SimpleTruncationTestAgent extends Agent
     {
         return new SimpleTruncationStrategy([
             'keep_messages' => 3,
-            'preserve_system' => true,
-        ]);
-    }
-
-    public function instructions(): string
-    {
-        return 'You are a helpful assistant. Keep your responses brief (one sentence max).';
-    }
-}
-
-// Test agent with token-based truncation
-class TokenBasedTruncationTestAgent extends Agent
-{
-    protected $model = 'gpt-4o-mini';
-
-    protected $provider = 'openai';
-
-    protected $trackUsage = true;
-
-    protected $enableTruncation = true;
-
-    protected $contextWindowSize = 5000;
-
-    protected $history = 'in_memory';
-
-    protected $storage = [
-        \LarAgent\Context\Drivers\InMemoryStorage::class,
-    ];
-
-    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
-    {
-        return new TokenBasedTruncationStrategy([
-            'target_percentage' => 0.7,
             'preserve_system' => true,
         ]);
     }
@@ -176,46 +142,6 @@ test('simple truncation strategy - prepopulate history then send message', funct
 
     // Should be significantly less than original (12) + 2 new = 14
     // With keep_messages=3 and preserve_system=true: ~system + 3 + 2 new = ~6-8
-    expect($countAfterTruncation)->toBeLessThan($countBeforeTruncation);
-});
-
-test('token-based truncation strategy - prepopulate history then send message', function () {
-    $agent = TokenBasedTruncationTestAgent::for('token-truncation-test');
-
-    echo "\n=== Token-Based Truncation Strategy Test ===\n";
-    echo "Context Window: {$agent->getContextWindowSize()} tokens\n";
-    $targetTokens = (int)($agent->getContextWindowSize() * 0.7);
-    echo "Target: 70% of window = {$targetTokens} tokens\n\n";
-
-    // Pre-populate with messages having cumulative token counts exceeding target
-    $fakeHistory = [
-        ['Explain PHP.', 'PHP is a scripting language.', 1000],
-        ['What is Laravel?', 'Laravel is a PHP framework.', 2000],
-        ['Explain design patterns.', 'Design patterns are solutions.', 3000],
-        ['What is MVC?', 'MVC separates concerns.', 4000],
-        ['What is DI?', 'DI injects dependencies.', 5500],  // Exceeds context window
-    ];
-
-    echo "Pre-populating with messages (last has 5500 tokens, exceeds 5000 window)...\n\n";
-
-    foreach ($fakeHistory as $index => [$question, $answer, $totalTokens]) {
-        $agent->chatHistory()->addMessage(Message::user($question));
-        $agent->chatHistory()->addMessage(createAssistantMessage($answer, $totalTokens));
-        echo "Added Q".($index + 1).": totalTokens={$totalTokens}\n";
-    }
-
-    $countBeforeTruncation = $agent->chatHistory()->getMessages()->count();
-    echo "\nMessages before: {$countBeforeTruncation}\n";
-    echo "Sending real API request to trigger truncation...\n\n";
-
-    $response = $agent->respond('What is 1+1?');
-    
-    echo "Response: {$response}\n\n";
-
-    $countAfterTruncation = $agent->chatHistory()->getMessages()->count();
-    echo "Messages after truncation: {$countAfterTruncation}\n";
-
-    // Token-based truncation removes old messages to get under 70% target (3500 tokens)
     expect($countAfterTruncation)->toBeLessThan($countBeforeTruncation);
 });
 

@@ -247,7 +247,6 @@ return [
      * Can be overridden per-provider or per-agent by overriding truncationStrategy() method.
      * Available strategies:
      * - \LarAgent\Context\Truncation\SimpleTruncationStrategy (keeps last N messages)
-     * - \LarAgent\Context\Truncation\TokenBasedTruncationStrategy (truncates to target token percentage)
      * - \LarAgent\Context\Truncation\SummarizationStrategy (summarizes removed messages)
      * - \LarAgent\Context\Truncation\SymbolizationStrategy (creates brief symbols for removed messages)
      */

@@ -2,7 +2,6 @@
 
 use LarAgent\Agent;
 use LarAgent\Context\Truncation\SimpleTruncationStrategy;
-use LarAgent\Context\Truncation\TokenBasedTruncationStrategy;
 use LarAgent\Message;
 
 // Test Agent class for truncation testing
@@ -15,21 +14,6 @@ class TruncationTestAgent extends Agent
     {
         return new SimpleTruncationStrategy([
             'keep_messages' => 3,
-            'preserve_system' => true,
-        ]);
-    }
-}
-
-// Test Agent with token-based truncation
-class TokenBasedTruncationAgent extends Agent
-{
-    protected $enableTruncation = true;
-    protected $contextWindowSize = 10000;
-    
-    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
-    {
-        return new TokenBasedTruncationStrategy([
-            'target_percentage' => 0.75,
             'preserve_system' => true,
         ]);
     }
@@ -124,13 +108,5 @@ describe('Agent Truncation Integration', function () {
         $windowSize = $agent->context()->getContextWindowSize();
         
         expect($windowSize)->toBe(10000);
-    });
-
-    it('can use different truncation strategies', function () {
-        $agent = TokenBasedTruncationAgent::for('test-token-strategy');
-        
-        $strategy = $agent->context()->getTruncationStrategy();
-        
-        expect($strategy)->toBeInstanceOf(TokenBasedTruncationStrategy::class);
     });
 });
