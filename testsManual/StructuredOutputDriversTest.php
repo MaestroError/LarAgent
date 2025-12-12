@@ -27,10 +27,10 @@ use LarAgent\Drivers\Groq\GroqDriver;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
 
 // Bootstrap minimal Laravel environment
-$container = new Container();
+$container = new Container;
 Container::setInstance($container);
 $container->singleton('events', fn () => new Dispatcher($container));
-$container->singleton('config', fn () => new \Illuminate\Config\Repository());
+$container->singleton('config', fn () => new \Illuminate\Config\Repository);
 Facade::setFacadeApplication($container);
 
 // Load API keys
@@ -130,10 +130,13 @@ $wrappedSchema = [
 class DataModelSchemaAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $provider = 'openai';
+
     protected $responseSchema = PersonInfo::class;
 
     protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
     protected $history = 'in_memory';
 
     public function instructions(): string
@@ -146,9 +149,11 @@ class DataModelSchemaAgent extends Agent
 class ManualSchemaAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $provider = 'openai';
 
     protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
     protected $history = 'in_memory';
 
     public function instructions(): string
@@ -161,9 +166,11 @@ class ManualSchemaAgent extends Agent
 class GeminiSchemaAgent extends Agent
 {
     protected $model = 'gemini-1.5-flash-latest';
+
     protected $provider = 'gemini';
 
     protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
     protected $history = 'in_memory';
 
     public function instructions(): string
@@ -176,10 +183,13 @@ class GeminiSchemaAgent extends Agent
 class GeminiDataModelAgent extends Agent
 {
     protected $model = 'gemini-1.5-flash-latest';
+
     protected $provider = 'gemini';
+
     protected $responseSchema = PersonInfo::class;
 
     protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
     protected $history = 'in_memory';
 
     public function instructions(): string
@@ -192,9 +202,11 @@ class GeminiDataModelAgent extends Agent
 class GroqSchemaAgent extends Agent
 {
     protected $model = 'llama-3.3-70b-versatile';
+
     protected $provider = 'groq';
 
     protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
     protected $history = 'in_memory';
 
     public function instructions(): string
@@ -207,10 +219,13 @@ class GroqSchemaAgent extends Agent
 class GroqDataModelAgent extends Agent
 {
     protected $model = 'llama-3.3-70b-versatile';
+
     protected $provider = 'groq';
+
     protected $responseSchema = PersonInfo::class;
 
     protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
     protected $history = 'in_memory';
 
     public function instructions(): string
@@ -230,7 +245,7 @@ try {
     $agent = DataModelSchemaAgent::make();
     $response = $agent->respond('John Smith is 35 years old and lives in New York City.');
 
-    echo "Response type: ".gettype($response)."\n";
+    echo 'Response type: '.gettype($response)."\n";
 
     if ($response instanceof PersonInfo) {
         echo "✅ Got PersonInfo DataModel!\n";
@@ -241,12 +256,12 @@ try {
         echo "✅ Got array response:\n";
         print_r($response);
     } else {
-        echo "Response: ".json_encode($response)."\n";
+        echo 'Response: '.json_encode($response)."\n";
     }
 
     echo "\n✅ TEST 1 PASSED\n\n";
 } catch (\Exception $e) {
-    echo "❌ TEST 1 FAILED: ".$e->getMessage()."\n\n";
+    echo '❌ TEST 1 FAILED: '.$e->getMessage()."\n\n";
 }
 
 // ============================================================================
@@ -259,26 +274,26 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 try {
     $agent = ManualSchemaAgent::make();
     $agent->responseSchema($manualSchema);
-    
+
     echo "Schema title should be used as name: 'person_info'\n";
     echo "additionalProperties: false should be preserved\n\n";
-    
+
     $response = $agent->respond('Maria Garcia is 28 years old and lives in Barcelona.');
 
-    echo "Response type: ".gettype($response)."\n";
+    echo 'Response type: '.gettype($response)."\n";
 
     if (is_array($response)) {
         echo "✅ Got array response:\n";
-        echo "   Name: ".($response['name'] ?? 'N/A')."\n";
-        echo "   Age: ".($response['age'] ?? 'N/A')."\n";
-        echo "   City: ".($response['city'] ?? 'N/A')."\n";
+        echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+        echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+        echo '   City: '.($response['city'] ?? 'N/A')."\n";
     } else {
-        echo "Response: ".json_encode($response)."\n";
+        echo 'Response: '.json_encode($response)."\n";
     }
 
     echo "\n✅ TEST 2 PASSED\n\n";
 } catch (\Exception $e) {
-    echo "❌ TEST 2 FAILED: ".$e->getMessage()."\n\n";
+    echo '❌ TEST 2 FAILED: '.$e->getMessage()."\n\n";
 }
 
 // ============================================================================
@@ -291,26 +306,26 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 try {
     $agent = ManualSchemaAgent::make();
     $agent->responseSchema($wrappedSchema);
-    
+
     echo "Pre-wrapped schema name: 'custom_person_schema'\n";
     echo "Strict mode: true (should be preserved)\n\n";
-    
+
     $response = $agent->respond('Kenji Tanaka is 42 years old and lives in Tokyo.');
 
-    echo "Response type: ".gettype($response)."\n";
+    echo 'Response type: '.gettype($response)."\n";
 
     if (is_array($response)) {
         echo "✅ Got array response:\n";
-        echo "   Name: ".($response['name'] ?? 'N/A')."\n";
-        echo "   Age: ".($response['age'] ?? 'N/A')."\n";
-        echo "   City: ".($response['city'] ?? 'N/A')."\n";
+        echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+        echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+        echo '   City: '.($response['city'] ?? 'N/A')."\n";
     } else {
-        echo "Response: ".json_encode($response)."\n";
+        echo 'Response: '.json_encode($response)."\n";
     }
 
     echo "\n✅ TEST 3 PASSED\n\n";
 } catch (\Exception $e) {
-    echo "❌ TEST 3 FAILED: ".$e->getMessage()."\n\n";
+    echo '❌ TEST 3 FAILED: '.$e->getMessage()."\n\n";
 }
 
 // ============================================================================
@@ -324,23 +339,23 @@ if ($geminiKey) {
     try {
         $agent = GeminiSchemaAgent::make();
         $agent->responseSchema($manualSchema);
-        
+
         $response = $agent->respond('Anna Müller is 31 years old and lives in Berlin.');
 
-        echo "Response type: ".gettype($response)."\n";
+        echo 'Response type: '.gettype($response)."\n";
 
         if (is_array($response)) {
             echo "✅ Got array response:\n";
-            echo "   Name: ".($response['name'] ?? 'N/A')."\n";
-            echo "   Age: ".($response['age'] ?? 'N/A')."\n";
-            echo "   City: ".($response['city'] ?? 'N/A')."\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
         } else {
-            echo "Response: ".json_encode($response)."\n";
+            echo 'Response: '.json_encode($response)."\n";
         }
 
         echo "\n✅ TEST 4 PASSED\n\n";
     } catch (\Exception $e) {
-        echo "❌ TEST 4 FAILED: ".$e->getMessage()."\n\n";
+        echo '❌ TEST 4 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
@@ -359,23 +374,23 @@ if ($groqKey) {
     try {
         $agent = GroqSchemaAgent::make();
         $agent->responseSchema($manualSchema);
-        
+
         $response = $agent->respond('Pierre Dubois is 55 years old and lives in Paris.');
 
-        echo "Response type: ".gettype($response)."\n";
+        echo 'Response type: '.gettype($response)."\n";
 
         if (is_array($response)) {
             echo "✅ Got array response:\n";
-            echo "   Name: ".($response['name'] ?? 'N/A')."\n";
-            echo "   Age: ".($response['age'] ?? 'N/A')."\n";
-            echo "   City: ".($response['city'] ?? 'N/A')."\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
         } else {
-            echo "Response: ".json_encode($response)."\n";
+            echo 'Response: '.json_encode($response)."\n";
         }
 
         echo "\n✅ TEST 5 PASSED\n\n";
     } catch (\Exception $e) {
-        echo "❌ TEST 5 FAILED: ".$e->getMessage()."\n\n";
+        echo '❌ TEST 5 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
@@ -395,7 +410,7 @@ if ($geminiKey) {
         $agent = GeminiDataModelAgent::make();
         $response = $agent->respond('Sakura Yamamoto is 27 years old and lives in Osaka.');
 
-        echo "Response type: ".gettype($response)."\n";
+        echo 'Response type: '.gettype($response)."\n";
 
         if ($response instanceof PersonInfo) {
             echo "✅ Got PersonInfo DataModel!\n";
@@ -404,16 +419,16 @@ if ($geminiKey) {
             echo "   City: {$response->city}\n";
         } elseif (is_array($response)) {
             echo "✅ Got array response:\n";
-            echo "   Name: ".($response['name'] ?? 'N/A')."\n";
-            echo "   Age: ".($response['age'] ?? 'N/A')."\n";
-            echo "   City: ".($response['city'] ?? 'N/A')."\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
         } else {
-            echo "Response: ".json_encode($response)."\n";
+            echo 'Response: '.json_encode($response)."\n";
         }
 
         echo "\n✅ TEST 6 PASSED\n\n";
     } catch (\Exception $e) {
-        echo "❌ TEST 6 FAILED: ".$e->getMessage()."\n\n";
+        echo '❌ TEST 6 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
@@ -433,7 +448,7 @@ if ($groqKey) {
         $agent = GroqDataModelAgent::make();
         $response = $agent->respond('Carlos Silva is 39 years old and lives in São Paulo.');
 
-        echo "Response type: ".gettype($response)."\n";
+        echo 'Response type: '.gettype($response)."\n";
 
         if ($response instanceof PersonInfo) {
             echo "✅ Got PersonInfo DataModel!\n";
@@ -442,16 +457,16 @@ if ($groqKey) {
             echo "   City: {$response->city}\n";
         } elseif (is_array($response)) {
             echo "✅ Got array response:\n";
-            echo "   Name: ".($response['name'] ?? 'N/A')."\n";
-            echo "   Age: ".($response['age'] ?? 'N/A')."\n";
-            echo "   City: ".($response['city'] ?? 'N/A')."\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
         } else {
-            echo "Response: ".json_encode($response)."\n";
+            echo 'Response: '.json_encode($response)."\n";
         }
 
         echo "\n✅ TEST 7 PASSED\n\n";
     } catch (\Exception $e) {
-        echo "❌ TEST 7 FAILED: ".$e->getMessage()."\n\n";
+        echo '❌ TEST 7 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
@@ -472,36 +487,36 @@ try {
     $response = $agent->respond('Emma Watson is 33 years old and lives in London.');
 
     echo "1. Raw API Response:\n";
-    echo "   Type: ".gettype($response)."\n";
-    
+    echo '   Type: '.gettype($response)."\n";
+
     if (is_array($response)) {
-        echo "   Data: ".json_encode($response)."\n\n";
-        
+        echo '   Data: '.json_encode($response)."\n\n";
+
         // Hydrate array into DataModel instance using fromArray()
         echo "2. Creating DataModel instance from response using PersonInfo::fromArray()...\n";
         $person = PersonInfo::fromArray($response);
-        
+
         echo "\n3. Accessing via DataModel properties:\n";
         echo "   \$person->name = '{$person->name}'\n";
         echo "   \$person->age  = {$person->age}\n";
         echo "   \$person->city = '{$person->city}'\n";
-        
+
         // Demonstrate type safety
         echo "\n4. Type verification:\n";
-        echo "   gettype(\$person->name) = ".gettype($person->name)."\n";
-        echo "   gettype(\$person->age)  = ".gettype($person->age)."\n";
-        echo "   gettype(\$person->city) = ".gettype($person->city)."\n";
-        
+        echo '   gettype($person->name) = '.gettype($person->name)."\n";
+        echo '   gettype($person->age)  = '.gettype($person->age)."\n";
+        echo '   gettype($person->city) = '.gettype($person->city)."\n";
+
         // Demonstrate toArray()
         echo "\n5. DataModel->toArray():\n";
         print_r($person->toArray());
-        
+
         echo "\n✅ TEST 8 PASSED\n\n";
     } else {
         echo "❌ TEST 8 FAILED: Expected array response\n\n";
     }
 } catch (\Exception $e) {
-    echo "❌ TEST 8 FAILED: ".$e->getMessage()."\n\n";
+    echo '❌ TEST 8 FAILED: '.$e->getMessage()."\n\n";
 }
 
 // ============================================================================
@@ -535,23 +550,23 @@ if ($geminiKey) {
 
         $agent = GeminiSchemaAgent::make();
         $agent->responseSchema($openAiStyleSchema);
-        
+
         $response = $agent->respond('Hans Schmidt is 45 years old and lives in Munich.');
 
-        echo "Response type: ".gettype($response)."\n";
+        echo 'Response type: '.gettype($response)."\n";
 
         if (is_array($response)) {
             echo "✅ Got array response:\n";
-            echo "   Name: ".($response['name'] ?? 'N/A')."\n";
-            echo "   Age: ".($response['age'] ?? 'N/A')."\n";
-            echo "   City: ".($response['city'] ?? 'N/A')."\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
             echo "\n✅ TEST 9 PASSED - unwrapResponseSchema works correctly!\n\n";
         } else {
-            echo "Response: ".json_encode($response)."\n";
+            echo 'Response: '.json_encode($response)."\n";
             echo "\n❌ TEST 9 FAILED: Expected array response\n\n";
         }
     } catch (\Exception $e) {
-        echo "❌ TEST 9 FAILED: ".$e->getMessage()."\n\n";
+        echo '❌ TEST 9 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";

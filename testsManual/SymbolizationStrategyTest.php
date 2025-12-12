@@ -23,7 +23,6 @@ use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Support\Facades\Facade;
 use LarAgent\Agent;
-use LarAgent\BuiltIn\DataModels\MessageSymbolArray;
 use LarAgent\Context\Truncation\SymbolizationStrategy;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
 use LarAgent\Message;
@@ -34,27 +33,27 @@ use LarAgent\Usage\DataModels\Usage;
 class DebugSymbolizationStrategy extends SymbolizationStrategy
 {
     public array $batchCalls = [];  // Track batch sizes for verification
-    
+
     protected function symbolizeBatch(array $messages, string $agentClass, int $batchIndex): array
     {
         $batchSize = count($messages);
         $this->batchCalls[] = $batchSize;
-        
+
         echo "\n  [BATCH {$batchIndex}] Processing {$batchSize} messages...\n";
-        
+
         $result = parent::symbolizeBatch($messages, $agentClass, $batchIndex);
-        
+
         echo "  [BATCH {$batchIndex}] ✅ Generated ".count($result)." symbols\n";
-        
+
         return $result;
     }
 }
 
 // Bootstrap minimal Laravel environment
-$container = new Container();
+$container = new Container;
 Container::setInstance($container);
 $container->singleton('events', fn () => new Dispatcher($container));
-$container->singleton('config', fn () => new \Illuminate\Config\Repository());
+$container->singleton('config', fn () => new \Illuminate\Config\Repository);
 Facade::setFacadeApplication($container);
 
 // Load API key
@@ -93,8 +92,11 @@ config()->set('laragent.storage.default_storage', [
 class SymbolizationTestAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $provider = 'openai';
+
     protected $enableTruncation = true;
+
     protected $contextWindowSize = 5000; // Small window to trigger truncation
 
     protected $storage = [
@@ -134,7 +136,7 @@ $conversation = [
     ],
     [
         'role' => 'assistant',
-        'content' => "For a mix of traditional and modern Japan, I recommend: Tokyo for technology and pop culture, Kyoto for temples and geishas, Osaka for food and nightlife, and Hiroshima for history. Consider a JR Pass for easy travel between cities.",
+        'content' => 'For a mix of traditional and modern Japan, I recommend: Tokyo for technology and pop culture, Kyoto for temples and geishas, Osaka for food and nightlife, and Hiroshima for history. Consider a JR Pass for easy travel between cities.',
     ],
     // Exchange 3-4
     [
@@ -152,7 +154,7 @@ $conversation = [
     ],
     [
         'role' => 'assistant',
-        'content' => "Budget travelers can manage with $100-150/day. Mid-range is $200-300/day. Plan for: accommodation ($50-150/night), food ($30-60/day), transport (JR Pass ~$270/week), and activities ($20-50/day). Tokyo is more expensive than other cities.",
+        'content' => 'Budget travelers can manage with $100-150/day. Mid-range is $200-300/day. Plan for: accommodation ($50-150/night), food ($30-60/day), transport (JR Pass ~$270/week), and activities ($20-50/day). Tokyo is more expensive than other cities.',
     ],
     // Exchange 7-8
     [
@@ -197,7 +199,7 @@ $conversation = [
     ],
     [
         'role' => 'assistant',
-        'content' => "Book cherry blossom season 3-6 months ahead - hotels fill up fast! Mix it up: try a traditional ryokan (Japanese inn) in Kyoto, business hotels in Tokyo, and maybe a capsule hotel for the experience. Booking.com and Agoda work well. Consider Airbnb for longer stays.",
+        'content' => 'Book cherry blossom season 3-6 months ahead - hotels fill up fast! Mix it up: try a traditional ryokan (Japanese inn) in Kyoto, business hotels in Tokyo, and maybe a capsule hotel for the experience. Booking.com and Agoda work well. Consider Airbnb for longer stays.',
     ],
     // Exchange 17-18
     [
@@ -237,7 +239,7 @@ $conversation = [
     ],
 ];
 
-echo "Original conversation has ".count($conversation)." exchanges (".count($conversation)." messages + 1 system = ".(count($conversation) + 1)." total):\n\n";
+echo 'Original conversation has '.count($conversation).' exchanges ('.count($conversation).' messages + 1 system = '.(count($conversation) + 1)." total):\n\n";
 
 foreach ($conversation as $index => $msg) {
     $preview = strlen($msg['content']) > 60 ? substr($msg['content'], 0, 60).'...' : $msg['content'];
@@ -252,20 +254,20 @@ echo "TEST: Applying Symbolization Strategy\n";
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 
 echo "Configuration:\n";
-echo "  - Total Messages: ".(count($conversation) + 1)." (1 system + ".count($conversation)." conversation)\n";
+echo '  - Total Messages: '.(count($conversation) + 1).' (1 system + '.count($conversation)." conversation)\n";
 echo "  - Keep Messages: 3 (most recent conversation messages)\n";
 echo "  - System preserved separately\n";
-echo "  - Messages to Symbolize: ".(count($conversation) - 3)." messages (conversation - kept)\n";
+echo '  - Messages to Symbolize: '.(count($conversation) - 3)." messages (conversation - kept)\n";
 echo "  - Expected Batches: 10 + 10 + 1 = 3 API calls\n";
 echo "  - Symbol Agent: ChatSymbolizerAgent (built-in)\n\n";
 
 try {
     // Build message array
-    $messages = new MessageArray();
-    
+    $messages = new MessageArray;
+
     // Add system message first
     $messages->add(Message::system('You are a helpful travel assistant.'));
-    
+
     // Add conversation
     foreach ($conversation as $msg) {
         if ($msg['role'] === 'user') {
@@ -282,7 +284,7 @@ try {
         }
     }
 
-    echo "Message count before truncation: ".$messages->count()."\n";
+    echo 'Message count before truncation: '.$messages->count()."\n";
     echo "Simulated token usage: 6000 tokens (context window: 5000)\n\n";
 
     echo "Calling symbolization strategy...\n";
@@ -299,23 +301,23 @@ try {
     $duration = round(microtime(true) - $startTime, 2);
 
     echo "✅ Symbolization Complete! (took {$duration}s)\n\n";
-    
+
     // Verify batch sizes
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
     echo "BATCH VERIFICATION:\n";
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
-    
+
     echo "Expected batches: [10, 10, 1]\n";
-    echo "Actual batches:   [".implode(', ', $strategy->batchCalls)."]\n\n";
-    
+    echo 'Actual batches:   ['.implode(', ', $strategy->batchCalls)."]\n\n";
+
     $expectedBatches = [10, 10, 1];
     if ($strategy->batchCalls === $expectedBatches) {
         echo "✅ Batch sizes match expected pattern!\n\n";
     } else {
         echo "❌ Batch sizes do NOT match expected pattern!\n\n";
     }
-    
-    echo "Message count after truncation: ".$truncatedMessages->count()."\n\n";
+
+    echo 'Message count after truncation: '.$truncatedMessages->count()."\n\n";
 
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
     echo "TRUNCATED MESSAGES:\n";
@@ -324,11 +326,11 @@ try {
     foreach ($truncatedMessages->all() as $index => $message) {
         $role = strtoupper($message->getRole());
         $content = $message->getContentAsString();
-        
+
         // Format nicely
         echo "[$role]\n";
         echo "─────────────────────────────────────────────────────────\n";
-        
+
         // Word wrap long content
         $wrapped = wordwrap($content, 70, "\n");
         echo $wrapped."\n\n";
@@ -339,15 +341,15 @@ try {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 
     echo "Summary:\n";
-    echo "  - Original messages: ".(count($conversation) + 1)." (system + ".count($conversation)." conversation)\n";
-    echo "  - Messages symbolized: ".(count($conversation) - 3)."\n";
-    echo "  - API calls made: ".count($strategy->batchCalls)." (batches: ".implode(', ', $strategy->batchCalls).")\n";
-    echo "  - After truncation: ".$truncatedMessages->count()." messages\n";
+    echo '  - Original messages: '.(count($conversation) + 1).' (system + '.count($conversation)." conversation)\n";
+    echo '  - Messages symbolized: '.(count($conversation) - 3)."\n";
+    echo '  - API calls made: '.count($strategy->batchCalls).' (batches: '.implode(', ', $strategy->batchCalls).")\n";
+    echo '  - After truncation: '.$truncatedMessages->count()." messages\n";
     echo "  - Strategy preserved system message separately\n";
     echo "  - Recent 3 conversation messages kept intact\n";
 
 } catch (\Exception $e) {
-    echo "❌ TEST FAILED: ".$e->getMessage()."\n";
+    echo '❌ TEST FAILED: '.$e->getMessage()."\n";
     echo "Stack trace:\n".$e->getTraceAsString()."\n";
     exit(1);
 }

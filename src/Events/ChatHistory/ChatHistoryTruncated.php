@@ -19,6 +19,5 @@ class ChatHistoryTruncated
     public function __construct(
         public readonly ChatHistoryStorage $chatHistory,
         public readonly MessageArray $remainingMessages
-    ) {
-    }
+    ) {}
 }

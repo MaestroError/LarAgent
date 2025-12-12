@@ -29,7 +29,7 @@ uses(TestCase::class);
 beforeEach(function () {
     // Get API key from environment variable
     $yourApiKey = include 'openai-api-key.php';
-    
+
     if (empty($yourApiKey)) {
         $this->markTestSkipped('OPENAI_API_KEY not set in openai-api-key.php');
     }
@@ -92,10 +92,11 @@ function createAssistantMessage(string $content, int $totalTokens): \LarAgent\Me
     // totalTokens represents the full prompt + completion for that API call
     // In real API calls, this grows as the conversation history increases
     $message->setUsage(new Usage(
-        promptTokens: (int)($totalTokens * 0.8),  // Approximate prompt portion
-        completionTokens: (int)($totalTokens * 0.2),  // Approximate completion portion
+        promptTokens: (int) ($totalTokens * 0.8),  // Approximate prompt portion
+        completionTokens: (int) ($totalTokens * 0.2),  // Approximate completion portion
         totalTokens: $totalTokens
     ));
+
     return $message;
 }
 
@@ -124,7 +125,7 @@ test('simple truncation strategy - prepopulate history then send message', funct
     foreach ($fakeHistory as $index => [$question, $answer, $totalTokens]) {
         $agent->chatHistory()->addMessage(Message::user($question));
         $agent->chatHistory()->addMessage(createAssistantMessage($answer, $totalTokens));
-        echo "Added Q".($index + 1).": totalTokens={$totalTokens}\n";
+        echo 'Added Q'.($index + 1).": totalTokens={$totalTokens}\n";
     }
 
     $countBeforeTruncation = $agent->chatHistory()->getMessages()->count();
@@ -133,7 +134,7 @@ test('simple truncation strategy - prepopulate history then send message', funct
 
     // This will trigger prepareAgent() which calls applyTruncationIfNeeded()
     $response = $agent->respond('What is 1+1?');
-    
+
     echo "Response: {$response}\n\n";
 
     $countAfterTruncation = $agent->chatHistory()->getMessages()->count();
@@ -163,18 +164,18 @@ test('truncation preserves system messages', function () {
     // Final totalTokens = 500 + 8*700 = 6100 (exceeds 5000 context window)
 
     echo "Pre-populated with system + 8 pairs (17 messages), last totalTokens={$totalTokens}\n";
-    echo "Messages before: ".$agent->chatHistory()->getMessages()->count()."\n";
+    echo 'Messages before: '.$agent->chatHistory()->getMessages()->count()."\n";
     echo "Sending real API request...\n\n";
 
     $response = $agent->respond('Final question?');
-    
+
     echo "Response: {$response}\n\n";
 
     $messages = $agent->chatHistory()->getMessages();
     $firstMessage = $messages->all()[0] ?? null;
 
-    echo "Messages after: ".$messages->count()."\n";
-    echo "First message role: ".($firstMessage ? $firstMessage->getRole() : 'none')."\n";
+    echo 'Messages after: '.$messages->count()."\n";
+    echo 'First message role: '.($firstMessage ? $firstMessage->getRole() : 'none')."\n";
 
     // System message should be preserved by truncation strategy (preserve_system=true)
     expect($firstMessage)->not->toBeNull();
@@ -184,7 +185,7 @@ test('truncation preserves system messages', function () {
 
 test('truncation event is dispatched', function () {
     $agent = SimpleTruncationTestAgent::for('truncation-event-test');
-    
+
     echo "\n=== Truncation Event Test ===\n\n";
 
     $eventDispatched = false;
@@ -195,7 +196,7 @@ test('truncation event is dispatched', function () {
         $eventDispatched = true;
         $messagesInEvent = $event->messages;
         echo "📢 ChatHistoryTruncated event received!\n";
-        echo "   Messages in event: ".$event->messages->count()."\n";
+        echo '   Messages in event: '.$event->messages->count()."\n";
     });
 
     // Pre-populate with many fake messages with high token counts
@@ -212,9 +213,9 @@ test('truncation event is dispatched', function () {
     echo "Sending real API request to trigger truncation...\n\n";
 
     $response = $agent->respond('Trigger truncation please.');
-    
+
     echo "\nResponse: {$response}\n\n";
-    
+
     $countAfter = $agent->chatHistory()->getMessages()->count();
     echo "Messages after: {$countAfter}\n";
 

@@ -9,8 +9,6 @@ abstract class TruncationStrategy implements TruncationStrategyContract
 {
     /**
      * Configuration for this strategy
-     *
-     * @var array
      */
     protected array $config;
 

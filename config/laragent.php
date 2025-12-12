@@ -47,7 +47,6 @@ return [
      *
      * You can remove any other providers
      * which your project doesn't need
-     *
      */
     'providers' => [
         'default' => [
@@ -191,8 +190,6 @@ return [
      */
     'default_usage_storage' => null,
 
-
-
     /*
     |--------------------------------------------------------------------------
     | Context Window Management
@@ -205,7 +202,6 @@ return [
     */
 
     /**
-     * 
      * IMPORTANT: About 'default_context_window'
      * -----------------------------------------
      * The 'default_context_window' setting is NOT the same as the model's official context window.

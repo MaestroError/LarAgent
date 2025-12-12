@@ -1518,8 +1518,8 @@ class Agent
         if (count($messages) > 0) {
             $this->logWarning(
                 'LarAgent: Truncation is enabled but no messages have usage data. '
-                . 'Truncation will not trigger until usage data is available. '
-                . 'Ensure your LLM driver provides usage information in responses.',
+                .'Truncation will not trigger until usage data is available. '
+                .'Ensure your LLM driver provides usage information in responses.',
                 ['agent' => static::class, 'message_count' => count($messages)]
             );
         }

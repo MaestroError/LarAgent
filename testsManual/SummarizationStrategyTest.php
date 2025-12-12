@@ -30,10 +30,10 @@ use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Usage\DataModels\Usage;
 
 // Bootstrap minimal Laravel environment
-$container = new Container();
+$container = new Container;
 Container::setInstance($container);
 $container->singleton('events', fn () => new Dispatcher($container));
-$container->singleton('config', fn () => new \Illuminate\Config\Repository());
+$container->singleton('config', fn () => new \Illuminate\Config\Repository);
 Facade::setFacadeApplication($container);
 
 // Load API key
@@ -72,8 +72,11 @@ config()->set('laragent.storage.default_storage', [
 class SummarizationTestAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
+
     protected $provider = 'openai';
+
     protected $enableTruncation = true;
+
     protected $contextWindowSize = 5000; // Small window to trigger truncation
 
     protected $storage = [
@@ -139,7 +142,7 @@ $conversation = [
     ],
 ];
 
-echo "Original conversation has ".count($conversation)." exchanges:\n\n";
+echo 'Original conversation has '.count($conversation)." exchanges:\n\n";
 
 foreach ($conversation as $index => $msg) {
     $preview = strlen($msg['content']) > 80 ? substr($msg['content'], 0, 80).'...' : $msg['content'];
@@ -160,11 +163,11 @@ echo "  - Summary Agent: ChatSummarizerAgent (built-in)\n\n";
 
 try {
     // Build message array
-    $messages = new MessageArray();
-    
+    $messages = new MessageArray;
+
     // Add system message first
     $messages->add(Message::system('You are a helpful coding assistant.'));
-    
+
     // Add conversation
     foreach ($conversation as $msg) {
         if ($msg['role'] === 'user') {
@@ -181,7 +184,7 @@ try {
         }
     }
 
-    echo "Message count before truncation: ".$messages->count()."\n";
+    echo 'Message count before truncation: '.$messages->count()."\n";
     echo "Simulated token usage: 6000 tokens (context window: 5000)\n\n";
 
     echo "Calling summarization strategy...\n\n";
@@ -195,7 +198,7 @@ try {
     $truncatedMessages = $strategy->truncate($messages, 5000, 6000);
 
     echo "✅ Summarization Complete!\n\n";
-    echo "Message count after truncation: ".$truncatedMessages->count()."\n\n";
+    echo 'Message count after truncation: '.$truncatedMessages->count()."\n\n";
 
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
     echo "TRUNCATED MESSAGES:\n";
@@ -204,11 +207,11 @@ try {
     foreach ($truncatedMessages->all() as $index => $message) {
         $role = strtoupper($message->getRole());
         $content = $message->getContentAsString();
-        
+
         // Format nicely
         echo "[$role]\n";
         echo "─────────────────────────────────────────────────────────\n";
-        
+
         // Word wrap long content
         $wrapped = wordwrap($content, 70, "\n");
         echo $wrapped."\n\n";
@@ -219,12 +222,12 @@ try {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 
     echo "Summary:\n";
-    echo "  - Original messages: ".(count($conversation) * 2 + 1)." (system + ".count($conversation)." exchanges)\n";
-    echo "  - After truncation: ".$truncatedMessages->count()." messages\n";
+    echo '  - Original messages: '.(count($conversation) * 2 + 1).' (system + '.count($conversation)." exchanges)\n";
+    echo '  - After truncation: '.$truncatedMessages->count()." messages\n";
     echo "  - Strategy preserved system message and summarized older conversation\n";
 
 } catch (\Exception $e) {
-    echo "❌ TEST FAILED: ".$e->getMessage()."\n";
+    echo '❌ TEST FAILED: '.$e->getMessage()."\n";
     echo "Stack trace:\n".$e->getTraceAsString()."\n";
     exit(1);
 }
