@@ -389,9 +389,9 @@ class Agent
      * Quick one-off response without chat history
      *
      * @param  string  $message  The message to process
-     * @return string|array The agent's response
+     * @return string|array|\LarAgent\Core\Contracts\DataModel The agent's response
      */
-    public static function ask(string $message): string|array
+    public static function ask(string $message): string|array|\LarAgent\Core\Contracts\DataModel
     {
         return static::make()->respond($message);
     }
@@ -410,9 +410,9 @@ class Agent
      * Process a message and get the agent's response
      *
      * @param  string|null  $message  Optional message to process
-     * @return string|array|MessageInterface The agent's response
+     * @return string|array|\LarAgent\Core\Contracts\DataModel|MessageInterface The agent's response
      */
-    public function respond(?string $message = null): string|array|MessageInterface
+    public function respond(?string $message = null): string|array|\LarAgent\Core\Contracts\DataModel|MessageInterface
     {
         if ($message) {
             $this->message($message);
@@ -463,7 +463,7 @@ class Agent
         }
 
         if (is_array($response)) {
-            return $response;
+            return $this->processArrayResponse($response);
         }
 
         return (string) $response;
@@ -708,6 +708,56 @@ class Agent
 
         // Otherwise, return the array schema as-is if it's an array, otherwise return null
         return is_array($this->responseSchema) ? $this->responseSchema : null;
+    }
+
+    /**
+     * Get the DataModel class name if responseSchema is a DataModel
+     *
+     * Override this method when using structuredOutput() with a custom array schema
+     * but still want DataModel reconstruction.
+     *
+     * @return string|null The DataModel class name or null if not applicable
+     */
+    public function getResponseSchemaClass(): ?string
+    {
+        if ($this->responseSchema instanceof \LarAgent\Core\Contracts\DataModel) {
+            return get_class($this->responseSchema);
+        }
+
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+            return $this->responseSchema;
+        }
+
+        return null;
+    }
+
+    /**
+     * Reconstruct a DataModel instance from array response
+     *
+     * @param  array  $response  The array response from LLM
+     * @param  string  $class  The DataModel class name
+     * @return \LarAgent\Core\Contracts\DataModel The reconstructed DataModel instance
+     */
+    protected function reconstructDataModel(array $response, string $class): \LarAgent\Core\Contracts\DataModel
+    {
+        return $class::fromArray($response);
+    }
+
+    /**
+     * Process array response and reconstruct DataModel if applicable
+     *
+     * @param  array  $response  The array response from LLM
+     * @return array|\LarAgent\Core\Contracts\DataModel The processed response
+     */
+    protected function processArrayResponse(array $response): array|\LarAgent\Core\Contracts\DataModel
+    {
+        $class = $this->getResponseSchemaClass();
+
+        if ($class !== null) {
+            return $this->reconstructDataModel($response, $class);
+        }
+
+        return $response;
     }
 
     /**
