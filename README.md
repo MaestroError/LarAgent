@@ -229,7 +229,7 @@ return [
         'default' => [
             'label' => 'openai',
             'api_key' => env('OPENAI_API_KEY'),
-            'default_context_window' => 50000,
+            'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 100,
             'default_temperature' => 1,
         ],
@@ -253,7 +253,7 @@ You can configure the package by editing the `config/laragent.php` file. Here is
         // Default driver and chat history
         'driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
         'chat_history' => \LarAgent\History\InMemoryChatHistory::class,
-        'default_context_window' => 15000,
+        'default_truncation_threshold' => 15000,
         'default_max_completion_tokens' => 100,
         'default_temperature' => 1,
         // Enable/disable parallel tool calls

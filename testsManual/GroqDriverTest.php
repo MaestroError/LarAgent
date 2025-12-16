@@ -23,7 +23,7 @@ beforeEach(function () {
         'model' => 'openai/gpt-oss-120b',
         'driver' => GroqDriver::class,
         'api_key' => $yourApiKey,
-        'default_context_window' => 131072,
+        'default_truncation_threshold' => 131072,
         'default_max_completion_tokens' => 65536,
         'default_temperature' => 1,
     ]);

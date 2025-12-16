@@ -102,13 +102,15 @@ class Agent
     protected $apiUrl;
 
     /**
-     * Context window size for this agent.
-     * If not set, uses provider's default_context_window config.
-     * Used for truncation when enabled.
+     * Truncation threshold (in tokens) for this agent.
+     * When chat history exceeds this threshold, truncation strategies are applied.
+     * If not set, uses provider's default_truncation_threshold config.
+     * NOTE: This is NOT the model's context window - it should be set lower to leave
+     * room for new messages and responses.
      *
      * @var int|null
      */
-    protected $contextWindowSize;
+    protected $truncationThreshold;
 
     /**
      * Store message metadata with messages in chat history
@@ -1500,26 +1502,27 @@ class Agent
         }
 
         $strategy = $this->truncationStrategy();
-        $windowSize = $this->getContextWindowSize();
-        $buffer = config('laragent.context_window_buffer', 0.2);
+        $threshold = $this->getTruncationThreshold();
+        $buffer = config('laragent.truncation_buffer', 0.2);
 
         $this->context()->setTruncationStrategy($strategy);
-        $this->context()->setContextWindowSize($windowSize);
-        $this->context()->setContextWindowBuffer($buffer);
+        $this->context()->setTruncationThreshold($threshold);
+        $this->context()->setTruncationBuffer($buffer);
     }
 
     /**
-     * Get context window size.
-     * Priority: Agent property > Provider config > Default
+     * Get truncation threshold (in tokens).
+     * This is the token count at which truncation strategies are applied.
+     * Priority: Agent property > Provider config > Default (128000)
      */
-    public function getContextWindowSize(): int
+    public function getTruncationThreshold(): int
     {
-        if ($this->contextWindowSize !== null) {
-            return $this->contextWindowSize;
+        if ($this->truncationThreshold !== null) {
+            return $this->truncationThreshold;
         }
 
         return config(
-            "laragent.providers.{$this->provider}.default_context_window",
+            "laragent.providers.{$this->provider}.default_truncation_threshold",
             128000
         );
     }
@@ -1931,8 +1934,8 @@ class Agent
         if (! isset($this->maxCompletionTokens) && isset($providerData['default_max_completion_tokens'])) {
             $this->maxCompletionTokens = $providerData['default_max_completion_tokens'];
         }
-        if (! isset($this->contextWindowSize) && isset($providerData['default_context_window'])) {
-            $this->contextWindowSize = $providerData['default_context_window'];
+        if (! isset($this->truncationThreshold) && isset($providerData['default_truncation_threshold'])) {
+            $this->truncationThreshold = $providerData['default_truncation_threshold'];
         }
         if (! isset($this->storeMeta) && isset($providerData['store_meta'])) {
             $this->storeMeta = $providerData['store_meta'];

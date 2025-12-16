@@ -16,7 +16,7 @@ function config(string $key): mixed
             'label' => 'openai',
             'model' => 'gpt-4o-mini',
             'api_key' => $yourApiKey,
-            'default_context_window' => 50000,
+            'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 1000,
             'default_temperature' => 1,
         ],

@@ -13,7 +13,7 @@ function config(string $key): mixed
             'label' => 'openai',
             'model' => 'gpt-4.1-nano-bad-name', // Error in model name
             'api_key' => $yourApiKey,
-            'default_context_window' => 50000,
+            'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 1000,
             'default_temperature' => 1,
         ],
@@ -21,7 +21,7 @@ function config(string $key): mixed
             'label' => 'openai',
             'model' => 'gpt-4.1-nano-2025-04-14',
             'api_key' => $yourApiKey,
-            'default_context_window' => 50000,
+            'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 1000,
             'default_temperature' => 1,
         ],

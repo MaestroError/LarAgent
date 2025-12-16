@@ -88,7 +88,7 @@ function config(string $key): mixed
             'name' => 'OpenAI',
             'api_key' => $yourApiKey,
             'driver' => LarAgent\Drivers\OpenAi\OpenAiDriver::class,
-            'default_context_window' => 128000,
+            'default_truncation_threshold' => 128000,
             'default_max_completion_tokens' => 4096,
             'default_temperature' => 0.7,
             'model' => 'gpt-4o-mini',

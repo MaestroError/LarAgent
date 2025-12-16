@@ -31,7 +31,7 @@ beforeEach(function () {
         'model' => 'gpt-4o-mini',
         'api_key' => $yourApiKey,
         'driver' => OpenAiDriver::class,
-        'default_context_window' => 128000,
+        'default_truncation_threshold' => 128000,
         'default_max_completion_tokens' => 8192,
         'default_temperature' => 0.9,
         'track_usage' => true,

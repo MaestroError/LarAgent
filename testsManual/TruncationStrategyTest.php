@@ -41,7 +41,7 @@ beforeEach(function () {
         'model' => 'gpt-4o-mini',
         'api_key' => $yourApiKey,
         'driver' => OpenAiDriver::class,
-        'default_context_window' => 128000,
+        'default_truncation_threshold' => 128000,
         'default_max_completion_tokens' => 8192,
         'default_temperature' => 0.9,
         'track_usage' => true,
@@ -60,7 +60,7 @@ class SimpleTruncationTestAgent extends Agent
 
     protected $enableTruncation = true;
 
-    protected $contextWindowSize = 5000; // Small window to trigger truncation
+    protected $truncationThreshold = 5000; // Small window to trigger truncation
 
     protected $storage = [
         \LarAgent\Context\Drivers\InMemoryStorage::class,
@@ -104,7 +104,7 @@ test('simple truncation strategy - prepopulate history then send message', funct
     $agent = SimpleTruncationTestAgent::for('simple-truncation-test');
 
     echo "\n=== Simple Truncation Strategy Test ===\n";
-    echo "Context Window: {$agent->getContextWindowSize()} tokens\n";
+    echo "Context Window: {$agent->getTruncationThreshold()} tokens\n";
     echo "Keep Messages: 3\n\n";
 
     // Pre-populate with fake conversation history

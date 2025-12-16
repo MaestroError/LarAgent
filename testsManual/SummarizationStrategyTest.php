@@ -56,7 +56,7 @@ config()->set('laragent.providers.openai', [
     'model' => 'gpt-4o-mini',
     'api_key' => $apiKey,
     'driver' => OpenAiDriver::class,
-    'default_context_window' => 128000,
+    'default_truncation_threshold' => 128000,
     'default_max_completion_tokens' => 8192,
     'default_temperature' => 0.7,
 ]);
@@ -77,7 +77,7 @@ class SummarizationTestAgent extends Agent
 
     protected $enableTruncation = true;
 
-    protected $contextWindowSize = 5000; // Small window to trigger truncation
+    protected $truncationThreshold = 5000; // Small window to trigger truncation
 
     protected $storage = [
         \LarAgent\Context\Drivers\InMemoryStorage::class,

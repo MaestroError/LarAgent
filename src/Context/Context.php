@@ -64,15 +64,15 @@ class Context implements ContextContract
     protected ?TruncationStrategyContract $truncationStrategy = null;
 
     /**
-     * Context window size for truncation
+     * Truncation threshold (in tokens) - when history exceeds this, truncation is applied
      */
-    protected ?int $contextWindowSize = null;
+    protected ?int $truncationThreshold = null;
 
     /**
      * Buffer percentage to reserve for new requests (0.0 to 1.0)
      * Default: 0.2 (20% reserved for new content)
      */
-    protected float $contextWindowBuffer = 0.2;
+    protected float $truncationBuffer = 0.2;
 
     /**
      * Create a new Context instance
@@ -368,48 +368,48 @@ class Context implements ContextContract
     }
 
     /**
-     * Set the context window size for truncation.
+     * Set the truncation threshold (in tokens).
      *
-     * @param  int|null  $size  The context window size in tokens
+     * @param  int|null  $threshold  The truncation threshold in tokens
      */
-    public function setContextWindowSize(?int $size): static
+    public function setTruncationThreshold(?int $threshold): static
     {
-        $this->contextWindowSize = $size;
+        $this->truncationThreshold = $threshold;
 
         return $this;
     }
 
     /**
-     * Get the context window size for truncation.
+     * Get the truncation threshold (in tokens).
      */
-    public function getContextWindowSize(): ?int
+    public function getTruncationThreshold(): ?int
     {
-        return $this->contextWindowSize;
+        return $this->truncationThreshold;
     }
 
     /**
-     * Set the context window buffer percentage.
-     * This reserves a portion of the context window for new requests.
+     * Set the truncation buffer percentage.
+     * This reserves a portion of the threshold for new requests.
      *
      * @param  float  $buffer  Buffer percentage (0.0 to 1.0, default: 0.2 = 20%)
      */
-    public function setContextWindowBuffer(float $buffer): static
+    public function setTruncationBuffer(float $buffer): static
     {
         if ($buffer < 0.0 || $buffer > 1.0) {
-            throw new \InvalidArgumentException('Context window buffer must be between 0.0 and 1.0');
+            throw new \InvalidArgumentException('Truncation buffer must be between 0.0 and 1.0');
         }
 
-        $this->contextWindowBuffer = $buffer;
+        $this->truncationBuffer = $buffer;
 
         return $this;
     }
 
     /**
-     * Get the context window buffer percentage.
+     * Get the truncation buffer percentage.
      */
-    public function getContextWindowBuffer(): float
+    public function getTruncationBuffer(): float
     {
-        return $this->contextWindowBuffer;
+        return $this->truncationBuffer;
     }
 
     /**
@@ -421,16 +421,16 @@ class Context implements ContextContract
     public function applyTruncation(ChatHistoryStorage $chatHistory, int $currentTokens): void
     {
         // Check if truncation is configured
-        if ($this->truncationStrategy === null || $this->contextWindowSize === null) {
+        if ($this->truncationStrategy === null || $this->truncationThreshold === null) {
             return;
         }
 
-        // Reserve buffer percentage of context window for upcoming request and response
+        // Reserve buffer percentage of threshold for upcoming request and response
         // This ensures we don't fill the entire context and have room for new content
-        $effectiveWindowSize = (int) ($this->contextWindowSize * (1.0 - $this->contextWindowBuffer));
+        $effectiveThreshold = (int) ($this->truncationThreshold * (1.0 - $this->truncationBuffer));
 
         // Check if truncation is needed
-        if ($currentTokens <= $effectiveWindowSize) {
+        if ($currentTokens <= $effectiveThreshold) {
             return;
         }
 
@@ -440,7 +440,7 @@ class Context implements ContextContract
         // Apply truncation strategy
         $truncatedMessages = $this->truncationStrategy->truncate(
             $messages,
-            $effectiveWindowSize,
+            $effectiveThreshold,
             $currentTokens
         );
 
