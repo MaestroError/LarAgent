@@ -19,7 +19,7 @@ beforeEach(function () {
         'model' => 'claude-3-7-sonnet-latest',
         'api_key' => $yourApiKey,
         'driver' => ClaudeDriver::class,
-        'default_context_window' => 200000,
+        'default_truncation_threshold' => 200000,
         'default_max_completion_tokens' => 8192,
         'default_temperature' => 0.9,
     ]);

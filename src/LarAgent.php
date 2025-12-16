@@ -19,7 +19,7 @@ class LarAgent
 
     protected DriverConfig $driverConfig;
 
-    protected int $contextWindowSize = 50000;
+    protected int $truncationThreshold = 50000;
 
     protected int $reinjectInstructionsPer = 0; // 0 Means never
 
@@ -64,14 +64,14 @@ class LarAgent
         return $this->setModel($model);
     }
 
-    public function getContextWindowSize(): int
+    public function getTruncationThreshold(): int
     {
-        return $this->contextWindowSize;
+        return $this->truncationThreshold;
     }
 
-    public function setContextWindowSize(int $contextWindowSize): self
+    public function setTruncationThreshold(int $truncationThreshold): self
     {
-        $this->contextWindowSize = $contextWindowSize;
+        $this->truncationThreshold = $truncationThreshold;
 
         return $this;
     }
@@ -394,14 +394,14 @@ class LarAgent
         if ($configs instanceof DriverConfig) {
             $this->driverConfig = $this->driverConfig->merge($configs);
 
-            // Handle contextWindowSize from extras if present
-            if ($configs->getExtra('contextWindowSize') !== null) {
-                $this->contextWindowSize = $configs->getExtra('contextWindowSize');
+            // Handle truncationThreshold from extras if present
+            if ($configs->getExtra('truncationThreshold') !== null) {
+                $this->truncationThreshold = $configs->getExtra('truncationThreshold');
             }
 
             // Set any extras from the DriverConfig to Configs trait
             $extras = $configs->getExtras();
-            unset($extras['contextWindowSize']); // Already handled
+            unset($extras['truncationThreshold']); // Already handled
             if (! empty($extras)) {
                 $this->setConfigs($extras);
             }
@@ -410,10 +410,10 @@ class LarAgent
         }
 
         // Handle legacy array format (camelCase keys expected)
-        // Extract contextWindowSize separately as it's not part of DriverConfig
-        if (array_key_exists('contextWindowSize', $configs)) {
-            $this->contextWindowSize = $configs['contextWindowSize'];
-            unset($configs['contextWindowSize']);
+        // Extract truncationThreshold separately as it's not part of DriverConfig
+        if (array_key_exists('truncationThreshold', $configs)) {
+            $this->truncationThreshold = $configs['truncationThreshold'];
+            unset($configs['truncationThreshold']);
         }
 
         if (array_key_exists('reinjectInstructionsPer', $configs)) {

@@ -40,11 +40,11 @@ class SymbolizationStrategy extends TruncationStrategy
      * Creates brief symbols/summaries for each middle message and combines them.
      *
      * @param  MessageArray  $messages  Current chat history
-     * @param  int  $contextWindowSize  Maximum allowed tokens
+     * @param  int  $truncationThreshold  Maximum allowed tokens (effective threshold after buffer)
      * @param  int  $currentTokens  Current total token count
      * @return MessageArray Truncated messages
      */
-    public function truncate(MessageArray $messages, int $contextWindowSize, int $currentTokens): MessageArray
+    public function truncate(MessageArray $messages, int $truncationThreshold, int $currentTokens): MessageArray
     {
         $keepMessages = $this->getConfig('keep_messages', 5);
         $summaryAgentClass = $this->getConfig('summary_agent');

@@ -8,7 +8,7 @@ class TruncationTestAgent extends Agent
 {
     protected $enableTruncation = true;
 
-    protected $contextWindowSize = 10000;
+    protected $truncationThreshold = 10000;
 
     protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
     {
@@ -24,7 +24,7 @@ describe('Agent Truncation Integration', function () {
         $agent = TruncationTestAgent::for('test-truncation');
 
         expect($agent->shouldTruncate())->toBeTrue();
-        expect($agent->getContextWindowSize())->toBe(10000);
+        expect($agent->getTruncationThreshold())->toBe(10000);
     });
 
     it('does not apply truncation when disabled', function () {
@@ -80,18 +80,18 @@ describe('Agent Truncation Integration', function () {
         config(['laragent.providers.default.enable_truncation' => null]);
     });
 
-    it('gets context window size from agent property', function () {
+    it('gets truncation threshold from agent property', function () {
         $agent = TruncationTestAgent::for('test-window-size');
 
-        expect($agent->getContextWindowSize())->toBe(10000);
+        expect($agent->getTruncationThreshold())->toBe(10000);
     });
 
-    it('gets context window size from provider config when agent property is null', function () {
-        config(['laragent.providers.default.default_context_window' => 50000]);
+    it('gets truncation threshold from provider config when agent property is null', function () {
+        config(['laragent.providers.default.default_truncation_threshold' => 50000]);
 
         $agent = Agent::for('test-provider-window');
 
-        expect($agent->getContextWindowSize())->toBe(50000);
+        expect($agent->getTruncationThreshold())->toBe(50000);
     });
 
     it('context has truncation strategy when truncation is enabled', function () {
@@ -102,10 +102,10 @@ describe('Agent Truncation Integration', function () {
         expect($strategy)->toBeInstanceOf(SimpleTruncationStrategy::class);
     });
 
-    it('context has context window size when truncation is enabled', function () {
+    it('context has truncation threshold when truncation is enabled', function () {
         $agent = TruncationTestAgent::for('test-context-window');
 
-        $windowSize = $agent->context()->getContextWindowSize();
+        $windowSize = $agent->context()->getTruncationThreshold();
 
         expect($windowSize)->toBe(10000);
     });

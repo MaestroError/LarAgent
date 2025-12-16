@@ -53,7 +53,7 @@ return [
             'label' => 'openai',
             'api_key' => env('OPENAI_API_KEY'),
             'driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
-            'default_context_window' => 50000,
+            'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
         ],
@@ -62,7 +62,7 @@ return [
             'label' => 'gemini',
             'api_key' => env('GEMINI_API_KEY'),
             'driver' => \LarAgent\Drivers\OpenAi\GeminiDriver::class,
-            'default_context_window' => 1000000,
+            'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
             'model' => 'gemini-2.0-flash-latest',
@@ -72,7 +72,7 @@ return [
             'label' => 'gemini',
             'api_key' => env('GEMINI_API_KEY'),
             'driver' => \LarAgent\Drivers\Gemini\GeminiDriver::class,
-            'default_context_window' => 1000000,
+            'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
             'model' => 'gemini-2.0-flash-latest',
@@ -82,7 +82,7 @@ return [
             'label' => 'groq',
             'api_key' => env('GROQ_API_KEY'),
             'driver' => \LarAgent\Drivers\Groq\GroqDriver::class,
-            'default_context_window' => 131072,
+            'default_truncation_threshold' => 131072,
             'default_max_completion_tokens' => 131072,
             'default_temperature' => 1,
         ],
@@ -92,7 +92,7 @@ return [
             'api_key' => env('ANTHROPIC_API_KEY'),
             'model' => 'claude-3-7-sonnet-latest',
             'driver' => \LarAgent\Drivers\Anthropic\ClaudeDriver::class,
-            'default_context_window' => 200000,
+            'default_truncation_threshold' => 200000,
             'default_max_completion_tokens' => 8192,
             'default_temperature' => 1,
         ],
@@ -102,7 +102,7 @@ return [
             'api_key' => env('OPENROUTER_API_KEY'),
             'model' => 'openai/gpt-oss-20b:free',
             'driver' => \LarAgent\Drivers\OpenAi\OpenRouter::class,
-            'default_context_window' => 200000,
+            'default_truncation_threshold' => 200000,
             'default_max_completion_tokens' => 8192,
             'default_temperature' => 1,
         ],
@@ -116,7 +116,7 @@ return [
         'ollama' => [
             'label' => 'ollama',
             'driver' => \LarAgent\Drivers\OpenAi\OllamaDriver::class,
-            'default_context_window' => 131072,
+            'default_truncation_threshold' => 131072,
             'default_max_completion_tokens' => 131072,
             'default_temperature' => 0.8,
         ],
@@ -202,10 +202,10 @@ return [
     */
 
     /**
-     * IMPORTANT: About 'default_context_window'
+     * IMPORTANT: About 'default_truncation_threshold'
      * -----------------------------------------
-     * The 'default_context_window' setting is NOT the same as the model's official context window.
-     * This is the AGENT's managed context window used for internal truncation and history management.
+     * The 'default_truncation_threshold' setting is NOT the same as the model's official context window.
+     * This is the AGENT's managed truncation threshold used for internal truncation and history management.
      *
      * It should be set significantly LOWER than the model's actual context window to:
      * - Reserve space for incoming user messages and assistant responses
@@ -220,13 +220,13 @@ return [
      *
      * Example for 128K context:
      * - Model context: 128,000 tokens
-     * - Recommended agent context: 38,000-64,000 tokens (30-50%)
+     * - Recommended truncation threshold: 38,000-64,000 tokens (30-50%)
      */
 
     /**
-     * Enable context window truncation globally for all agents.
+     * Enable truncation globally for all agents.
      * Can be overridden per-provider (in providers array) or per-agent via $enableTruncation property.
-     * If enabled, agents will use truncation strategies as soon as history exceeds $contextWindowSize.
+     * If enabled, agents will use truncation strategies as soon as history exceeds $truncationThreshold.
      * Priority: Agent property -> Provider config -> Global config
      */
     'enable_truncation' => false,
@@ -258,18 +258,18 @@ return [
     ],
 
     /**
-     * Context window buffer percentage (0.0 to 1.0).
-     * Reserves this percentage of the AGENT's context window for safety margin.
+     * Truncation buffer percentage (0.0 to 1.0).
+     * Reserves this percentage of the AGENT's truncation threshold for safety margin.
      * Default: 0.2 (20% reserved, 80% available for history)
      *
-     * Note: This buffer works alongside the agent's context window setting (see 'default_context_window').
-     * Since the agent's context window should already be set lower than the model's limit,
+     * Note: This buffer works alongside the agent's truncation threshold setting (see 'default_truncation_threshold').
+     * Since the agent's truncation threshold should already be set lower than the model's limit,
      * this buffer provides additional protection against edge cases and token estimation variance.
      *
      * Examples:
-     * - 0.1 (10%): Minimal buffer, use when agent context window is already very conservative
+     * - 0.1 (10%): Minimal buffer, use when truncation threshold is already very conservative
      * - 0.2 (20%): Balanced approach (default)
      * - 0.3 (30%): Extra safety margin for unpredictable message sizes
      */
-    'context_window_buffer' => 0.2,
+    'truncation_buffer' => 0.2,
 ];

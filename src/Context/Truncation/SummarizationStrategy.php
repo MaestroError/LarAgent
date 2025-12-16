@@ -32,11 +32,11 @@ class SummarizationStrategy extends TruncationStrategy
      * Keeps system messages and last N messages, summarizes the middle messages.
      *
      * @param  MessageArray  $messages  Current chat history
-     * @param  int  $contextWindowSize  Maximum allowed tokens
+     * @param  int  $truncationThreshold  Maximum allowed tokens (effective threshold after buffer)
      * @param  int  $currentTokens  Current total token count
      * @return MessageArray Truncated messages
      */
-    public function truncate(MessageArray $messages, int $contextWindowSize, int $currentTokens): MessageArray
+    public function truncate(MessageArray $messages, int $truncationThreshold, int $currentTokens): MessageArray
     {
         $keepMessages = $this->getConfig('keep_messages', 5);
         $summaryAgentClass = $this->getConfig('summary_agent');

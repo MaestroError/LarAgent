@@ -24,11 +24,11 @@ class {{ class }} extends TruncationStrategy
      * Apply truncation to messages array.
      *
      * @param  MessageArray  $messages  Current chat history
-     * @param  int  $contextWindowSize  Maximum allowed tokens
+     * @param  int  $truncationThreshold  Maximum allowed tokens (effective threshold after buffer)
      * @param  int  $currentTokens  Current total token count
      * @return MessageArray Truncated messages
      */
-    public function truncate(MessageArray $messages, int $contextWindowSize, int $currentTokens): MessageArray
+    public function truncate(MessageArray $messages, int $truncationThreshold, int $currentTokens): MessageArray
     {
         // Implement your truncation logic here
 
