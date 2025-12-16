@@ -269,7 +269,7 @@ Context::for($identity)->clear();
 | `$chatSessionId` | Use `context()->getIdentity()->getKey()` |
 | `$chatKey` | Use `context()->getIdentity()->getKey()` |
 | `$includeModelInChatSessionId` | Removed - not supported |
-| `$saveChatKeys` | Use new IdentityStorage with `$trackIdentities = true` |
+| `$saveChatKeys` | Automatic - handled by new Context system's `IdentityStorage` |
 | `$contextWindowSize` | Use `$truncationThreshold` |
 
 #### Removed Methods
@@ -630,7 +630,7 @@ $response->confidence; // 95
 - [ ] Update `ToolResultMessage` constructor calls to include `$toolName`
 - [ ] Update `ToolCallMessage` constructor calls to remove `$message` parameter
 - [ ] Replace `$contextWindowSize` with `$truncationThreshold`
-- [ ] Replace `$saveChatKeys` with `$trackIdentities` if tracking needed
+- [ ] Remove `$saveChatKeys` (now automatic via Context system)
 - [ ] Remove `$includeModelInChatSessionId` and related method calls
 - [ ] Update provider config `default_context_window` → `default_truncation_threshold`
 - [ ] Update provider config `chat_history` → `history`
