@@ -106,7 +106,7 @@ $message = UserMessage::fromArray($data); // or appropriate message class
 
 #### What Changed
 
-The `ToolResultMessage` constructor now requires `$toolName` as the third parameter (required for Gemini driver compatibility).
+The `ToolResultMessage` constructor now accepts `$toolName` as an optional third parameter. While it has a default value (empty string), you should explicitly provide it for Gemini driver compatibility.
 
 #### Migration Steps
 
