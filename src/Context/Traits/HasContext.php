@@ -61,7 +61,7 @@ trait HasContext
     {
         return new SessionIdentity(
             agentName: $this->getAgentName(),
-            chatName: $this->getChatKey(),
+            chatName: $this->getSessionKey(),
             userId: $this->getUserId(),
             group: $this->group(),
         );
@@ -87,14 +87,30 @@ trait HasContext
         return $this->usesUserId;
     }
 
-    public function getChatKey(): string
+    public function getSessionKey(): string
     {
         return $this->chatKey;
     }
 
-    public function getChatSessionId(): string
+    /**
+     * @deprecated Use getSessionKey() instead
+     */
+    public function getChatKey(): string
+    {
+        return $this->getSessionKey();
+    }
+
+    public function getSessionId(): string
     {
         return $this->chatSessionId;
+    }
+
+    /**
+     * @deprecated Use getSessionId() instead
+     */
+    public function getChatSessionId(): string
+    {
+        return $this->getSessionId();
     }
 
     public function getUserId(): ?string

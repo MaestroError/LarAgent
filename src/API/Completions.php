@@ -66,7 +66,7 @@ class Completions
         }
 
         return [
-            'id' => $instance->agent->getChatSessionId(),
+            'id' => $instance->agent->getSessionId(),
             'object' => 'chat.completion',
             'created' => time(),
             'model' => $instance->agent->model(),
@@ -274,7 +274,7 @@ class Completions
                 $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
 
                 yield [
-                    'id' => $this->agent->getChatSessionId(),
+                    'id' => $this->agent->getSessionId(),
                     'object' => 'chat.completion.chunk',
                     'created' => time(),
                     'model' => $this->agent->model(),
@@ -294,7 +294,7 @@ class Completions
                 $message = $chunk->toArrayWithMeta();
                 $usage = $message['usage'] ?? $message['metadata']['usage'] ?? null;
                 yield [
-                    'id' => $this->agent->getChatSessionId(),
+                    'id' => $this->agent->getSessionId(),
                     'object' => 'chat.completion.chunk',
                     'created' => time(),
                     'model' => $this->agent->model(),

@@ -244,14 +244,43 @@ $keys = $chatHistory->loadKeysFromMemory();
 $chatHistory->removeChatFromMemory($key);
 
 // ✅ AFTER (v1.0)
-// Use the new Context facade or IdentityStorage:
+// Use the new Context facade or Agent methods:
 use LarAgent\Facades\Context;
+use App\AiAgents\MyAgent;
 
-// Get tracked identities
-$identities = Context::getTrackedIdentities();
+// Option 1: Inside Agent - get chat keys via Agent methods
+$agent = MyAgent::for('user-123');
+$chatKeys = $agent->getChatKeys();           // Get all chat history keys for this agent
+$allStorageKeys = $agent->getStorageKeys();  // Get all storage keys (including usage, state, etc.)
+$chatIdentities = $agent->getChatIdentities(); // Get chat identities as SessionIdentityArray
 
-// Clear specific identity
-Context::for($identity)->clear();
+// Option 2: Inside Agent - get current session key
+$sessionKey = $this->context()->getIdentity()->getKey(); // Full storage key
+$chatName = $this->context()->getIdentity()->getChatName(); // Chat name portion
+
+// Option 3: Outside Agent - use Context facade with agent class
+$chatKeys = Context::of(MyAgent::class)->getChatKeys();
+$storageKeys = Context::of(MyAgent::class)->getStorageKeys();
+
+// Option 4: Outside Agent - use Context facade with agent name (lightweight)
+$chatKeys = Context::named('MyAgent')->getChatKeys();
+$storageKeys = Context::named('MyAgent')->getStorageKeys();
+
+// Clear/remove chat histories
+Context::of(MyAgent::class)->clearAllChats();                    // Clear all chats (keeps keys tracked)
+Context::of(MyAgent::class)->removeAllChats();                   // Remove all chats (deletes entirely)
+Context::of(MyAgent::class)->forUser('user-123')->clear();       // Clear chats for specific user
+Context::of(MyAgent::class)->forChat('support')->remove();       // Remove specific chat
+
+// Filter and iterate over identities
+Context::of(MyAgent::class)
+    ->forStorage(ChatHistoryStorage::class)
+    ->forUser('user-123')
+    ->each(fn($identity, $agent) => $agent->chatHistory()->clear());
+
+// Get identities with filters
+$identities = Context::of(MyAgent::class)->getIdentities();        // All tracked identities
+$userChats = Context::of(MyAgent::class)->forUser('user-123')->getChatIdentities();
 ```
 
 ---
@@ -266,8 +295,6 @@ Context::for($identity)->clear();
 
 | Property | Replacement |
 |----------|-------------|
-| `$chatSessionId` | Use `context()->getIdentity()->getKey()` |
-| `$chatKey` | Use `context()->getIdentity()->getKey()` |
 | `$includeModelInChatSessionId` | Removed - not supported |
 | `$saveChatKeys` | Automatic - handled by new Context system's `IdentityStorage` |
 | `$contextWindowSize` | Use `$truncationThreshold` |
@@ -276,21 +303,53 @@ Context::for($identity)->clear();
 
 | Method | Replacement |
 |--------|-------------|
-| `getChatSessionId()` | `context()->getIdentity()->getKey()` |
 | `keyIncludesModelName()` | Removed - not supported |
 | `withModelInChatSessionId()` | Removed - not supported |
 | `withoutModelInChatSessionId()` | Removed - not supported |
 | `createChatHistory(string $sessionId)` | `createChatHistory()` (no parameter) |
 
+#### Renamed Methods
+
+The following methods have been renamed for clarity (old names still work but are deprecated):
+
+| Old Method (v0.8) | New Method (v1.0) | Returns | Description |
+|-------------------|-------------------|---------|-------------|
+| `getChatSessionId()` | `getSessionId()` | `string` | Full storage key (e.g., `AgentName_chatHistory_user-123`) |
+| `getChatKey()` | `getSessionKey()` | `string` | Session key passed to `for()` (e.g., `user-123`) |
+
+#### Available Methods
+
+These methods from `HasContext` trait are available:
+
+| Method | Returns | Description |
+|--------|---------|-------------|
+| `getSessionId()` | `string` | Full storage key (e.g., `AgentName_chatHistory_user-123`) |
+| `getSessionKey()` | `string` | Session key passed to `for()` (e.g., `user-123`) |
+| `getUserId()` | `?string` | User ID if `usesUserId()` was called |
+| `getAgentName()` | `string` | Agent class name |
+| `group()` | `?string` | Group name if set |
+| `context()` | `Context` | Access to context object |
+
 #### Migration Steps
 
-**Step 1:** Replace `getChatSessionId()`:
+**Step 1:** Update method calls (recommended but not required - old names still work):
 ```php
-// ❌ BEFORE (v0.8)
-$sessionId = $this->getChatSessionId();
+// ❌ BEFORE (v0.8) - deprecated, still works
+$fullKey = $this->getChatSessionId();
+$chatKey = $this->getChatKey();
 
-// ✅ AFTER (v1.0)
-$sessionId = $this->context()->getIdentity()->getKey();
+// ✅ AFTER (v1.0) - new method names
+$fullKey = $this->getSessionId();     // Full storage key: "AgentName_chatHistory_user-123"
+$sessionKey = $this->getSessionKey(); // Session key portion: "user-123"
+$userId = $this->getUserId();         // User ID if using forUser()
+$agentName = $this->getAgentName();   // Agent class name
+
+// ✅ You can also access via context identity:
+$identity = $this->context()->getIdentity();
+$fullKey = $identity->getKey();          // Same as getSessionId()
+$chatName = $identity->getChatName();    // Same as getSessionKey()
+$userId = $identity->getUserId();        // Same as getUserId()
+$agentName = $identity->getAgentName();  // Same as getAgentName()
 ```
 
 **Step 2:** Remove `includeModelInChatSessionId` usage:
@@ -346,7 +405,7 @@ LarAgent v1.0 introduces a new **Context System** that manages all storages (cha
 // ❌ BEFORE (v0.8)
 $this->chatHistory->addMessage($message);
 
-// ✅ AFTER (v1.0) - Both work, but context is preferred
+// ✅ AFTER (v1.0)
 $this->chatHistory()->addMessage($message);
 // or
 $this->context()->getStorage(ChatHistoryStorage::class)->addMessage($message);
@@ -399,7 +458,7 @@ protected $history = 'cache';  // Still works
 ],
 ```
 
-**Step 2:** If using `php artisan vendor:publish`, republish the config:
+**Or:** If using `php artisan vendor:publish`, republish the config:
 ```bash
 php artisan vendor:publish --tag=laragent-config --force
 ```
@@ -589,12 +648,60 @@ class MyAgent extends Agent
 New facade for managing storage outside of agents:
 ```php
 use LarAgent\Facades\Context;
+use LarAgent\Context\Storages\ChatHistoryStorage;
+use App\AiAgents\MyAgent;
 
-// Get tracked identities
-$identities = Context::getTrackedIdentities();
+// ========================================
+// Entry Point 1: Context::of(AgentClass::class)
+// Full agent-based context access (creates temporary agent)
+// ========================================
 
-// Work with specific context
-Context::for($identity)->clear();
+// Get all chat keys for an agent
+$chatKeys = Context::of(MyAgent::class)->getChatKeys();
+$storageKeys = Context::of(MyAgent::class)->getStorageKeys();
+
+// Fluent filtering API
+$count = Context::of(MyAgent::class)
+    ->forUser('user-123')
+    ->forStorage(ChatHistoryStorage::class)
+    ->count();
+
+// Iterate with full agent access
+Context::of(MyAgent::class)
+    ->forUser('user-123')
+    ->each(function ($identity, $agent) {
+        // $identity is SessionIdentityContract
+        // $agent is fully initialized Agent instance
+        $agent->chatHistory()->clear();
+    });
+
+// Clear/remove operations
+Context::of(MyAgent::class)->clearAllChats();           // Clear all chat data
+Context::of(MyAgent::class)->removeAllChats();          // Remove all chat entries
+Context::of(MyAgent::class)->clearAllChatsByUser('user-123');
+Context::of(MyAgent::class)->removeAllChatsByUser('user-123');
+
+// Get first matching agent
+$agent = Context::of(MyAgent::class)->forUser('user-123')->firstAgent();
+
+// ========================================
+// Entry Point 2: Context::named('AgentName')
+// Lightweight access (no agent initialization)
+// ========================================
+
+// Get keys without creating agent instances
+$chatKeys = Context::named('MyAgent')->getChatKeys();
+$storageKeys = Context::named('MyAgent')->getStorageKeys();
+
+// Custom driver configuration
+$count = Context::named('MyAgent')
+    ->withDrivers([CacheStorage::class])
+    ->forUser('user-123')
+    ->count();
+
+// Clear chats (lightweight - no agent needed)
+Context::named('MyAgent')->clearAllChats();
+Context::named('MyAgent')->removeAllChats();
 ```
 
 ### DataModel Classes
