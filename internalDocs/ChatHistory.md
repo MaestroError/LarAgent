@@ -85,7 +85,7 @@ class SupportAgent extends Agent
     
     /**
      * Configure chat history storage drivers.
-     * Can be an array of driver classes or a string alias.
+     * Can be an array of driver classes, a single driver class, or a string alias.
      */
     protected $history = [
         CacheStorage::class,
@@ -114,7 +114,33 @@ Available aliases:
 
 ### 4. Per-Agent Method Override
 
-Override the `createChatHistory()` method for complete control:
+Override the `historyStorageDrivers()` method to customize only the drivers:
+
+```php
+<?php
+
+namespace App\AiAgents;
+
+use LarAgent\Agent;
+use LarAgent\Context\Drivers\EloquentStorage;
+
+class CustomAgent extends Agent
+{
+    protected $instructions = 'You are a custom agent.';
+    
+    /**
+     * Return custom history storage drivers.
+     */
+    protected function historyStorageDrivers(): string|array
+    {
+        return [
+            new EloquentStorage(\App\Models\CustomMessage::class),
+        ];
+    }
+}
+```
+
+For complete control over the chat history instance (e.g., to customize `storeMeta`, or custom implementation of ChatHistoryStorage, or custom key/identity for chat history), override `createChatHistory()`:
 
 ```php
 <?php
@@ -134,7 +160,6 @@ class CustomAgent extends Agent
      */
     public function createChatHistory()
     {
-        // Custom driver configuration
         $drivers = [
             new EloquentStorage(\App\Models\CustomMessage::class),
         ];
@@ -156,8 +181,10 @@ Messages are stored only in PHP memory. Lost when the request ends.
 ```php
 protected $history = 'in_memory';
 // or
-protected $history = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+protected $history = \LarAgent\Context\Drivers\InMemoryStorage::class;
 ```
+
+_Note: There is no point to use it in parallel with other storage drivers
 
 ### SessionStorage
 Uses PHP sessions. Good for web applications with session support.
@@ -178,7 +205,7 @@ protected $history = [\LarAgent\Context\Drivers\CacheStorage::class];
 ```
 
 ### FileStorage
-Stores messages as JSON files.
+Stores messages as JSON files. Uses Laravel's facade supporting any drivers.
 
 ```php
 protected $history = 'file';
@@ -268,20 +295,28 @@ use LarAgent\Facades\Context;
 // Clear all chats for an agent
 Context::of(SupportAgent::class)->clearAllChats();
 
-// Clear chats for a specific user
+// Clear all chats for a specific user
 Context::of(SupportAgent::class)
     ->forUser('user-123')
     ->clearAllChats();
 ```
 
-### Force Read/Save Operations
+_Note: you can also use commands while development to clear chat histories_
+
+### Manual Read/Save Operations
 
 ```php
-// Force read from storage (bypass cache)
+// Read/refresh from storage
 $agent->chatHistory()->read();
 
-// Force save to storage (bypass dirty check)
+// Save to storage (only if there are changes)
 $agent->chatHistory()->save();
+
+// Force write to storage (bypasses dirty check)
+$agent->chatHistory()->writeToMemory();
+
+// Force read from storage drivers (bypasses lazy loading)
+$agent->chatHistory()->readFromMemory();
 ```
 
 ## Metadata Storage
@@ -331,13 +366,50 @@ class SupportAgent extends Agent
 {
     /**
      * Force read history from storage on agent initialization
+     * Default: false (uses lazy loading - reads on first access)
      */
     protected $forceReadHistory = false;
     
     /**
      * Force save history to storage after each agent response
+     * Default: false (saves automatically at end of request lifecycle)
      */
     protected $forceSaveHistory = false;
+}
+```
+
+### Default Behavior
+
+By default, LarAgent uses **lazy loading** for reading and **end-of-request saving**:
+- **Reading**: Chat history is loaded from storage only when first accessed
+- **Saving**: Chat history is saved automatically when the request ends (via Laravel's terminating middleware)
+
+### When to Use These Flags
+
+**`forceReadHistory = true`** - Useful when you need to ensure fresh data from storage at initialization:
+- Long-running processes (Laravel Octane, FrankenPHP, Swoole)
+- Queue workers processing multiple jobs
+- When the same agent instance might be reused across requests
+
+**`forceSaveHistory = true`** - Useful when you need immediate persistence:
+- Long-running processes where request lifecycle doesn't apply
+- Critical conversations that must be saved before any potential failure
+- Real-time applications where history must be immediately available to other processes
+
+### Example: Laravel Octane / FrankenPHP
+
+In long-running environments, agent instances may persist across requests. Use both flags to ensure data freshness and immediate persistence:
+
+```php
+class OctaneSafeAgent extends Agent
+{
+    protected $instructions = 'You are a helpful assistant.';
+    
+    // Always read fresh data (avoid stale state from previous requests)
+    protected $forceReadHistory = true;
+    
+    // Save immediately (don't rely on request termination)
+    protected $forceSaveHistory = true;
 }
 ```
 
