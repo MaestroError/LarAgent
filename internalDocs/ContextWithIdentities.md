@@ -39,6 +39,8 @@ Examples:
 
 ### Basic Agent Creation (Session-based)
 
+Use session-based creation when you need to manage conversations by a custom session key rather than user identity. This is ideal for anonymous users, guest sessions, or when you want explicit control over session naming.
+
 ```php
 // Create agent with a specific session key
 $agent = SupportAgent::for('session-123');
@@ -54,6 +56,8 @@ echo $identity->getAgentName(); // 'SupportAgent'
 
 ### User-based Agent Creation
 
+Use user-based creation to automatically tie conversations to authenticated users. The identity key will include the user ID, enabling easy querying and management of all conversations for a specific user.
+
 ```php
 // Create agent for authenticated user
 $agent = SupportAgent::forUser($request->user());
@@ -68,6 +72,8 @@ echo $identity->getAgentName(); // 'SupportAgent'
 ```
 
 ### Reconstruct Agent from Identity
+
+Use `fromIdentity()` to recreate an agent instance from a previously tracked identity. This is useful for admin panels, background jobs, or any scenario where you need to operate on existing conversations without knowing the original creation parameters.
 
 ```php
 use LarAgent\Facades\Context;
@@ -86,26 +92,30 @@ $response = $agent->respond('Continue our conversation...');
 
 ## Grouping
 
-Groups allow organizing sessions by tenant, organization, or any custom criteria:
+Groups enable **shared context** between multiple agents. When a group is set, the storage key uses the group name **instead of** the agent name. This means agents in the same group with the same user/chat identifiers will share the same context data.
 
-### Constructor-based Grouping
+**Key format without group:** `{scope}_{agentName}_{userId|chatName|'default'}`  
+**Key format with group:** `{scope}_{group}_{userId|chatName|'default'}`
 
-```php
-// Create agent with specific group
-$agent = new SupportAgent('session-123', usesUserId: false, group: 'premium');
+This is useful for multi-tenant applications where agents should share context within a tenant, or when you want multiple agent types to work with the same conversation history.
 
-// For user with group
-$agent = new SupportAgent('user-456', usesUserId: true, group: 'enterprise');
-```
-
-### Property-based Grouping
+### Setting Group via Class Property
 
 ```php
 class TenantSupportAgent extends Agent
 {
+    // Static group assignment
     protected $group = 'tenant-123';
-    
-    // Or dynamically
+}
+```
+
+### Setting Group Dynamically
+
+For runtime group resolution (e.g., based on current tenant):
+
+```php
+class TenantSupportAgent extends Agent
+{
     public function group(): ?string
     {
         return tenant()->id ?? null;
@@ -113,7 +123,38 @@ class TenantSupportAgent extends Agent
 }
 ```
 
+> **Note:** The group setting applies to **all** storages by default. To use different groups for specific storages (e.g., group usage but not chat history), override `createChatHistory()` or `createUsageStorage()` with a custom identity:
+
+```php
+use LarAgent\Context\SessionIdentity;
+use LarAgent\Context\Storages\ChatHistoryStorage;
+
+class MyAgent extends Agent
+{
+    protected $group = 'shared-group'; // Default group for all storages
+    
+    // Override to use agent-specific identity for chat history (no grouping)
+    public function createChatHistory()
+    {
+        $identity = new SessionIdentity(
+            agentName: $this->getAgentName(),
+            chatName: $this->getChatKey(),
+            userId: $this->getUserId(),
+            group: null, // No group - uses agentName instead
+        );
+        
+        return new ChatHistoryStorage(
+            $identity,
+            $this->historyStorageDrivers(),
+            $this->storeMeta ?? false
+        );
+    }
+}
+```
+
 ### Query by Group
+
+Use the Context facade to query identities or perform bulk operations on all sessions within a group:
 
 ```php
 use LarAgent\Facades\Context;
@@ -133,6 +174,8 @@ Context::of(SupportAgent::class)
 
 ### Accessing Context
 
+You can access the context object directly from agent:
+
 ```php
 // Get the context instance
 $context = $agent->context();
@@ -143,6 +186,8 @@ $identity = $context->getIdentity();
 // Get the context identity (used for IdentityStorage)
 $contextIdentity = $context->getContextIdentity();
 ```
+
+_note: `contextIdentity` is general identity of the agent, it is stored in IdentityStorage and holds all other storage identities associated to the agent._
 
 ### Registering Custom Storages
 
@@ -156,11 +201,13 @@ $context->register($customStorage);
 $storage = $context->make(CustomStorage::class);
 
 // Get registered storage
-$chatHistory = $context->getStorage(ChatHistoryStorage::class);
+$customStorage = $context->getStorage(CustomStorage::class);
 
 // Or by prefix
-$chatHistory = $context->getStorage('chatHistory');
+$chatHistory = $context->getStorage('CustomPrefix');
 ```
+
+Check custom storages for more info
 
 ### Bulk Operations
 
@@ -288,6 +335,9 @@ $identityStorage = Context::named('SupportAgent')
     ->getIdentityStorage();
 ```
 
+Check context facade docs for more info.
+
+
 ## Context Events
 
 Listen to context lifecycle events:
@@ -381,30 +431,16 @@ $agent = SupportAgent::for('_temp_preview');
 namespace App\AiAgents;
 
 use LarAgent\Agent;
-use LarAgent\Context\SessionIdentity;
-use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 
 abstract class TenantAwareAgent extends Agent
 {
     /**
      * Get the current tenant ID for grouping.
+     * This automatically applies to all storages via the identity system.
      */
     public function group(): ?string
     {
         return tenant()?->id;
-    }
-    
-    /**
-     * Build identity with tenant context.
-     */
-    protected function buildIdentity(): SessionIdentityContract
-    {
-        return new SessionIdentity(
-            agentName: $this->getAgentName(),
-            chatName: $this->getChatKey(),
-            userId: $this->getUserId(),
-            group: $this->group(),
-        );
     }
 }
 ```
@@ -513,11 +549,17 @@ class TenantAgentService
         $clearedCount = 0;
         
         foreach ($this->agentClasses as $agentClass) {
+            // Get count before removing
             $count = Context::of($agentClass)
+                ->forGroup($tenantId)
+                ->count();
+            
+            // Remove all chats (returns static for chaining)
+            Context::of($agentClass)
                 ->forGroup($tenantId)
                 ->removeAllChats();
             
-            $clearedCount += is_int($count) ? $count : 0;
+            $clearedCount += $count;
         }
         
         return $clearedCount;
@@ -549,7 +591,7 @@ class TenantAgentService
                 ->getIdentities();
             
             $totalTokens = 0;
-            $requestCount = 0;
+            $recordCount = 0;
             
             foreach ($identities as $identity) {
                 $agent = $agentClass::fromIdentity($identity);
@@ -557,13 +599,13 @@ class TenantAgentService
                 
                 if ($stats) {
                     $totalTokens += $stats['total_tokens'] ?? 0;
-                    $requestCount += $stats['request_count'] ?? 0;
+                    $recordCount += $stats['record_count'] ?? 0;
                 }
             }
             
             $usage[class_basename($agentClass)] = [
                 'total_tokens' => $totalTokens,
-                'request_count' => $requestCount,
+                'record_count' => $recordCount,
             ];
         }
         
@@ -614,7 +656,7 @@ class TenantAgentController extends Controller
         $user = $request->user();
         $tenantId = tenant()->id;
         
-        $conversations = $this->service->getUserConversations($tenantId, $user->id);
+        $conversations = $this->service->getUserConversations($tenantId, (string) $user->id);
         
         return response()->json(['conversations' => $conversations]);
     }
