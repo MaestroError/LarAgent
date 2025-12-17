@@ -74,7 +74,7 @@ describe('HasContext Trait', function () {
             $instance = new HasContextTestClass;
             $instance->publicSetChatSessionId('test_chat_id', 'TestAgent');
 
-            expect($instance->getChatKey())->toBe('test_chat_id');
+            expect($instance->getSessionKey())->toBe('test_chat_id');
         });
 
         test('sets agentName', function () {
@@ -103,8 +103,8 @@ describe('HasContext Trait', function () {
             $instance = new HasContextTestClass;
             $instance->publicSetChatSessionId('test_chat', 'TestAgent');
 
-            expect($instance->getChatSessionId())->toBeString()
-                ->and($instance->getChatSessionId())->not->toBeEmpty();
+            expect($instance->getSessionId())->toBeString()
+                ->and($instance->getSessionId())->not->toBeEmpty();
         });
 
         test('returns static for fluent interface', function () {
@@ -285,24 +285,24 @@ describe('HasContext Trait', function () {
 
     });
 
-    describe('getChatKey', function () {
+    describe('getSessionKey', function () {
 
-        test('returns chatKey', function () {
+        test('returns sessionKey', function () {
             $instance = new HasContextTestClass;
             $instance->publicSetChatSessionId('my_chat_key', 'TestAgent');
 
-            expect($instance->getChatKey())->toBe('my_chat_key');
+            expect($instance->getSessionKey())->toBe('my_chat_key');
         });
 
     });
 
-    describe('getChatSessionId', function () {
+    describe('getSessionId', function () {
 
-        test('returns chatSessionId', function () {
+        test('returns sessionId', function () {
             $instance = new HasContextTestClass;
             $instance->publicSetChatSessionId('chat_123', 'TestAgent');
 
-            $sessionId = $instance->getChatSessionId();
+            $sessionId = $instance->getSessionId();
 
             expect($sessionId)->toBeString()
                 ->and($sessionId)->not->toBeEmpty();
@@ -401,7 +401,7 @@ describe('HasContext Trait', function () {
             // Verify all properties
             expect($instance->hasUserId())->toBeTrue()
                 ->and($instance->getUserId())->toBe('user_abc123')
-                ->and($instance->getChatKey())->toBe('user_abc123')
+                ->and($instance->getSessionKey())->toBe('user_abc123')
                 ->and($instance->getAgentName())->toBe('WorkflowAgent')
                 ->and($instance->group())->toBe('workflow_group')
                 ->and($instance->context())->toBeInstanceOf(Context::class);
@@ -422,7 +422,7 @@ describe('HasContext Trait', function () {
             // Verify all properties
             expect($instance->hasUserId())->toBeFalse()
                 ->and($instance->getUserId())->toBeNull()
-                ->and($instance->getChatKey())->toBe('session_key')
+                ->and($instance->getSessionKey())->toBe('session_key')
                 ->and($instance->getAgentName())->toBe('SimpleAgent')
                 ->and($instance->group())->toBeNull()
                 ->and($instance->context())->toBeInstanceOf(Context::class);
@@ -440,7 +440,7 @@ describe('HasContext Trait', function () {
                 group: null
             );
 
-            expect($instance->getChatSessionId())->toBe($expectedIdentity->getKey());
+            expect($instance->getSessionId())->toBe($expectedIdentity->getKey());
         });
 
         test('sessionIdentity with all parameters matches expected key', function () {
@@ -461,7 +461,7 @@ describe('HasContext Trait', function () {
                 group: 'test_group'
             );
 
-            expect($instance->getChatSessionId())->toBe($expectedIdentity->getKey());
+            expect($instance->getSessionId())->toBe($expectedIdentity->getKey());
         });
 
     });

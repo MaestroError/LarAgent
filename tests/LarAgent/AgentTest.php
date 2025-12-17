@@ -121,14 +121,14 @@ it('can create an agent for a user', function () {
     $agent = TestAgent::forUser($user);
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('user_123');
+    expect($agent->getSessionId())->toContain('user_123');
 });
 
 it('can create an agent with a specific key', function () {
     $agent = TestAgent::for('test_key');
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('test_key');
+    expect($agent->getSessionId())->toContain('test_key');
 });
 
 it('can set and get message', function () {
@@ -173,14 +173,14 @@ it('can build an instance with a key', function () {
     $agent = TestAgent::make('test_key');
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('test_key');
+    expect($agent->getSessionId())->toContain('test_key');
 });
 
 it('can chain method after make', function () {
     $agent = TestAgent::make('test_key')->withModel('gpt-4');
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('test_key');
+    expect($agent->getSessionId())->toContain('test_key');
     expect($agent->model())->toBe('gpt-4');
 });
 
