@@ -401,9 +401,11 @@ $agent->setChatHistory(new ChatHistoryStorage(
 
 ## Creating Custom Storages (Not Just Drivers)
 
-If you need entirely new storage types (not just different backends), create a custom Storage class:
+If you need entirely new storage types (not just different backends, but different data and/or logic), create a custom Storage class:
 
 ### Step 1: Define DataModel
+
+The DataModel defines the structure of a single data item. It acts as a typed schema for your stored data, ensuring type safety and providing serialization/deserialization capabilities.
 
 ```php
 <?php
@@ -422,6 +424,8 @@ class ConversationSummary extends DataModel
 ```
 
 ### Step 2: Define DataModelArray
+
+The DataModelArray serves as a typed collection container for your DataModels. It specifies which model types can be stored and handles polymorphic data through the discriminator method.
 
 ```php
 <?php
@@ -447,6 +451,8 @@ class ConversationSummaryArray extends DataModelArray
 ```
 
 ### Step 3: Create Storage Class
+
+The Storage class provides the business logic layer for interacting with your data. It wraps the underlying storage drivers and exposes domain-specific methods for adding, retrieving, and manipulating your data models.
 
 ```php
 <?php
@@ -512,6 +518,8 @@ class SummaryStorage extends Storage
 
 ### Step 4: Register with Context
 
+Finally, integrate your custom storage into an Agent by registering it with the Context. This makes your storage accessible throughout the agent's lifecycle and ensures proper initialization with the correct identity.
+
 ```php
 <?php
 
@@ -541,6 +549,23 @@ class SummaryAgent extends Agent
 }
 ```
 
+> **Note:** Using `$this->context()->make(SummaryStorage::class)` will use the Agent's default `$storage` drivers. If you need different drivers for this specific storage, instantiate it directly with custom drivers:
+
+```php
+use App\Storage\Drivers\RedisStorageDriver;
+
+protected function setupChatHistory(): void
+{
+    parent::setupChatHistory();
+    
+    // Register with custom drivers instead of agent defaults
+    $this->summaryStorage = new SummaryStorage(
+        $this->context()->getIdentity(),
+        [new RedisStorageDriver('summaries:', 7200)]
+    );
+}
+```
+
 ## Driver Chain Pattern
 
 LarAgent supports multiple drivers with fallback behavior:
@@ -563,99 +588,89 @@ This ensures data consistency and provides redundancy.
 
 ## Testing Custom Drivers
 
+LarAgent uses Pest for testing. Here's an example of how to test a custom Redis storage driver:
+
 ```php
 <?php
 
-namespace Tests\Unit\Storage;
-
-use Tests\TestCase;
 use App\Storage\Drivers\RedisStorageDriver;
 use LarAgent\Context\SessionIdentity;
 
-class RedisStorageDriverTest extends TestCase
+// Helper to create test identity
+function createTestIdentity(string $agent, ?string $chat = null): SessionIdentity
 {
-    protected RedisStorageDriver $driver;
-    protected SessionIdentity $identity;
-    
-    protected function setUp(): void
-    {
-        parent::setUp();
-        
-        $this->driver = new RedisStorageDriver('test:', 60);
-        $this->identity = new SessionIdentity(
-            agentName: 'TestAgent',
-            chatName: 'test-session'
-        );
-    }
-    
-    protected function tearDown(): void
-    {
-        // Clean up
-        $this->driver->removeFromMemory($this->identity);
-        parent::tearDown();
-    }
-    
-    public function test_write_and_read()
-    {
-        $data = [
-            ['role' => 'user', 'content' => 'Hello'],
-            ['role' => 'assistant', 'content' => 'Hi there!'],
-        ];
-        
-        // Write
-        $result = $this->driver->writeToMemory($this->identity, $data);
-        $this->assertTrue($result);
-        
-        // Read
-        $retrieved = $this->driver->readFromMemory($this->identity);
-        $this->assertEquals($data, $retrieved);
-    }
-    
-    public function test_read_nonexistent_returns_null()
-    {
-        $identity = new SessionIdentity(
-            agentName: 'TestAgent',
-            chatName: 'nonexistent-' . uniqid()
-        );
-        
-        $result = $this->driver->readFromMemory($identity);
-        $this->assertNull($result);
-    }
-    
-    public function test_remove()
-    {
-        $data = [['role' => 'user', 'content' => 'Test']];
-        
-        $this->driver->writeToMemory($this->identity, $data);
-        
-        // Verify data exists
-        $this->assertNotNull($this->driver->readFromMemory($this->identity));
-        
-        // Remove
-        $result = $this->driver->removeFromMemory($this->identity);
-        $this->assertTrue($result);
-        
-        // Verify removed
-        $this->assertNull($this->driver->readFromMemory($this->identity));
-    }
-    
-    public function test_factory_method()
-    {
-        $driver = RedisStorageDriver::make([
-            'prefix' => 'custom:',
-            'ttl' => 120,
-        ]);
-        
-        $this->assertInstanceOf(RedisStorageDriver::class, $driver);
-    }
+    return new SessionIdentity($agent, $chat);
 }
+
+test('RedisStorageDriver: reads null when no data exists', function () {
+    $driver = new RedisStorageDriver('test:', 60);
+    $identity = createTestIdentity('TestAgent', 'nonexistent-' . uniqid());
+
+    expect($driver->readFromMemory($identity))->toBeNull();
+});
+
+test('RedisStorageDriver: writes and reads data correctly', function () {
+    $driver = new RedisStorageDriver('test:', 60);
+    $identity = createTestIdentity('TestAgent', 'test-session');
+
+    $data = [
+        ['role' => 'user', 'content' => 'Hello'],
+        ['role' => 'assistant', 'content' => 'Hi there!'],
+    ];
+
+    $result = $driver->writeToMemory($identity, $data);
+    expect($result)->toBeTrue();
+
+    $retrieved = $driver->readFromMemory($identity);
+    expect($retrieved)->toBe($data);
+
+    // Cleanup
+    $driver->removeFromMemory($identity);
+});
+
+test('RedisStorageDriver: removes data correctly', function () {
+    $driver = new RedisStorageDriver('test:', 60);
+    $identity = createTestIdentity('TestAgent', 'test-session');
+
+    $driver->writeToMemory($identity, ['test' => 'data']);
+    expect($driver->readFromMemory($identity))->not->toBeNull();
+
+    $result = $driver->removeFromMemory($identity);
+    expect($result)->toBeTrue();
+    expect($driver->readFromMemory($identity))->toBeNull();
+});
+
+test('RedisStorageDriver: isolates data by identity', function () {
+    $driver = new RedisStorageDriver('test:', 60);
+    $identity1 = createTestIdentity('Agent1', 'chat1');
+    $identity2 = createTestIdentity('Agent2', 'chat2');
+
+    $driver->writeToMemory($identity1, ['data' => 'one']);
+    $driver->writeToMemory($identity2, ['data' => 'two']);
+
+    expect($driver->readFromMemory($identity1))->toBe(['data' => 'one']);
+    expect($driver->readFromMemory($identity2))->toBe(['data' => 'two']);
+
+    // Cleanup
+    $driver->removeFromMemory($identity1);
+    $driver->removeFromMemory($identity2);
+});
+
+test('RedisStorageDriver: factory method creates configured instance', function () {
+    $driver = RedisStorageDriver::make([
+        'prefix' => 'custom:',
+        'ttl' => 120,
+    ]);
+
+    expect($driver)->toBeInstanceOf(RedisStorageDriver::class);
+});
 ```
 
-## Real-World Scenario: Multi-Region Deployment
+## Real-World Scenario: Redundant Storage with Fallback
 
 ### Requirements
-- Primary storage in local Redis for speed
-- Backup to S3 for cross-region persistence
+- Primary storage in Redis for speed
+- Backup to S3 for persistence
 - Automatic failover
 
 ### Implementation
@@ -760,16 +775,16 @@ class S3StorageDriver extends StorageDriver
 
 return [
     'default_history_storage' => [
-        // Primary: Local Redis (fast)
+        // Primary: Redis (fast)
         \App\Storage\Drivers\RedisStorageDriver::class,
-        // Backup: S3 (persistent, cross-region)
+        // Backup: S3 (persistent)
         \App\Storage\Drivers\S3StorageDriver::class,
     ],
 ];
 ```
 
 This setup provides:
-1. Fast reads from local Redis
+1. Fast reads from Redis
 2. Automatic S3 backup on every write
 3. S3 fallback if Redis fails
-4. Cross-region persistence for disaster recovery
+4. Durable persistence for disaster recovery
