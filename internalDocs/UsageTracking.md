@@ -90,9 +90,9 @@ namespace App\AiAgents;
 use LarAgent\Agent;
 use LarAgent\Context\Drivers\CacheStorage;
 
-class AnalyticsAgent extends Agent
+class MyAgent extends Agent
 {
-    protected $instructions = 'You are an analytics assistant.';
+    protected $instructions = 'You are an assistant.';
     
     /**
      * Enable usage tracking for this agent.
@@ -113,7 +113,7 @@ class AnalyticsAgent extends Agent
 Using string aliases:
 
 ```php
-class AnalyticsAgent extends Agent
+class MyAgent extends Agent
 {
     protected $trackUsage = true;
     
@@ -245,7 +245,7 @@ $stats = $agent->getUsageAggregate();
 //     'total_prompt_tokens' => 1500,
 //     'total_completion_tokens' => 800,
 //     'total_tokens' => 2300,
-//     'request_count' => 10,
+//     'record_count' => 10,
 // ]
 
 // Aggregate with filters
@@ -262,8 +262,8 @@ $stats = $agent->getUsageAggregate([
 $byModel = $agent->getUsageGroupedBy('model_name');
 // Returns:
 // [
-//     'gpt-4' => ['total_tokens' => 1500, 'request_count' => 5],
-//     'gpt-3.5-turbo' => ['total_tokens' => 800, 'request_count' => 10],
+//     'gpt-4' => ['total_tokens' => 1500, 'record_count' => 5],
+//     'gpt-3.5-turbo' => ['total_tokens' => 800, 'record_count' => 10],
 // ]
 
 // Group by provider
@@ -318,30 +318,163 @@ Each usage record contains:
 ]
 ```
 
-## Usage Events
+## Direct Eloquent Model Usage
 
-The usage data is tracked automatically through the `afterResponse` hook. You can listen to events for custom behavior:
+When using the `EloquentUsageDriver` (database storage), you have direct access to the `LaragentUsage` Eloquent model. This allows you to leverage Laravel's powerful query builder for complex queries, reporting, and integrations.
+
+### The LaragentUsage Model
 
 ```php
-// In a service provider
-
-use LarAgent\Events\Agent\AfterResponse;
-
-Event::listen(AfterResponse::class, function ($event) {
-    $message = $event->message;
-    
-    if (method_exists($message, 'getUsage')) {
-        $usage = $message->getUsage();
-        if ($usage) {
-            Log::info('API Usage', [
-                'prompt_tokens' => $usage->promptTokens,
-                'completion_tokens' => $usage->completionTokens,
-                'total_tokens' => $usage->totalTokens,
-            ]);
-        }
-    }
-});
+use LarAgent\Usage\Models\LaragentUsage;
 ```
+
+The model provides access to all usage data stored in the `laragent_usage` table with the following columns:
+
+| Column | Type | Description |
+|--------|------|-------------|
+| `session_key` | string | Unique identifier for the agent session |
+| `record_id` | string | Unique identifier for the usage record |
+| `agent_name` | string | Name of the agent class |
+| `user_id` | string/null | User ID (if user-based session) |
+| `group` | string/null | Group identifier |
+| `chat_name` | string/null | Chat/session name |
+| `model_name` | string | AI model name (e.g., gpt-4) |
+| `provider_name` | string | Provider label (e.g., openai) |
+| `prompt_tokens` | integer | Tokens used in input |
+| `completion_tokens` | integer | Tokens used in output |
+| `total_tokens` | integer | Total tokens consumed |
+| `recorded_at` | datetime | When the usage was recorded |
+
+### Query Scopes
+
+The model includes convenient query scopes for filtering:
+
+```php
+use LarAgent\Usage\Models\LaragentUsage;
+
+// Filter by agent
+LaragentUsage::forAgent('SupportAgent')->get();
+
+// Filter by user
+LaragentUsage::forUser('user-123')->get();
+
+// Filter by model
+LaragentUsage::forModel('gpt-4')->get();
+
+// Filter by provider
+LaragentUsage::forProvider('openai')->get();
+
+// Filter by group
+LaragentUsage::forGroup('premium-users')->get();
+
+// Filter by date range
+LaragentUsage::betweenDates('2024-01-01', '2024-01-31')->get();
+
+// Filter by specific date
+LaragentUsage::onDate('2024-01-15')->get();
+
+// Chain multiple scopes
+LaragentUsage::forAgent('SupportAgent')
+    ->forProvider('openai')
+    ->betweenDates('2024-01-01', '2024-01-31')
+    ->get();
+```
+
+### Aggregation Methods
+
+The model provides built-in aggregation methods:
+
+```php
+use LarAgent\Usage\Models\LaragentUsage;
+
+// Get aggregate totals for all records
+$totals = LaragentUsage::aggregate();
+// Returns:
+// [
+//     'total_prompt_tokens' => 15000,
+//     'total_completion_tokens' => 8000,
+//     'total_tokens' => 23000,
+//     'record_count' => 150,
+// ]
+
+// Aggregate with filters (pass a query builder)
+$query = LaragentUsage::forAgent('SupportAgent')
+    ->betweenDates('2024-01-01', '2024-01-31');
+$totals = LaragentUsage::aggregate($query);
+
+// Group by a column
+$byModel = LaragentUsage::groupByColumn('model_name');
+// Returns Collection keyed by model_name:
+// [
+//     'gpt-4' => {total_prompt_tokens: 10000, total_completion_tokens: 5000, ...},
+//     'gpt-3.5-turbo' => {total_prompt_tokens: 5000, total_completion_tokens: 3000, ...},
+// ]
+
+// Group by with filters
+$query = LaragentUsage::forProvider('openai')->betweenDates('2024-01-01');
+$byAgent = LaragentUsage::groupByColumn('agent_name', $query);
+```
+
+### Advanced Eloquent Queries
+
+Leverage Laravel's query builder for complex analytics:
+
+```php
+use LarAgent\Usage\Models\LaragentUsage;
+use Illuminate\Support\Facades\DB;
+
+// Get daily token usage for the last 30 days
+$dailyUsage = LaragentUsage::query()
+    ->where('recorded_at', '>=', now()->subDays(30))
+    ->selectRaw('DATE(recorded_at) as date, SUM(total_tokens) as tokens')
+    ->groupBy('date')
+    ->orderBy('date')
+    ->get();
+
+// Get top users by token consumption
+$topUsers = LaragentUsage::query()
+    ->whereNotNull('user_id')
+    ->selectRaw('user_id, SUM(total_tokens) as total_tokens, COUNT(*) as requests')
+    ->groupBy('user_id')
+    ->orderByDesc('total_tokens')
+    ->limit(10)
+    ->get();
+
+// Get hourly usage pattern
+$hourlyPattern = LaragentUsage::query()
+    ->selectRaw('HOUR(recorded_at) as hour, AVG(total_tokens) as avg_tokens')
+    ->groupBy('hour')
+    ->orderBy('hour')
+    ->get();
+
+// Get usage comparison between agents
+$agentComparison = LaragentUsage::query()
+    ->selectRaw('agent_name, provider_name, model_name, 
+                 SUM(prompt_tokens) as prompt_tokens,
+                 SUM(completion_tokens) as completion_tokens,
+                 SUM(total_tokens) as total_tokens,
+                 COUNT(*) as requests')
+    ->groupBy('agent_name', 'provider_name', 'model_name')
+    ->get();
+
+// Calculate estimated costs with a join or subquery
+$costs = LaragentUsage::query()
+    ->forProvider('openai')
+    ->betweenDates('2024-01-01', '2024-01-31')
+    ->selectRaw("
+        model_name,
+        SUM(prompt_tokens) as prompt_tokens,
+        SUM(completion_tokens) as completion_tokens,
+        CASE model_name
+            WHEN 'gpt-4' THEN (SUM(prompt_tokens) / 1000 * 0.03) + (SUM(completion_tokens) / 1000 * 0.06)
+            WHEN 'gpt-3.5-turbo' THEN (SUM(prompt_tokens) / 1000 * 0.001) + (SUM(completion_tokens) / 1000 * 0.002)
+            ELSE 0
+        END as estimated_cost
+    ")
+    ->groupBy('model_name')
+    ->get();
+```
+
 
 ## Real-World Scenario: Cost Monitoring Dashboard
 
@@ -395,7 +528,7 @@ class UsageAnalyticsService
             'prompt_tokens' => 0,
             'completion_tokens' => 0,
             'total_tokens' => 0,
-            'request_count' => 0,
+            'record_count' => 0,
         ];
         
         foreach ($this->agents as $agentClass) {
@@ -409,7 +542,7 @@ class UsageAnalyticsService
                 $totals['prompt_tokens'] += $stats['total_prompt_tokens'] ?? 0;
                 $totals['completion_tokens'] += $stats['total_completion_tokens'] ?? 0;
                 $totals['total_tokens'] += $stats['total_tokens'] ?? 0;
-                $totals['request_count'] += $stats['request_count'] ?? 0;
+                $totals['record_count'] += $stats['record_count'] ?? 0;
             }
         }
         
@@ -432,11 +565,11 @@ class UsageAnalyticsService
                     if (!isset($byProvider[$provider])) {
                         $byProvider[$provider] = [
                             'total_tokens' => 0,
-                            'request_count' => 0,
+                            'record_count' => 0,
                         ];
                     }
                     $byProvider[$provider]['total_tokens'] += $stats['total_tokens'] ?? 0;
-                    $byProvider[$provider]['request_count'] += $stats['request_count'] ?? 0;
+                    $byProvider[$provider]['record_count'] += $stats['record_count'] ?? 0;
                 }
             }
         }
@@ -491,13 +624,13 @@ class UsageAnalyticsService
             
             if ($usage) {
                 foreach ($usage as $record) {
-                    $provider = $record->provider_name ?? 'unknown';
-                    $model = $record->model_name ?? 'unknown';
+                    $provider = $record->providerName ?? 'unknown';
+                    $model = $record->modelName ?? 'unknown';
                     
                     if (isset($pricing[$provider][$model])) {
                         $rates = $pricing[$provider][$model];
-                        $cost = (($record->prompt_tokens / 1000) * $rates['prompt']) +
-                                (($record->completion_tokens / 1000) * $rates['completion']);
+                        $cost = (($record->promptTokens / 1000) * $rates['prompt']) +
+                                (($record->completionTokens / 1000) * $rates['completion']);
                         
                         $key = "{$provider}:{$model}";
                         if (!isset($costs[$key])) {
@@ -580,7 +713,7 @@ class CheckUsageThresholds implements ShouldQueue
     
     protected int $dailyThreshold = 1000000; // 1M tokens
     
-    public function handle(UsageAnalyticsService $analytics)
+    public function handle(UsageAnalyticsService $analytics): void
     {
         $today = now()->format('Y-m-d');
         $usage = $analytics->getTotalUsage($today, $today);
