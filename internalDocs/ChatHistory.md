@@ -184,7 +184,7 @@ protected $history = 'in_memory';
 protected $history = \LarAgent\Context\Drivers\InMemoryStorage::class;
 ```
 
-_Note: There is no point to use it in parallel with other storage drivers
+_Note: There is no point in using it in parallel with other storage drivers._
 
 ### SessionStorage
 Uses PHP sessions. Good for web applications with session support.
@@ -205,7 +205,7 @@ protected $history = [\LarAgent\Context\Drivers\CacheStorage::class];
 ```
 
 ### FileStorage
-Stores messages as JSON files. Uses Laravel's facade supporting any drivers.
+Stores messages as JSON files. Uses Laravel's `Storage` facade and works with any configured filesystem driver (local, s3, etc.).
 
 ```php
 protected $history = 'file';
@@ -301,7 +301,7 @@ Context::of(SupportAgent::class)
     ->clearAllChats();
 ```
 
-_Note: you can also use commands while development to clear chat histories_
+_Note: you can also use commands during development to clear chat histories_
 
 ### Manual Read/Save Operations
 
