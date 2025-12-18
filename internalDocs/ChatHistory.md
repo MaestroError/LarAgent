@@ -205,7 +205,7 @@ protected $history = [\LarAgent\Context\Drivers\CacheStorage::class];
 ```
 
 ### FileStorage
-Stores messages as JSON files. Uses Laravel's facade supporting any drivers.
+Stores messages as JSON files. Uses Laravel's `Storage` facade and works with any configured filesystem driver (local, s3, etc.).
 
 ```php
 protected $history = 'file';
