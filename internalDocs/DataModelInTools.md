@@ -271,7 +271,11 @@ The generated schema will include enum constraints:
 
 ## Arrays of DataModels
 
-You can use arrays of DataModels with proper type hints:
+LarAgent provides `DataModelArray` for working with arrays of DataModel instances. The main feature is **polymorphic (multitype) arrays** - a single array that can contain different DataModel types, resolved automatically using a discriminator field.
+
+### Single-Type Arrays
+
+For arrays containing only one type of DataModel:
 
 ```php
 <?php
@@ -294,8 +298,6 @@ class LineItem extends DataModel
 }
 ```
 
-For arrays of DataModels, use DataModelArray:
-
 ```php
 <?php
 
@@ -307,15 +309,11 @@ class LineItemArray extends DataModelArray
 {
     public static function allowedModels(): array
     {
-        return [
-            'default' => LineItem::class,
-        ];
+        // Single type - just return array with the class
+        return [LineItem::class];
     }
     
-    public function discriminator(): string
-    {
-        return 'type';
-    }
+    // No discriminator needed for single-type arrays
     
     public function getTotal(): float
     {
@@ -338,6 +336,232 @@ public function processOrder(Customer $customer, LineItemArray $items): string
     return "Processing order for {$customer->name}: {$itemCount} items, total: \${$total}";
 }
 ```
+
+### Multitype (Polymorphic) Arrays
+
+The main power of `DataModelArray` is handling arrays with **multiple different DataModel types**. The `discriminator()` method defines which field determines the type of each item.
+
+```php
+<?php
+
+namespace App\DataModels;
+
+use LarAgent\Core\Abstractions\DataModel;
+use LarAgent\Attributes\Desc;
+
+class TextContent extends DataModel
+{
+    #[Desc('Content type identifier')]
+    public string $type = 'text';
+    
+    #[Desc('The text content')]
+    public string $text;
+}
+
+class ImageContent extends DataModel
+{
+    #[Desc('Content type identifier')]
+    public string $type = 'image';
+    
+    #[Desc('Image URL')]
+    public string $url;
+    
+    #[Desc('Alt text for accessibility')]
+    public ?string $alt = null;
+}
+
+class CodeContent extends DataModel
+{
+    #[Desc('Content type identifier')]
+    public string $type = 'code';
+    
+    #[Desc('The code snippet')]
+    public string $code;
+    
+    #[Desc('Programming language')]
+    public string $language;
+}
+```
+
+```php
+<?php
+
+namespace App\DataModels;
+
+use LarAgent\Core\Abstractions\DataModelArray;
+
+class ContentArray extends DataModelArray
+{
+    public static function allowedModels(): array
+    {
+        // Keys match the discriminator field values
+        return [
+            'text' => TextContent::class,
+            'image' => ImageContent::class,
+            'code' => CodeContent::class,
+        ];
+    }
+    
+    public function discriminator(): string
+    {
+        // Field name that determines which DataModel to use
+        return 'type';
+    }
+    
+    public function getTextContent(): array
+    {
+        return array_filter($this->items, fn($item) => $item instanceof TextContent);
+    }
+    
+    public function getImageCount(): int
+    {
+        return count(array_filter($this->items, fn($item) => $item instanceof ImageContent));
+    }
+}
+```
+
+```php
+#[Tool('Create a blog post with mixed content')]
+public function createPost(string $title, ContentArray $content): string
+{
+    $textBlocks = count($content->getTextContent());
+    $images = $content->getImageCount();
+    
+    return "Created post '{$title}' with {$textBlocks} text blocks and {$images} images";
+}
+```
+
+### Advanced: Multiple Models per Discriminator Value
+
+Sometimes you need multiple DataModel classes for the same discriminator value. For example, a "digital" product could be either a downloadable file or a streaming service. Use `matchesArray()` to distinguish between them:
+
+```php
+<?php
+
+namespace App\DataModels;
+
+use LarAgent\Core\Abstractions\DataModel;
+use LarAgent\Attributes\Desc;
+
+class PhysicalProduct extends DataModel
+{
+    #[Desc('Product category')]
+    public string $category = 'physical';
+    
+    #[Desc('Product name')]
+    public string $name;
+    
+    #[Desc('Weight in kg for shipping')]
+    public float $weight;
+    
+    #[Desc('Warehouse location')]
+    public string $warehouse;
+}
+
+class DownloadableProduct extends DataModel
+{
+    #[Desc('Product category')]
+    public string $category = 'digital';
+    
+    #[Desc('Product name')]
+    public string $name;
+    
+    #[Desc('Download URL')]
+    public string $downloadUrl;
+    
+    #[Desc('File size in MB')]
+    public float $fileSize;
+    
+    public static function matchesArray(array $data): bool
+    {
+        // Downloadable products have a downloadUrl
+        return isset($data['downloadUrl']);
+    }
+}
+
+class StreamingProduct extends DataModel
+{
+    #[Desc('Product category')]
+    public string $category = 'digital';
+    
+    #[Desc('Product name')]
+    public string $name;
+    
+    #[Desc('Streaming platform URL')]
+    public string $streamUrl;
+    
+    #[Desc('Duration in minutes')]
+    public int $duration;
+    
+    public static function matchesArray(array $data): bool
+    {
+        // Streaming products have a streamUrl
+        return isset($data['streamUrl']);
+    }
+}
+```
+
+```php
+<?php
+
+namespace App\DataModels;
+
+use LarAgent\Core\Abstractions\DataModelArray;
+
+class ProductCatalog extends DataModelArray
+{
+    public static function allowedModels(): array
+    {
+        return [
+            'physical' => PhysicalProduct::class,
+            'digital' => [
+                // Both share category='digital', resolved via matchesArray()
+                DownloadableProduct::class,
+                StreamingProduct::class,
+            ],
+        ];
+    }
+    
+    public function discriminator(): string
+    {
+        return 'category';
+    }
+    
+    public function getDigitalProducts(): array
+    {
+        return array_filter($this->items, fn($p) => 
+            $p instanceof DownloadableProduct || $p instanceof StreamingProduct
+        );
+    }
+}
+```
+
+```php
+#[Tool('Add products to the store catalog')]
+public function addProducts(ProductCatalog $products): string
+{
+    $physical = 0;
+    $digital = 0;
+    
+    foreach ($products as $product) {
+        if ($product instanceof PhysicalProduct) {
+            $physical++;
+        } else {
+            $digital++;
+        }
+    }
+    
+    return "Added {$physical} physical and {$digital} digital products";
+}
+```
+
+### How Discriminator Resolution Works
+
+1. **Single-type array** (`[ModelClass::class]`): No discriminator needed, all items use the same class
+2. **Multitype array** (`['value' => ModelClass::class, ...]`): Uses discriminator field to pick the right class
+3. **Multiple candidates** (`['value' => [ClassA::class, ClassB::class]]`): Calls `matchesArray()` on each candidate to find the match
+
+This pattern is used internally by LarAgent - see `MessageArray` which handles different message types (`user`, `assistant`, `tool`, etc.) using `role` as the discriminator
 
 ## Optional DataModel Parameters
 
@@ -414,424 +638,3 @@ class Order extends DataModel
     public ?float $calculatedTax = null;
 }
 ```
-
-## Manual DataModel Registration in Tools
-
-For more complex scenarios, you can manually handle DataModels in tools:
-
-```php
-use LarAgent\Tool;
-use App\DataModels\Address;
-
-public function registerTools()
-{
-    return [
-        Tool::create('validate_address', 'Validate a delivery address')
-            ->addProperty('address', [
-                'type' => 'object',
-                'properties' => Address::generateSchema()['properties'],
-                'required' => ['street', 'city', 'state', 'postalCode'],
-            ], 'The address to validate')
-            ->setRequired('address')
-            ->setCallback(function (array $address) {
-                // Manually convert to DataModel
-                $addressModel = Address::fromArray($address);
-                return $this->validateAddress($addressModel);
-            }),
-    ];
-}
-```
-
-## Real-World Scenario: E-Commerce Order System
-
-### Requirements
-- Accept complex order structures from AI
-- Validate and process orders
-- Handle multiple payment methods
-- Support various shipping options
-
-### Implementation
-
-#### 1. Define DataModels
-
-```php
-<?php
-
-namespace App\DataModels\Ecommerce;
-
-use LarAgent\Core\Abstractions\DataModel;
-use LarAgent\Attributes\Desc;
-use LarAgent\Attributes\ExcludeFromSchema;
-
-class ProductItem extends DataModel
-{
-    #[Desc('Product SKU')]
-    public string $sku;
-    
-    #[Desc('Quantity to purchase')]
-    public int $quantity;
-    
-    #[Desc('Special instructions for this item')]
-    public ?string $notes = null;
-}
-
-class ShippingOptions extends DataModel
-{
-    #[Desc('Shipping method: standard, express, overnight')]
-    public string $method = 'standard';
-    
-    #[Desc('Require signature on delivery')]
-    public bool $requireSignature = false;
-    
-    #[Desc('Gift wrap the package')]
-    public bool $giftWrap = false;
-    
-    #[Desc('Gift message (if gift wrap is enabled)')]
-    public ?string $giftMessage = null;
-}
-
-class PaymentInfo extends DataModel
-{
-    #[Desc('Payment method: credit_card, paypal, bank_transfer')]
-    public string $method;
-    
-    #[Desc('Last 4 digits of card (for credit card)')]
-    public ?string $cardLast4 = null;
-    
-    #[Desc('PayPal email (for PayPal)')]
-    public ?string $paypalEmail = null;
-}
-
-class CustomerDetails extends DataModel
-{
-    #[Desc('Customer full name')]
-    public string $name;
-    
-    #[Desc('Email address')]
-    public string $email;
-    
-    #[Desc('Phone number')]
-    public ?string $phone = null;
-    
-    #[Desc('Shipping address')]
-    public Address $shippingAddress;
-    
-    #[Desc('Use same address for billing')]
-    public bool $sameAsBilling = true;
-    
-    #[Desc('Billing address (if different)')]
-    public ?Address $billingAddress = null;
-}
-
-class OrderRequest extends DataModel
-{
-    #[Desc('Customer information')]
-    public CustomerDetails $customer;
-    
-    #[Desc('Items to order')]
-    public array $items; // Array of ProductItem
-    
-    #[Desc('Shipping preferences')]
-    public ShippingOptions $shipping;
-    
-    #[Desc('Payment information')]
-    public PaymentInfo $payment;
-    
-    #[Desc('Promotional code if any')]
-    public ?string $promoCode = null;
-    
-    #[Desc('Additional order notes')]
-    public ?string $notes = null;
-    
-    // Internal fields not exposed to LLM
-    #[ExcludeFromSchema]
-    public ?string $orderId = null;
-    
-    #[ExcludeFromSchema]
-    public ?float $totalAmount = null;
-}
-```
-
-#### 2. Create the Agent
-
-```php
-<?php
-
-namespace App\AiAgents;
-
-use LarAgent\Agent;
-use LarAgent\Attributes\Tool;
-use App\DataModels\Ecommerce\OrderRequest;
-use App\DataModels\Ecommerce\ProductItem;
-use App\DataModels\Ecommerce\CustomerDetails;
-use App\Services\OrderService;
-use App\Services\InventoryService;
-use App\Services\ShippingService;
-
-class EcommerceAssistant extends Agent
-{
-    protected $instructions = <<<PROMPT
-You are an e-commerce assistant helping customers place orders.
-You can:
-- Check product availability
-- Calculate shipping costs
-- Process orders
-- Apply promotional codes
-
-Always confirm order details before processing.
-PROMPT;
-
-    public function __construct(
-        string $key,
-        protected OrderService $orderService,
-        protected InventoryService $inventory,
-        protected ShippingService $shipping
-    ) {
-        parent::__construct($key);
-    }
-    
-    #[Tool(
-        description: 'Check if products are available',
-        parameterDescriptions: [
-            'items' => 'List of products to check',
-        ]
-    )]
-    public function checkAvailability(array $items): string
-    {
-        $results = [];
-        
-        foreach ($items as $itemData) {
-            $item = ProductItem::fromArray($itemData);
-            $available = $this->inventory->checkStock($item->sku, $item->quantity);
-            $results[] = [
-                'sku' => $item->sku,
-                'requested' => $item->quantity,
-                'available' => $available,
-                'in_stock' => $available >= $item->quantity,
-            ];
-        }
-        
-        return json_encode($results);
-    }
-    
-    #[Tool(
-        description: 'Calculate shipping cost for an order',
-        parameterDescriptions: [
-            'customer' => 'Customer details with shipping address',
-            'items' => 'Products to ship',
-            'method' => 'Shipping method: standard, express, overnight',
-        ]
-    )]
-    public function calculateShipping(
-        CustomerDetails $customer,
-        array $items,
-        string $method = 'standard'
-    ): string {
-        $weight = 0;
-        foreach ($items as $itemData) {
-            $item = ProductItem::fromArray($itemData);
-            $weight += $this->inventory->getProductWeight($item->sku) * $item->quantity;
-        }
-        
-        $cost = $this->shipping->calculate(
-            $customer->shippingAddress,
-            $weight,
-            $method
-        );
-        
-        return json_encode([
-            'method' => $method,
-            'weight_kg' => $weight,
-            'cost' => $cost,
-            'estimated_days' => $this->shipping->getEstimatedDays($method),
-        ]);
-    }
-    
-    #[Tool(
-        description: 'Process a complete order',
-        parameterDescriptions: [
-            'order' => 'Complete order details including customer, items, shipping, and payment',
-        ]
-    )]
-    public function processOrder(OrderRequest $order): string
-    {
-        // Validate inventory
-        foreach ($order->items as $itemData) {
-            $item = ProductItem::fromArray($itemData);
-            if (!$this->inventory->checkStock($item->sku, $item->quantity)) {
-                return json_encode([
-                    'success' => false,
-                    'error' => "Product {$item->sku} is out of stock",
-                ]);
-            }
-        }
-        
-        // Calculate totals
-        $subtotal = $this->calculateSubtotal($order->items);
-        $shippingCost = $this->shipping->calculate(
-            $order->customer->shippingAddress,
-            $this->calculateWeight($order->items),
-            $order->shipping->method
-        );
-        
-        $discount = 0;
-        if ($order->promoCode) {
-            $discount = $this->orderService->validatePromoCode($order->promoCode, $subtotal);
-        }
-        
-        $total = $subtotal + $shippingCost - $discount;
-        
-        // Process the order
-        try {
-            $orderId = $this->orderService->create([
-                'customer' => $order->customer->toArray(),
-                'items' => $order->items,
-                'shipping' => $order->shipping->toArray(),
-                'payment' => $order->payment->toArray(),
-                'subtotal' => $subtotal,
-                'shipping_cost' => $shippingCost,
-                'discount' => $discount,
-                'total' => $total,
-            ]);
-            
-            return json_encode([
-                'success' => true,
-                'order_id' => $orderId,
-                'subtotal' => $subtotal,
-                'shipping' => $shippingCost,
-                'discount' => $discount,
-                'total' => $total,
-                'estimated_delivery' => $this->shipping->getEstimatedDelivery(
-                    $order->shipping->method,
-                    $order->customer->shippingAddress
-                ),
-            ]);
-        } catch (\Exception $e) {
-            return json_encode([
-                'success' => false,
-                'error' => $e->getMessage(),
-            ]);
-        }
-    }
-    
-    #[Tool('Apply a promotional code and get discount info')]
-    public function applyPromoCode(string $code, float $orderTotal): string
-    {
-        $discount = $this->orderService->validatePromoCode($code, $orderTotal);
-        
-        if ($discount > 0) {
-            return json_encode([
-                'valid' => true,
-                'code' => $code,
-                'discount' => $discount,
-                'new_total' => $orderTotal - $discount,
-            ]);
-        }
-        
-        return json_encode([
-            'valid' => false,
-            'code' => $code,
-            'message' => 'Invalid or expired promotional code',
-        ]);
-    }
-    
-    protected function calculateSubtotal(array $items): float
-    {
-        $total = 0;
-        foreach ($items as $itemData) {
-            $item = ProductItem::fromArray($itemData);
-            $price = $this->inventory->getProductPrice($item->sku);
-            $total += $price * $item->quantity;
-        }
-        return $total;
-    }
-    
-    protected function calculateWeight(array $items): float
-    {
-        $weight = 0;
-        foreach ($items as $itemData) {
-            $item = ProductItem::fromArray($itemData);
-            $weight += $this->inventory->getProductWeight($item->sku) * $item->quantity;
-        }
-        return $weight;
-    }
-}
-```
-
-#### 3. Controller Usage
-
-```php
-<?php
-
-namespace App\Http\Controllers;
-
-use App\AiAgents\EcommerceAssistant;
-use App\Services\OrderService;
-use App\Services\InventoryService;
-use App\Services\ShippingService;
-use Illuminate\Http\Request;
-
-class OrderChatController extends Controller
-{
-    public function chat(Request $request)
-    {
-        $sessionId = $request->session()->getId();
-        
-        $agent = new EcommerceAssistant(
-            $sessionId,
-            app(OrderService::class),
-            app(InventoryService::class),
-            app(ShippingService::class)
-        );
-        
-        $response = $agent->respond($request->input('message'));
-        
-        return response()->json([
-            'response' => $response,
-        ]);
-    }
-}
-```
-
-#### 4. Example Conversation
-
-**User**: I want to order 2 units of SKU-12345 and 1 unit of SKU-67890
-
-**Assistant**: Let me check the availability of those products for you.
-*[Calls checkAvailability tool]*
-
-Both products are in stock! Here's what I found:
-- SKU-12345: 15 units available ✓
-- SKU-67890: 8 units available ✓
-
-Would you like me to proceed with the order? I'll need your shipping address and preferred shipping method.
-
-**User**: Ship to John Doe, 123 Main St, New York, NY 10001. Use express shipping.
-
-**Assistant**: *[Calls calculateShipping tool]*
-
-Here's your shipping estimate:
-- Method: Express
-- Cost: $15.99
-- Estimated delivery: 2-3 business days
-
-Your order summary:
-- SKU-12345 x 2: $49.98
-- SKU-67890 x 1: $29.99
-- Subtotal: $79.97
-- Shipping: $15.99
-- **Total: $95.96**
-
-Would you like to proceed with the order? Please provide your payment method.
-
-**User**: Pay with credit card ending in 4242
-
-**Assistant**: *[Calls processOrder tool with complete OrderRequest]*
-
-Order successfully placed! 🎉
-
-Order #ORD-2024-001234
-- Total charged: $95.96
-- Estimated delivery: January 18, 2024
-
-You'll receive a confirmation email at the address provided. Is there anything else I can help you with?
