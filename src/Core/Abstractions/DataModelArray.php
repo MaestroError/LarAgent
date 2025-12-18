@@ -408,7 +408,7 @@ abstract class DataModelArray implements DataModelArrayContract
      * @param  mixed  $itemOrKey  The item to remove (value or index) or the key to check
      * @param  mixed  $value  The value to check if removing by key/value pair
      *
-     * @throws \OutOfBoundsException  If the item is not found
+     * @throws \OutOfBoundsException If the item is not found
      */
     public function removeOrFail(mixed $itemOrKey, mixed $value = null): static
     {
@@ -422,12 +422,12 @@ abstract class DataModelArray implements DataModelArrayContract
                     break;
                 }
             }
-            if (!$found) {
+            if (! $found) {
                 throw new \OutOfBoundsException("No item found with {$itemOrKey} = {$value}");
             }
         } elseif (is_int($itemOrKey) || is_string($itemOrKey)) {
             // Index removal
-            if (!isset($this->items[$itemOrKey])) {
+            if (! isset($this->items[$itemOrKey])) {
                 throw new \OutOfBoundsException("Item not found at index: {$itemOrKey}");
             }
         } else {

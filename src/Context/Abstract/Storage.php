@@ -150,7 +150,7 @@ abstract class Storage implements StorageContract
      * Remove an item from storage or throw an exception if not found.
      * Follows Laravel's OrFail convention.
      *
-     * @throws \OutOfBoundsException  If the item is not found
+     * @throws \OutOfBoundsException If the item is not found
      */
     public function removeItemOrFail(mixed $itemOrKey, mixed $value = null): void
     {
