@@ -402,6 +402,46 @@ abstract class DataModelArray implements DataModelArrayContract
     }
 
     /**
+     * Remove an item or throw an exception if not found.
+     * Follows Laravel's OrFail convention.
+     *
+     * @param  mixed  $itemOrKey  The item to remove (value or index) or the key to check
+     * @param  mixed  $value  The value to check if removing by key/value pair
+     *
+     * @throws \OutOfBoundsException  If the item is not found
+     */
+    public function removeOrFail(mixed $itemOrKey, mixed $value = null): static
+    {
+        // Check if item exists before removal
+        if ($value !== null && is_string($itemOrKey)) {
+            // Key/value pair removal - check if any match exists
+            $found = false;
+            foreach ($this->items as $item) {
+                if ($item instanceof DataModelContract && isset($item[$itemOrKey]) && $item[$itemOrKey] === $value) {
+                    $found = true;
+                    break;
+                }
+            }
+            if (!$found) {
+                throw new \OutOfBoundsException("No item found with {$itemOrKey} = {$value}");
+            }
+        } elseif (is_int($itemOrKey) || is_string($itemOrKey)) {
+            // Index removal
+            if (!isset($this->items[$itemOrKey])) {
+                throw new \OutOfBoundsException("Item not found at index: {$itemOrKey}");
+            }
+        } else {
+            // Object instance removal
+            $index = array_search($itemOrKey, $this->items, true);
+            if ($index === false) {
+                throw new \OutOfBoundsException('Item instance not found in array');
+            }
+        }
+
+        return $this->remove($itemOrKey, $value);
+    }
+
+    /**
      * Get the first item.
      */
     public function first(): ?DataModelContract

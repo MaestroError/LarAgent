@@ -16,7 +16,7 @@ The Storage system in LarAgent provides a unified abstraction for persisting dat
 │  - ChatHistoryStorage                                        │
 │  - UsageStorage                                              │
 │  - IdentityStorage                                           │
-│  - Your Custom Storage                                       │
+│  - ...                                      │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼
@@ -32,8 +32,7 @@ The Storage system in LarAgent provides a unified abstraction for persisting dat
 │  - FileStorage                                               │
 │  - EloquentStorage                                           │
 │  - SessionStorage                                            │
-│  - InMemoryStorage                                           │
-│  - Your Custom Driver                                        │
+│  - ...                                       │
 └─────────────────────────────────────────────────────────────┘
 ```
 
@@ -59,7 +58,7 @@ abstract class Storage implements StorageContract
     protected bool $dirty = false;
     protected bool $loaded = false;
 
-    // Each storage defines its data model type
+    // Each storage defines its data model array
     abstract protected function getDataModelClass(): string;
     
     // Each storage defines its prefix for key isolation
@@ -113,83 +112,235 @@ interface StorageDriver
 
 ## Built-in Storage Implementations
 
+LarAgent provides three built-in storage implementations that work together to manage agent state. Each storage uses the same driver system but stores different types of data.
+
 ### ChatHistoryStorage
 
-Stores conversation messages:
+Stores conversation messages between the user and the AI. This is the primary storage most developers will interact with.
 
+**Key features:**
+- Stores messages as typed `MessageArray` (polymorphic: user, assistant, system, tool messages)
+- Supports metadata storage for additional context
+- Fires events: `MessageAdding`, `MessageAdded`, `ChatHistorySaving`, `ChatHistorySaved`, `ChatHistoryLoaded`
+
+**Agent usage:**
 ```php
-use LarAgent\Context\Storages\ChatHistoryStorage;
-use LarAgent\Messages\DataModels\MessageArray;
+<?php
 
-class ChatHistoryStorage extends Storage implements ChatHistoryInterface
+namespace App\AiAgents;
+
+use LarAgent\Agent;
+use LarAgent\Message;
+
+class SupportAgent extends Agent
 {
-    protected function getDataModelClass(): string
+    protected $instructions = 'You are a helpful support agent.';
+    protected $history = 'cache';  // Configure storage driver
+    protected $storeMeta = true;   // Enable metadata storage
+    
+    public function demonstrateChatHistory(): void
     {
-        return MessageArray::class;  // Collection of Message DataModels
+        // Access the chat history
+        $chatHistory = $this->chatHistory();
+        
+        // Get all messages
+        $messages = $chatHistory->getMessages();
+        
+        // Get the last message
+        $lastMessage = $chatHistory->getLastMessage();
+        
+        // Get message count
+        $count = $chatHistory->count();
+        
+        // Add messages manually
+        $this->addMessage(Message::user('Hello!'));
+        $this->addMessage(Message::assistant('Hi there! How can I help?'));
+        
+        // Convert to array (for API responses)
+        $messagesArray = $chatHistory->toArray();
+        
+        // With metadata included
+        $messagesWithMeta = $chatHistory->toArrayWithMeta();
+        
+        // Clear all messages
+        $this->clear();
+        
+        // Manual persistence control
+        $chatHistory->save();           // Save if dirty
+        $chatHistory->writeToMemory();  // Force write
+        $chatHistory->readFromMemory(); // Force read
+    }
+}
+```
+
+**Controller usage:**
+```php
+class ChatController extends Controller
+{
+    public function chat(Request $request)
+    {
+        $agent = SupportAgent::for($request->user()->id);
+        $response = $agent->respond($request->input('message'));
+        
+        return response()->json([
+            'response' => $response,
+            'message_count' => $agent->chatHistory()->count(),
+            'history' => $agent->chatHistory()->toArray(),
+        ]);
     }
     
-    public static function getStoragePrefix(): string
+    public function clearHistory(Request $request)
     {
-        return 'chatHistory';  // Key prefix for isolation
+        $agent = SupportAgent::for($request->user()->id);
+        $agent->clear();
+        
+        return response()->json(['status' => 'cleared']);
     }
-    
-    public function addMessage(MessageInterface $message): void;
-    public function getMessages(): MessageArray;
-    public function getLastMessage(): ?MessageInterface;
 }
 ```
 
 ### UsageStorage
 
-Tracks token usage:
+Tracks token usage and costs across agent interactions. Useful for monitoring, billing, and analytics.
 
+**Key features:**
+- Stores `UsageRecord` objects with token counts, costs, and metadata
+- Supports filtering by agent, user, model, provider, and date ranges
+- Provides aggregation and grouping methods
+- Automatically captures model and provider information
+
+**Agent usage:**
 ```php
-use LarAgent\Usage\UsageStorage;
-use LarAgent\Usage\DataModels\UsageArray;
+<?php
 
-class UsageStorage extends Storage
+namespace App\AiAgents;
+
+use LarAgent\Agent;
+
+class SupportAgent extends Agent
 {
-    protected function getDataModelClass(): string
-    {
-        return UsageArray::class;  // Collection of UsageRecord DataModels
-    }
+    protected $instructions = 'You are a helpful support agent.';
     
-    public static function getStoragePrefix(): string
+    public function demonstrateUsageTracking(): void
     {
-        return 'usage';
+        // Access usage storage
+        $usageStorage = $this->context()->getUsageStorage();
+        
+        // Get all usage records
+        $records = $usageStorage->getUsageRecords();
+        
+        // Get the last usage record
+        $lastUsage = $usageStorage->getLastUsage();
+        
+        // Filter by various criteria
+        $filtered = $usageStorage->getFilteredUsage([
+            'agent_name' => 'SupportAgent',
+            'user_id' => 'user-123',
+            'model_name' => 'gpt-4',
+            'date_from' => '2024-01-01',
+            'date_to' => '2024-12-31',
+        ]);
+        
+        // Aggregate statistics
+        $stats = $usageStorage->aggregate();
+        // Returns: ['prompt_tokens' => X, 'completion_tokens' => Y, 'total_tokens' => Z, 'total_cost' => $]
+        
+        // Group by field
+        $byModel = $usageStorage->groupBy('model_name');
+        $byUser = $usageStorage->groupBy('user_id');
     }
-    
-    public function addUsage(Usage $usage): void;
-    public function getUsageRecords(): UsageArray;
-    public function aggregate(array $filters = []): array;
+}
+```
+
+**Analytics controller example:**
+```php
+class UsageAnalyticsController extends Controller
+{
+    public function dashboard(Request $request)
+    {
+        $agent = SupportAgent::for($request->user()->id);
+        $usageStorage = $agent->context()->getUsageStorage();
+        
+        // Get usage for current month
+        $monthlyUsage = $usageStorage->getFilteredUsage([
+            'date_from' => now()->startOfMonth()->toDateString(),
+        ]);
+        
+        return response()->json([
+            'total_tokens' => $monthlyUsage->aggregate()['total_tokens'],
+            'total_cost' => $monthlyUsage->aggregate()['total_cost'],
+            'by_model' => $usageStorage->groupBy('model_name'),
+            'record_count' => $monthlyUsage->count(),
+        ]);
+    }
 }
 ```
 
 ### IdentityStorage
 
-Tracks all storage identities for discovery:
+Tracks all storage identities (keys) registered within a context. Enables discovery and bulk operations across all agent sessions.
 
+**Key features:**
+- Automatically tracks identities when storages are created
+- Enables listing all chats/sessions for an agent
+- Supports bulk cleanup operations
+- Excludes temporary sessions (prefixed with `_temp`)
+
+**Agent usage via Context Facade:**
 ```php
-use LarAgent\Context\Storages\IdentityStorage;
-use LarAgent\Context\DataModels\SessionIdentityArray;
+use LarAgent\Facades\Context;
 
-class IdentityStorage extends Storage
+// List all chat sessions for an agent
+$identities = Context::of(SupportAgent::class)->getIdentities();
+
+foreach ($identities as $identity) {
+    echo "Chat: {$identity->getChatName()}, User: {$identity->getUserId()}\n";
+}
+
+// Filter by user
+$userIdentities = Context::of(SupportAgent::class)
+    ->forUser('user-123') // user id
+    ->getIdentities();
+
+// Clear all chats for an agent
+Context::of(SupportAgent::class)->clearAllChats();
+
+// Clear all chats for a specific user
+Context::of(SupportAgent::class)
+    ->forUser('user-123')
+    ->clearAllChats();
+
+// Clear a specific chat
+Context::of(SupportAgent::class)
+    ->forChat('session-456')
+    ->clearChat();
+```
+
+**Admin controller example:**
+```php
+class AgentAdminController extends Controller
 {
-    protected function getDataModelClass(): string
+    public function listSessions(string $agentClass)
     {
-        return SessionIdentityArray::class;  // Collection of SessionIdentity DataModels
+        $identities = Context::of($agentClass)->getIdentities();
+        
+        return response()->json([
+            'sessions' => $identities->toArray(),
+            'total' => $identities->count(),
+        ]);
     }
     
-    public static function getStoragePrefix(): string
+    public function clearUserSessions(Request $request, string $userId)
     {
-        return 'context';
+        Context::of(SupportAgent::class)
+            ->forUser($userId)
+            ->clearAllChats();
+        
+        return response()->json(['status' => 'cleared']);
     }
-    
-    public function addIdentity(SessionIdentityContract $identity): void;
-    public function getIdentities(): SessionIdentityArray;
-    public function getIdentitiesByScope(string $scope): SessionIdentityArray;
 }
 ```
+
 
 ## DataModel in Storage
 
@@ -253,28 +404,141 @@ class MessageArray extends DataModelArray
 
 ## Built-in Storage Drivers
 
+Storage drivers handle the actual persistence of data. LarAgent provides several built-in drivers that can be configured at the agent level.
+
+### Configuring Storage in Agent Class
+
+There are multiple ways to configure which storage driver(s) an agent uses:
+
+#### 1. Using String Aliases (Simplest)
+
+```php
+<?php
+
+namespace App\AiAgents;
+
+use LarAgent\Agent;
+
+class SupportAgent extends Agent
+{
+    protected $instructions = 'You are a helpful support agent.';
+    
+    // Use a built-in storage alias
+    protected $history = 'cache';
+}
+```
+
+**Available aliases:**
+| Alias | Driver Class | Description |
+|-------|-------------|-------------|
+| `'in_memory'` | `InMemoryStorage` | No persistence, lost on request end |
+| `'session'` | `SessionStorage` | PHP session storage |
+| `'cache'` | `CacheStorage` | Laravel cache (Redis, Memcached, etc.) |
+| `'file'` or `'json'` | `FileStorage` | JSON files on disk |
+| `'database'` | `EloquentStorage` | Separate row per message |
+| `'database-simple'` | `SimpleEloquentStorage` | JSON column storage |
+
+#### 2. Using Driver Classes
+
+```php
+use LarAgent\Context\Drivers\CacheStorage;
+use LarAgent\Context\Drivers\FileStorage;
+
+class SupportAgent extends Agent
+{
+    // Single driver
+    protected $history = CacheStorage::class;
+    
+    // Or with fallback chain (primary first)
+    protected $history = [
+        CacheStorage::class,   // Primary: read first, write first
+        FileStorage::class,    // Fallback: used if primary fails
+    ];
+}
+```
+
+#### 3. Override Method for Dynamic Configuration
+
+```php
+class SupportAgent extends Agent
+{
+    protected function historyStorageDrivers(): string|array
+    {
+        // Dynamic driver selection based on environment
+        if (app()->environment('testing')) {
+            return 'in_memory';
+        }
+        
+        return [
+            new CacheStorage('redis'),
+            new FileStorage('local', 'chat_backups'),
+        ];
+    }
+}
+```
+
+#### 4. Full Control via `createChatHistory()`
+
+```php
+use LarAgent\Context\Storages\ChatHistoryStorage;
+use LarAgent\Context\Drivers\EloquentStorage;
+
+class SupportAgent extends Agent
+{
+    public function createChatHistory()
+    {
+        $drivers = [
+            new EloquentStorage(\App\Models\CustomMessage::class),
+        ];
+        
+        return new ChatHistoryStorage(
+            $this->context()->getIdentity(),
+            $drivers,
+            storeMeta: true  // Enable metadata storage
+        );
+    }
+}
+```
+
 ### CacheStorage
 
-Uses Laravel's cache system:
+Uses Laravel's cache system. Ideal for fast access with configurable backends (Redis, Memcached, file, database).
 
 ```php
 use LarAgent\Context\Drivers\CacheStorage;
 
-// Default cache store
+// Default cache store (uses config('cache.default'))
 $driver = new CacheStorage();
 
 // Specific cache store
 $driver = new CacheStorage('redis');
+$driver = new CacheStorage('memcached');
 ```
+
+**Agent usage:**
+```php
+class SupportAgent extends Agent
+{
+    protected $history = 'cache';
+    
+    // Or with custom store
+    protected function historyStorageDrivers(): array
+    {
+        return [new CacheStorage('redis')];
+    }
+}
+```
+
+**Best for:** High-traffic applications, when you need fast read/write access and have Redis/Memcached available.
 
 ### FileStorage
 
-Stores as JSON files:
+Stores data as JSON files. Works with any Laravel filesystem disk (local, S3, etc.).
 
 ```php
 use LarAgent\Context\Drivers\FileStorage;
 
-// Default settings
+// Default settings (local disk, 'laragent' folder)
 $driver = new FileStorage();
 
 // Custom disk and folder
@@ -282,11 +546,36 @@ $driver = new FileStorage(
     disk: 's3',
     folder: 'ai_conversations'
 );
+
+// Local disk with custom folder
+$driver = new FileStorage(
+    disk: 'local',
+    folder: 'chat_history'
+);
 ```
+
+**Agent usage:**
+```php
+class SupportAgent extends Agent
+{
+    protected $history = 'file';
+    
+    // Or with S3 backup
+    protected function historyStorageDrivers(): array
+    {
+        return [
+            new CacheStorage('redis'),           // Fast primary
+            new FileStorage('s3', 'backups'),    // Durable fallback
+        ];
+    }
+}
+```
+
+**Best for:** Simple deployments, when you need file-based persistence, or as a fallback to cache storage.
 
 ### EloquentStorage
 
-Full Eloquent integration with separate rows per item:
+Full Eloquent integration with each item stored as a separate database row. Best for queryable, structured data.
 
 ```php
 use LarAgent\Context\Drivers\EloquentStorage;
@@ -297,15 +586,40 @@ $driver = new EloquentStorage();
 // Custom model
 $driver = new EloquentStorage(\App\Models\ChatMessage::class);
 
-// Configure columns
-$driver = new EloquentStorage();
+// Configure column names (if using custom model)
+$driver = new EloquentStorage(\App\Models\ChatMessage::class);
 $driver->setKeyColumn('session_key');
-$driver->setPositionColumn('position');
+$driver->setPositionColumn('sort_order');
 ```
+
+**Setup required:**
+```bash
+# Publish and run migration
+php artisan la:publish eloquent-storage
+php artisan migrate
+```
+
+**Agent usage:**
+```php
+class SupportAgent extends Agent
+{
+    protected $history = 'database';
+    
+    // Or with custom model
+    protected function historyStorageDrivers(): array
+    {
+        return [
+            new EloquentStorage(\App\Models\ConversationMessage::class),
+        ];
+    }
+}
+```
+
+**Best for:** When you need to query messages directly, analytics, audit trails, or integration with existing database models.
 
 ### SimpleEloquentStorage
 
-Stores entire array as JSON:
+Stores the entire data array as JSON in a single database column. Simpler but less queryable.
 
 ```php
 use LarAgent\Context\Drivers\SimpleEloquentStorage;
@@ -317,9 +631,26 @@ $driver = new SimpleEloquentStorage();
 $driver = new SimpleEloquentStorage(\App\Models\StorageRecord::class);
 ```
 
+**Setup required:**
+```bash
+# Publish and run migration
+php artisan la:publish simple-eloquent-storage
+php artisan migrate
+```
+
+**Agent usage:**
+```php
+class SupportAgent extends Agent
+{
+    protected $history = 'database-simple';
+}
+```
+
+**Best for:** When you need database persistence but don't need to query individual messages.
+
 ### SessionStorage
 
-Uses PHP session:
+Uses PHP session for storage. Data persists across requests within the same session.
 
 ```php
 use LarAgent\Context\Drivers\SessionStorage;
@@ -327,9 +658,21 @@ use LarAgent\Context\Drivers\SessionStorage;
 $driver = new SessionStorage();
 ```
 
+**Agent usage:**
+```php
+class SupportAgent extends Agent
+{
+    protected $history = 'session';
+}
+```
+
+**Best for:** Web applications where each user has their own session, simple chat widgets.
+
+**Note:** Not suitable for API-only applications or when sessions aren't available.
+
 ### InMemoryStorage
 
-No persistence (for testing/temporary use):
+No persistence - data exists only in PHP memory for the current request.
 
 ```php
 use LarAgent\Context\Drivers\InMemoryStorage;
@@ -337,106 +680,60 @@ use LarAgent\Context\Drivers\InMemoryStorage;
 $driver = new InMemoryStorage();
 ```
 
-## Creating Custom DataModels for Storage
-
-### Simple DataModel
-
+**Agent usage:**
 ```php
-<?php
-
-namespace App\DataModels;
-
-use LarAgent\Core\Abstractions\DataModel;
-use LarAgent\Attributes\Desc;
-
-class CustomerNote extends DataModel
+class SupportAgent extends Agent
 {
-    #[Desc('The note content')]
-    public string $content;
-    
-    #[Desc('When the note was created')]
-    public string $createdAt;
-    
-    #[Desc('Who created the note')]
-    public ?string $createdBy = null;
+    protected $history = 'in_memory';
 }
 ```
 
-### DataModelArray for Collection
+**Best for:** Testing, one-off interactions, stateless API endpoints, or when persistence isn't needed.
+
+**Note:** Using this with other drivers in a chain doesn't make sense - data is lost when the request ends.
+
+### Working with Chat History in Agent
+
+Once storage is configured, you can interact with chat history through the agent:
 
 ```php
-<?php
+// Get the chat history instance
+$chatHistory = $agent->chatHistory();
 
-namespace App\DataModels;
+// Get all messages
+$messages = $chatHistory->getMessages();
 
-use LarAgent\Core\Abstractions\DataModelArray;
+// Get the last message
+$lastMessage = $chatHistory->getLastMessage();
 
-class CustomerNoteArray extends DataModelArray
-{
-    public static function allowedModels(): array
-    {
-        return [
-            'default' => CustomerNote::class,
-        ];
-    }
-    
-    public function discriminator(): string
-    {
-        return 'type';  // Or any field, default is 'default'
-    }
-    
-    // Optional: Custom filtering
-    public function filterByCreator(string $creator): static
-    {
-        return $this->filter(fn($note) => $note->createdBy === $creator);
-    }
-}
+// Get message count
+$count = $chatHistory->count();
+
+// Add messages manually
+use LarAgent\Message;
+$agent->addMessage(Message::user('Hello!'));
+$agent->addMessage(Message::assistant('Hi there!'));
+
+// Clear chat history
+$agent->clear();
+
+// Manual save (usually automatic)
+$agent->chatHistory()->save();
 ```
 
-### Using DataModel in Custom Storage
+### Storage Driver Selection Guide
 
-```php
-<?php
+| Use Case | Recommended Driver(s) |
+|----------|----------------------|
+| Development/Testing | `in_memory` |
+| Simple web app | `session` or `cache` |
+| Production with Redis | `cache` (redis) |
+| Need message queries | `database` (EloquentStorage) |
+| Simple DB persistence | `database-simple` |
+| High availability | `cache` + `file` (fallback chain) |
+| Serverless/Lambda | `database` or `database-simple` |
+| Long-running processes | `cache` or `database` with `forceReadHistory = true` |
 
-namespace App\Context\Storages;
-
-use LarAgent\Context\Abstract\Storage;
-use App\DataModels\CustomerNoteArray;
-
-class CustomerNotesStorage extends Storage
-{
-    protected function getDataModelClass(): string
-    {
-        return CustomerNoteArray::class;
-    }
-    
-    public static function getStoragePrefix(): string
-    {
-        return 'customerNotes';
-    }
-    
-    public function addNote(string $content, ?string $createdBy = null): void
-    {
-        $note = CustomerNote::fromArray([
-            'content' => $content,
-            'createdAt' => now()->toIso8601String(),
-            'createdBy' => $createdBy,
-        ]);
-        
-        $this->add($note);
-    }
-    
-    public function getNotes(): CustomerNoteArray
-    {
-        return $this->get();
-    }
-    
-    public function getNotesByCreator(string $creator): CustomerNoteArray
-    {
-        return $this->getNotes()->filterByCreator($creator);
-    }
-}
-```
 
 ## Key Isolation and Scoping
 
@@ -499,15 +796,37 @@ $this->identity = $identity->withScope($this->getStoragePrefix());
 ```php
 <?php
 
+namespace App\Enums;
+
+enum NoteType: string
+{
+    case Text = 'text';
+    case Action = 'action';
+    case Reminder = 'reminder';
+}
+
+enum Priority: string
+{
+    case Low = 'low';
+    case Medium = 'medium';
+    case High = 'high';
+}
+```
+
+```php
+<?php
+
 namespace App\DataModels;
 
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Attributes\Desc;
+use App\Enums\NoteType;
+use App\Enums\Priority;
 
 class CustomerNote extends DataModel
 {
-    #[Desc('Type of note: text, action, reminder')]
-    public string $type = 'text';
+    #[Desc('Type of note')]
+    public NoteType $type = NoteType::Text;
     
     #[Desc('The note content')]
     public string $content;
@@ -518,8 +837,8 @@ class CustomerNote extends DataModel
     #[Desc('User who created the note')]
     public ?string $createdBy = null;
     
-    #[Desc('Priority level: low, medium, high')]
-    public string $priority = 'medium';
+    #[Desc('Priority level')]
+    public Priority $priority = Priority::Medium;
     
     #[Desc('Whether the note is resolved')]
     public bool $resolved = false;
@@ -532,33 +851,28 @@ class CustomerNote extends DataModel
 namespace App\DataModels;
 
 use LarAgent\Core\Abstractions\DataModelArray;
+use App\Enums\NoteType;
+use App\Enums\Priority;
 
 class CustomerNoteArray extends DataModelArray
 {
     public static function allowedModels(): array
     {
-        return [
-            'text' => CustomerNote::class,
-            'action' => CustomerNote::class,
-            'reminder' => CustomerNote::class,
-        ];
+        // Single type - no discriminator needed
+        return [CustomerNote::class];
     }
     
-    public function discriminator(): string
+    // Filter by type (accepts enum or string)
+    public function ofType(NoteType|string $type): static
     {
-        return 'type';
-    }
-    
-    // Filter by type
-    public function ofType(string $type): static
-    {
-        return $this->filter(fn($note) => $note->type === $type);
+        $typeValue = $type instanceof NoteType ? $type : NoteType::from($type);
+        return $this->filter(fn($note) => $note->type === $typeValue);
     }
     
     // Filter by priority
     public function highPriority(): static
     {
-        return $this->filter(fn($note) => $note->priority === 'high');
+        return $this->filter(fn($note) => $note->priority === Priority::High);
     }
     
     // Filter unresolved
@@ -588,7 +902,6 @@ class CustomerNoteArray extends DataModelArray
 namespace App\Context\Storages;
 
 use LarAgent\Context\Abstract\Storage;
-use App\DataModels\CustomerNote;
 use App\DataModels\CustomerNoteArray;
 
 class CustomerNotesStorage extends Storage
@@ -604,55 +917,6 @@ class CustomerNotesStorage extends Storage
     }
     
     /**
-     * Add a text note.
-     */
-    public function addNote(string $content, ?string $createdBy = null): CustomerNote
-    {
-        $note = CustomerNote::fromArray([
-            'type' => 'text',
-            'content' => $content,
-            'createdAt' => now()->toIso8601String(),
-            'createdBy' => $createdBy,
-        ]);
-        
-        $this->add($note);
-        return $note;
-    }
-    
-    /**
-     * Add an action item.
-     */
-    public function addAction(string $content, string $priority = 'medium', ?string $createdBy = null): CustomerNote
-    {
-        $note = CustomerNote::fromArray([
-            'type' => 'action',
-            'content' => $content,
-            'createdAt' => now()->toIso8601String(),
-            'createdBy' => $createdBy,
-            'priority' => $priority,
-        ]);
-        
-        $this->add($note);
-        return $note;
-    }
-    
-    /**
-     * Add a reminder.
-     */
-    public function addReminder(string $content, ?string $createdBy = null): CustomerNote
-    {
-        $note = CustomerNote::fromArray([
-            'type' => 'reminder',
-            'content' => $content,
-            'createdAt' => now()->toIso8601String(),
-            'createdBy' => $createdBy,
-        ]);
-        
-        $this->add($note);
-        return $note;
-    }
-    
-    /**
      * Get all notes.
      */
     public function getNotes(): CustomerNoteArray
@@ -665,7 +929,7 @@ class CustomerNotesStorage extends Storage
      */
     public function getPendingActions(): CustomerNoteArray
     {
-        return $this->getNotes()->ofType('action')->unresolved();
+        return $this->getNotes()->ofType(NoteType::Action)->unresolved();
     }
     
     /**
@@ -686,7 +950,11 @@ class CustomerNotesStorage extends Storage
 namespace App\AiAgents;
 
 use LarAgent\Agent;
+use LarAgent\Attributes\Tool;
 use App\Context\Storages\CustomerNotesStorage;
+use App\DataModels\CustomerNote;
+use App\Enums\NoteType;
+use App\Enums\Priority;
 
 class CustomerSupportAgent extends Agent
 {
@@ -694,14 +962,10 @@ class CustomerSupportAgent extends Agent
     
     protected $history = 'database';
     
-    protected CustomerNotesStorage $notesStorage;
-    
-    protected function setupChatHistory(): void
+    protected function onInitialize(): void
     {
-        parent::setupChatHistory();
-        
         // Register notes storage with context
-        $this->notesStorage = $this->context()->make(CustomerNotesStorage::class);
+        $this->context()->make(CustomerNotesStorage::class);
     }
     
     /**
@@ -709,23 +973,28 @@ class CustomerSupportAgent extends Agent
      */
     public function notes(): CustomerNotesStorage
     {
-        return $this->notesStorage;
+        return $this->context()->getStorage(CustomerNotesStorage::class);
     }
     
     /**
      * Tool: Add a note about the customer.
      */
-    #[\LarAgent\Attributes\Tool('Add a note about this customer interaction')]
+    #[Tool('Add a note about this customer interaction')]
     public function addCustomerNote(
         string $content,
-        string $type = 'text',
-        string $priority = 'medium'
+        NoteType $type = NoteType::Text,
+        Priority $priority = Priority::Medium
     ): string {
-        $note = match ($type) {
-            'action' => $this->notes()->addAction($content, $priority, auth()->id()),
-            'reminder' => $this->notes()->addReminder($content, auth()->id()),
-            default => $this->notes()->addNote($content, auth()->id()),
-        };
+        // Create DataModel and use the inherited add() method
+        $note = CustomerNote::fromArray([
+            'type' => $type->value,
+            'content' => $content,
+            'createdAt' => now()->toIso8601String(),
+            'createdBy' => auth()->id(),
+            'priority' => $priority->value,
+        ]);
+        
+        $this->notes()->add($note);
         
         return "Note added: {$note->content}";
     }
@@ -733,7 +1002,7 @@ class CustomerSupportAgent extends Agent
     /**
      * Tool: Get pending actions for this customer.
      */
-    #[\LarAgent\Attributes\Tool('Get pending action items for this customer')]
+    #[Tool('Get pending action items for this customer')]
     public function getPendingActions(): string
     {
         $actions = $this->notes()->getPendingActions();
@@ -744,7 +1013,7 @@ class CustomerSupportAgent extends Agent
         
         $list = [];
         foreach ($actions as $action) {
-            $list[] = "- [{$action->priority}] {$action->content}";
+            $list[] = "- [{$action->priority->value}] {$action->content}";
         }
         
         return "Pending actions:\n" . implode("\n", $list);
@@ -761,15 +1030,17 @@ namespace App\Http\Controllers;
 
 use App\AiAgents\CustomerSupportAgent;
 use Illuminate\Http\Request;
+use LarAgent\Context\Drivers\CacheStorage;
+use LarAgent\Facades\Context;
 
 class CustomerSupportController extends Controller
 {
+    /**
+     * Chat with the agent - notes are managed automatically via tools.
+     */
     public function chat(Request $request)
     {
-        $user = $request->user();
-        $customerId = $request->input('customer_id');
-        
-        $agent = CustomerSupportAgent::for($customerId);
+        $agent = CustomerSupportAgent::forUser($request->user());
         $response = $agent->respond($request->input('message'));
         
         return response()->json([
@@ -779,29 +1050,89 @@ class CustomerSupportController extends Controller
         ]);
     }
     
-    public function getNotes(Request $request, string $customerId)
+    /**
+     * Update a note manually from the user side.
+     * Use when users need to edit notes outside of agent interaction.
+     */
+    public function updateNote(Request $request, int $noteIndex)
     {
-        $agent = CustomerSupportAgent::for($customerId);
+        $agent = CustomerSupportAgent::forUser($request->user());
         
-        return response()->json([
-            'notes' => $agent->notes()->getNotes()->toArray(),
-            'by_type' => $agent->notes()->getNotes()->countByType(),
-        ]);
-    }
-    
-    public function addNote(Request $request, string $customerId)
-    {
-        $agent = CustomerSupportAgent::for($customerId);
+        $notes = $agent->notes()->getNotes();
         
-        $note = $agent->notes()->addNote(
-            $request->input('content'),
-            auth()->id()
-        );
+        if (!isset($notes[$noteIndex])) {
+            return response()->json(['error' => 'Note not found'], 404);
+        }
         
-        // Save context (including notes)
+        // Update note properties
+        $notes[$noteIndex]->content = $request->input('content');
+        $notes[$noteIndex]->resolved = $request->input('resolved');
+        
+        if ($request->has('priority')) {
+            $notes[$noteIndex]->priority = Priority::from($request->input('priority'));
+        }
+        
+        // Use set() to mark storage as dirty, then save
+        $agent->notes()->set($notes);
         $agent->saveContext();
         
         return response()->json(['note' => $note->toArray()]);
     }
+    
+    /**
+     * Remove note using named approach with manual storage construction.
+     * 
+     * When agent instance is not needed (no AI interaction), you can build
+     * the storage directly with the correct identity. This bypasses agent 
+     * initialization (tool registration, MCP connection, etc.) and is much 
+     * faster for direct storage operations.
+     */
+    public function removeNote(Request $request, int $noteIndex)
+    {
+        $drivers = [CacheStorage::class];
+        
+        // Get identity from named context - filters tracked identities
+        $identity = Context::named('CustomerSupportAgent')
+            ->withDrivers($drivers)
+            ->forUser($request->user())
+            ->forStorage(CustomerNotesStorage::class)
+            ->first();
+        
+        if (!$identity) {
+            return response()->json(['error' => 'No notes found for user'], 404);
+        }
+        
+        // Create storage directly - no agent initialization needed
+        $notes = new CustomerNotesStorage($identity, $drivers);
+        
+        try {
+            $notes->removeItemOrFail($noteIndex);
+            $notes->save();
+        } catch (\OutOfBoundsException $e) {
+            return response()->json(['error' => 'Note not found'], 404);
+        }
+        
+        return response()->json(['status' => 'removed']);
+    }
+    
+    /**
+     * Clear all notes using Context facade.
+     * 
+     * Uses Context facade with agent class - initializes a temp agent 
+     * internally to access the context with proper configuration.
+     * Simpler API but has agent initialization overhead.
+     */
+    public function clearNotes(Request $request)
+    {
+        Context::of(CustomerSupportAgent::class)
+            ->forUser($request->user())
+            ->forStorage(CustomerNotesStorage::class)
+            ->clear();
+        
+        return response()->json(['status' => 'cleared']);
+    }
 }
 ```
+
+_Note: The named approach is faster for simple CRUD operations since it skips agent initialization. Use `Context::of()` when you need access to agent configuration or when simplicity is preferred over performance._
+

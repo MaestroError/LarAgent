@@ -147,6 +147,19 @@ abstract class Storage implements StorageContract
     }
 
     /**
+     * Remove an item from storage or throw an exception if not found.
+     * Follows Laravel's OrFail convention.
+     *
+     * @throws \OutOfBoundsException  If the item is not found
+     */
+    public function removeItemOrFail(mixed $itemOrKey, mixed $value = null): void
+    {
+        $this->ensureLoaded();
+        $this->items->removeOrFail($itemOrKey, $value);
+        $this->dirty = true;
+    }
+
+    /**
      * Get the last item
      */
     public function getLast(): ?DataModelContract
