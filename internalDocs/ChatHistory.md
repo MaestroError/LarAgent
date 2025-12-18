@@ -184,7 +184,7 @@ protected $history = 'in_memory';
 protected $history = \LarAgent\Context\Drivers\InMemoryStorage::class;
 ```
 
-_Note: There is no point to use it in parallel with other storage drivers
+_Note: There is no point in using it in parallel with other storage drivers._
 
 ### SessionStorage
 Uses PHP sessions. Good for web applications with session support.
