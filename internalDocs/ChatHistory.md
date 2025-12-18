@@ -301,7 +301,7 @@ Context::of(SupportAgent::class)
     ->clearAllChats();
 ```
 
-_Note: you can also use commands while development to clear chat histories_
+_Note: you can also use commands during development to clear chat histories_
 
 ### Manual Read/Save Operations
 
