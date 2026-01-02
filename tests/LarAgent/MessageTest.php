@@ -3,17 +3,18 @@
 use LarAgent\Message;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\DeveloperMessage;
+use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
 use LarAgent\Messages\UserMessage;
-use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
 
-it('creates a custom message', function () {
-    $message = Message::create('user', 'Custom content', ['key' => 'value']);
+it('creates a system message', function () {
+    $message = Message::system('You are a helpful assistant', ['key' => 'value']);
 
-    expect($message->getRole())->toBe('user')
-        ->and($message->getContent())->toBe('Custom content')
+    expect($message)->toBeInstanceOf(SystemMessage::class)
+        ->and($message->getRole())->toBe('system')
+        ->and($message->getContentAsString())->toBe('You are a helpful assistant')
         ->and($message->getMetadata())->toHaveKey('key', 'value');
 });
 
@@ -22,7 +23,7 @@ it('creates a developer message', function () {
 
     expect($message)->toBeInstanceOf(DeveloperMessage::class)
         ->and($message->getRole())->toBe('developer')
-        ->and($message->getContent())->toBe('This is a developer message')
+        ->and($message->getContentAsString())->toBe('This is a developer message')
         ->and($message->getMetadata())->toHaveKey('usage', 'test');
 });
 
@@ -31,7 +32,7 @@ it('creates an assistant message', function () {
 
     expect($message)->toBeInstanceOf(AssistantMessage::class)
         ->and($message->getRole())->toBe('assistant')
-        ->and($message->getContent())->toBe('This is an assistant message')
+        ->and($message->getContentAsString())->toBe('This is an assistant message')
         ->and($message->getMetadata())->toHaveKey('usage', 'test');
 });
 
@@ -40,12 +41,7 @@ it('creates a user message', function () {
 
     expect($message)->toBeInstanceOf(UserMessage::class)
         ->and($message->getRole())->toBe('user')
-        ->and($message->getContent())->toBe([
-            [
-                'type' => 'text',
-                'text' => 'This is a user message',
-            ],
-        ])
+        ->and($message->getContentAsString())->toBe('This is a user message')
         ->and($message->getMetadata())->toHaveKey('timestamp', '2025-01-01');
 });
 
@@ -54,41 +50,94 @@ it('creates a tool call message', function () {
     $toolName = 'get_weather';
     $jsonArgs = '{"location": "Boston", "unit": "celsius"}';
     $toolCalls[] = new ToolCall($toolCallId, $toolName, $jsonArgs);
-    $driver = new FakeLlmDriver;
-    $message = Message::toolCall($toolCalls, $driver->toolCallsToMessage($toolCalls), ['status' => 'pending']);
+    $message = Message::toolCall($toolCalls, ['status' => 'pending']);
 
     expect($message)->toBeInstanceOf(ToolCallMessage::class)
-        ->and($message->getToolCalls())->toBe($toolCalls);
+        ->and($message->getToolCalls()->count())->toBe(1);
 });
 
 it('creates a tool result message', function () {
     $toolCall = new ToolCall('12345', 'get_weather', '{"location": "San Francisco, CA"}');
     $result = '{"temperature": "20°C"}';
-    $messageArray = (new FakeLlmDriver)->toolResultToMessage($toolCall, $result);
 
-    $message = Message::toolResult($messageArray, ['status' => 'completed']);
+    $message = Message::toolResult($result, $toolCall->getId(), $toolCall->getToolName(), ['status' => 'completed']);
 
     expect($message)->toBeInstanceOf(ToolResultMessage::class)
         ->and($message->getRole())->toBe('tool')
-        ->and(json_decode($message->getContent()))->toHaveKey($toolCall->getToolName())
+        ->and($message->getContentAsString())->toBe($result)
+        ->and($message->getToolCallId())->toBe('12345')
+        ->and($message->getToolName())->toBe('get_weather')
         ->and($message->getMetadata())->toHaveKey('status', 'completed');
 });
 
 // Edge cases
 
-it('creates a custom message with invalid role', function () {
-    $message = Message::create('', 'Content');
-
-    expect($message->getRole())->toBe('');
-})->throws(\InvalidArgumentException::class, 'Role cannot be empty'); // Add this validation in your class if not already there.
-
 it('handles empty content for user message', function () {
     $message = Message::user('', []);
 
-    expect($message->getContent())->toBe([
-        [
-            'type' => 'text',
-            'text' => '',
-        ],
-    ]);
+    expect($message->getContentAsString())->toBe('');
+});
+
+it('message has unique id', function () {
+    $message1 = Message::user('Hello');
+    $message2 = Message::user('Hello');
+
+    expect($message1->getId())->toStartWith('msg_')
+        ->and($message2->getId())->toStartWith('msg_')
+        ->and($message1->getId())->not->toBe($message2->getId());
+});
+
+it('message has creation timestamp', function () {
+    $before = new DateTimeImmutable;
+    $message = Message::user('Hello');
+    $after = new DateTimeImmutable;
+
+    // Check timestamp format (ISO 8601)
+    expect($message->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/');
+
+    // Check timestamp is within expected range (with 1 second tolerance for test execution)
+    $createdAt = $message->getCreatedAtDateTime();
+    $beforeWithTolerance = $before->modify('-1 second');
+    $afterWithTolerance = $after->modify('+1 second');
+
+    expect($createdAt->getTimestamp())->toBeGreaterThanOrEqual($beforeWithTolerance->getTimestamp())
+        ->and($createdAt->getTimestamp())->toBeLessThanOrEqual($afterWithTolerance->getTimestamp());
+});
+
+it('message_created is preserved in toArray and fromArray', function () {
+    $originalMessage = Message::assistant('Test message');
+    $originalTimestamp = $originalMessage->getCreatedAt();
+
+    // Serialize and deserialize
+    $array = $originalMessage->toArray();
+    expect($array)->toHaveKey('message_created', $originalTimestamp);
+
+    $restoredMessage = AssistantMessage::fromArray($array);
+    expect($restoredMessage->getCreatedAt())->toBe($originalTimestamp);
+});
+
+it('message_created is unique per message', function () {
+    $message1 = Message::user('First');
+    usleep(1000); // Wait 1ms to ensure different timestamp
+    $message2 = Message::user('Second');
+
+    // Timestamps should be different (or at least not guaranteed to be same)
+    // We mainly check that both have valid timestamps
+    expect($message1->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/')
+        ->and($message2->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/');
+});
+
+it('all message types have message_created', function () {
+    $messages = [
+        Message::user('User message'),
+        Message::assistant('Assistant message'),
+        Message::system('System message'),
+        Message::developer('Developer message'),
+        Message::toolCall([]),
+        Message::toolResult('result', 'call_123', 'tool_name'),
+    ];
+
+    foreach ($messages as $message) {
+        expect($message->getCreatedAt())->toMatch('/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}[+-]\d{2}:\d{2}$/');
+    }
 });

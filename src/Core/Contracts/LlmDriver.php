@@ -4,19 +4,21 @@ namespace LarAgent\Core\Contracts;
 
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 
 interface LlmDriver
 {
     /**
      * Send a message or prompt to the LLM and receive a response.
      *
-     * @param  array  $messages  Array of messages in the format:
-     *                           ['role' => 'user|system|assistant', 'content' => '...']
-     * @param  array  $options  Additional options like temperature, max_tokens, etc.
+     * @param  MessageArray  $messages  Array of messages in the format:
+     *                                  ['role' => 'user|system|assistant', 'content' => '...']
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults.
      * @return AssistantMessage The response from the LLM in a structured format.
      */
-    public function sendMessage(array $messages, array $options = []): AssistantMessage;
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage;
 
     /**
      * Register a tool for the LLM to use.
@@ -54,20 +56,6 @@ interface LlmDriver
     public function getResponseSchema(): ?array;
 
     /**
-     * Set configuration parameters for the LLM.
-     *
-     * @param  array  $config  Configuration options (e.g., temperature, model).
-     */
-    public function setConfig(array $config): self;
-
-    /**
-     * Get the current configuration parameters.
-     *
-     * @return array The current configuration options.
-     */
-    public function getConfig(): array;
-
-    /**
      * Retrieve the last response from the LLM.
      *
      * @return array|null The last response or null if no response exists.
@@ -77,13 +65,13 @@ interface LlmDriver
     /**
      * Send a message or prompt to the LLM and receive a streamed response.
      *
-     * @param  array  $messages  Array of messages in the format:
-     *                           ['role' => 'user|system|assistant', 'content' => '...']
-     * @param  array  $options  Additional options like temperature, max_tokens, etc.
+     * @param  MessageArray  $messages  Array of messages in the format:
+     *                                  ['role' => 'user|system|assistant', 'content' => '...']
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults.
      * @param  callable|null  $callback  Optional callback function to process each chunk of the stream
      * @return \Generator A generator that yields chunks of the response
      */
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator;
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator;
 
     /**
      * Get the provider data merged with the model defined settings.

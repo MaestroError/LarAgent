@@ -5,31 +5,85 @@
 [![GitHub Code Style Action Status](https://img.shields.io/github/actions/workflow/status/maestroerror/laragent/fix-php-code-style-issues.yml?branch=main&label=code%20style&style=flat-square)](https://github.com/maestroerror/laragent/actions?query=workflow%3A"Fix+PHP+code+style+issues"+branch%3Amain)
 [![Total Downloads](https://img.shields.io/packagist/dt/maestroerror/laragent.svg?style=flat-square)](https://packagist.org/packages/maestroerror/laragent)
 
-The **easiest** way to **create** and **maintain** AI agents in your Laravel projects.
+> "The **easiest** way to **create** and **maintain** AI agents in your Laravel projects."
+
+<p align="center">
+  <strong>LarAgent is an AI agent development framework for Laravel</strong><br>
+  Officially powered by <a href="https://redberry.international?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign">Redberry</a>, a Diamond-tier Laravel partner.
+</p>
+
+<p align="center">
+  <a href="https://laragent.ai">Website</a> •
+  <a href="https://docs.laragent.ai">Docs</a> •
+  <a href="https://discord.gg/laragent">Discord</a> •
+  <a href="https://blog.laragent.ai">Blog</a> •
+  <a href="https://redberry.international/ai-agent-development/?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign">AI Dev Sprint</a>
+</p>
 
 ---
 
-Each GitHub ⭐️ helps the community grow. Thanks for the support!
+## 🚀 What is LarAgent?
 
-Jump to [Official Documentation](https://docs.laragent.ai/)
+LarAgent is an open-source framework that lets you create powerful AI agents in Laravel with minimal configuration and maximum extensibility.
+
+LarAgent brings Laravel-grade productivity to AI agent development. That’s why Laravel + LarAgent is the most productive stack out there for building AI agents.
+
+Whether you're looking to automate internal operations or build conversational experiences for your product, LarAgent offers developer-first tools:
+
+- Eloquent-style API for building real AI agents - define agents, tools, memories, and workflows
+- First-class tooling system with MCP server support
+- Pluggable memory & context management
+- Multi-agent workflows with queues, chainable tasks, and reasoning
+- Structured output for reliability and seamless integration
+- Multi-modal input and modular provider support
+- Extensive Event system for effortless customization and observability
+- Built-in API exposure via OpenAI-compatible schema
+
+---
+
+## 🧠 Backed by Redberry
+
+LarAgent is officially powered by [Redberry](https://redberry.international?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign), one of only 10 Diamond-tier Laravel partners worldwide. This partnership ensures the continued evolution of LarAgent with increased engineering support, better documentation, and a growing ecosystem of AI-first Laravel tools.
+
+> Need help with building your AI agent? [Talk to us](https://redberry.international/ai-agent-development/?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign) about our 5-week PoC sprint for AI agent development.
+
+---
+
+## 📚 Documentation
+
+Check out our [full documentation](https://docs.laragent.ai/introduction) to get started.
 
 __If you prefer article to get started, check it out: [Laravel AI Agent Development Made Easy](https://medium.com/towardsdev/laravel-ai-agent-development-made-easy-ac7ddd17a7d0)__
 
-You can find other tutorials here: [Tutorials](https://blog.laragent.ai/tag/tutorials/)
+---
+
+## 💬 Community & Support
+
+Join our [Discord community](https://discord.gg/laragent) to ask questions, suggest features, or share what you're building.
+
+---
+
+## 🧩 Ecosystem
+
+- [MCP Client](https://github.com/RedberryProducts/mcp-client-laravel) – a modular client for managing tools and resources from MCP servers
+
+You can find tutorials here: 
+
+- LarAgent Blog - [Tutorials](https://blog.laragent.ai/tag/tutorials/)
 
 ---
        
+> Each GitHub ⭐️ helps the community grow. Thanks for the support!
+
+
 Any questions? Join our [Discord](https://discord.gg/NAczq2T9F8) server!
        
 ---
-
-_Need to use LarAgent outside of Laravel? Check out this [Docs](https://docs.laragent.ai/core-concepts/usage-without-laravel)._
 
 ## Table of Contents
 
 - [📖 Introduction](#introduction)
 - [🎉 Features](#features) 
-- [📅 Planned](#planned) 
 - [🚀 Getting Started](#getting-started)
   - [Requirements](#requirements)
   - [Installation](#installation)
@@ -158,44 +212,6 @@ Let's find out more in [documentation](https://docs.laragent.ai/) 👍
 - Multiple provider support (Can be set per model)
 - Support for both Laravel and standalone usage
 
-## Planned
-
-Here's what's coming next to make LarAgent even more powerful:
-
-### Developer Experience 🛠️
-- **Artisan Commands for Rapid Development**
-  - `agent:chat:clear AgentName` - Clear all chat histories for a specific agent while preserving keys ✔️
-  - `agent:chat:remove AgentName` - Completely remove all chat histories and keys for a specific agent ✔️
-  - `make:agent:tool` - Generate tool classes with ready-to-use stubs
-  - `make:agent:chat-history` - Scaffold custom chat history implementations
-  - `make:llm-driver` - Create custom LLM driver integrations
-- **Native Laravel events support** - Support for Laravel events
-- **Debug mode** -  Should log all processes happening under the hood
-
-### Enhanced AI Capabilities 🧠
-- **Prism Package Integration** - Additional LLM providers support
-- **Gemini Integration** - Additional LLM provider ✔️
-- **Anthropic Integration** - Additional LLM provider
-- **Usage abstraction** - Abstraction for tokens usage
-- **Streaming Support** - Out-of-the-box support for streaming responses ✔️
-- **RAG & Knowledge Base** 
-  - Built-in vector storage providers
-  - Seamless document embeddings integration
-  - Smart context management
-- **Ready-to-use Tools** - Built-in tools as traits
-- **Structured Output at runtime** - Allow defining the response JSON Schema at runtime.
-- **Transfer tool** - One of the methods of agents chaining
-
-
-### Security & Storage 🔒
-- **Enhanced Chat History Security** - Optional encryption for sensitive conversations
-
-### Advanced Integrations 🔌
-- **Provider Fallback System** - Automatic fallback to alternative providers ✔️
-- **Voice Chat Support** - Out of the box support for voice interactions with your agents
-
-Stay tuned! We're constantly working on making LarAgent the most versatile AI agent framework for Laravel.
-
 ## Getting Started
 
 ### Requirements
@@ -229,7 +245,7 @@ return [
         'default' => [
             'label' => 'openai',
             'api_key' => env('OPENAI_API_KEY'),
-            'default_context_window' => 50000,
+            'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 100,
             'default_temperature' => 1,
         ],
@@ -253,7 +269,7 @@ You can configure the package by editing the `config/laragent.php` file. Here is
         // Default driver and chat history
         'driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
         'chat_history' => \LarAgent\History\InMemoryChatHistory::class,
-        'default_context_window' => 15000,
+        'default_truncation_threshold' => 15000,
         'default_max_completion_tokens' => 100,
         'default_temperature' => 1,
         // Enable/disable parallel tool calls
@@ -311,6 +327,7 @@ Thanks to these people and projects, LarAgent would not be possible without them
 
 -   [maestroerror](https://github.com/maestroerror)
 -   [All Contributors](../../contributors)
+-   [Redberry International](https://redberry.international?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign)
 -   [openai-php/client](https://github.com/openai-php/client)
 
 ## License
@@ -319,4 +336,4 @@ The MIT License (MIT). Please see [License File](LICENSE.md) for more informatio
 
 ## Roadmap
 
-Please see [Planned](#planned) for more information on the future development of LarAgent.
+Please see GitHub Projects for more information on the future development of LarAgent.

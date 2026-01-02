@@ -4,23 +4,30 @@ namespace LarAgent\Drivers\Groq;
 
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
+use LarAgent\Drivers\OpenAi\OpenAiMessageFormatter;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\ToolCall;
+use LarAgent\Usage\DataModels\Usage;
 use LucianoTonet\GroqPHP\Groq;
 
 class GroqDriver extends LlmDriver implements LlmDriverInterface
 {
     protected mixed $client;
 
-    public function __construct(array $settings = [])
+    protected MessageFormatter $formatter;
+
+    public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
 
-        $apiKey = $settings['api_key'] ?? null;
-        $apiUrl = $settings['api_url'] ?? null;
+        $driverConfig = $this->getDriverConfig();
+        $apiKey = $driverConfig->apiKey;
+        $apiUrl = $driverConfig->apiUrl;
 
         $options = [];
         if ($apiUrl) {
@@ -28,68 +35,76 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
 
         $this->client = $apiKey ? new Groq($apiKey, $options) : null;
+        $this->formatter = $this->createFormatter();
     }
 
-    public function sendMessage(array $messages, array $options = []): AssistantMessage
+    /**
+     * Create the message formatter for this driver.
+     * Groq uses OpenAI-compatible format.
+     */
+    protected function createFormatter(): MessageFormatter
+    {
+        return new OpenAiMessageFormatter;
+    }
+
+    /**
+     * Get the message formatter.
+     */
+    public function getFormatter(): MessageFormatter
+    {
+        return $this->formatter;
+    }
+
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Groq driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         $response = $this->client->chat()->completions()->create($payload);
         $this->lastResponse = $response;
 
-        $finishReason = $response['choices'][0]['finish_reason'] ?? null;
-        $metaData = ['usage' => $response['usage'] ?? []];
+        // Use formatter for extraction
+        $finishReason = $this->formatter->extractFinishReason($response);
+        $usageData = $this->formatter->extractUsage($response);
+        $usage = ! empty($usageData) ? Usage::fromArray($usageData) : null;
 
-        if (
-            $finishReason === 'tool_calls'
-            && isset($response['choices'][0]['message']['tool_calls'])
-            && ! empty($response['choices'][0]['message']['tool_calls'])
-        ) {
-            $toolCalls = array_map(function ($tc) {
-                return new ToolCall(
-                    $tc['id'],
-                    $tc['function']['name'] ?? '',
-                    $tc['function']['arguments'] ?? '{}'
-                );
-            }, $response['choices'][0]['message']['tool_calls']);
+        if ($finishReason === 'tool_calls') {
+            $toolCalls = $this->formatter->extractToolCalls($response);
 
-            $toolCallMessage = new ToolCallMessage(
-                $toolCalls,
-                $this->toolCallsToMessage($toolCalls),
-                $metaData
-            );
+            $message = new ToolCallMessage($toolCalls);
+            $message->setUsage($usage);
 
-            return $toolCallMessage;
+            return $message;
         }
 
         if ($finishReason === 'stop') {
-            $content = $response['choices'][0]['message']['content'] ?? '';
-            $assistantMessage = new AssistantMessage($content, $metaData);
+            $content = $this->formatter->extractContent($response);
 
-            return $assistantMessage;
+            $message = new AssistantMessage($content);
+            $message->setUsage($usage);
+
+            return $message;
         }
 
         throw new \Exception('Unexpected finish reason: '.$finishReason);
     }
 
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the Groq driver.');
         }
 
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
         $payload['stream'] = true;
 
         $stream = new StreamedAssistantMessage;
         $toolCalls = [];
         $toolCallsSummary = [];
         $finishReason = null;
-        $lastUsage = null;
 
         $response = $this->client->chat()->completions()->create($payload);
 
@@ -98,11 +113,11 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
 
             // Usage info (Groq uses `x_groq.usage` or `usage`)
             if (isset($chunk['x_groq']['usage']) && is_array($chunk['x_groq']['usage'])) {
-                $lastUsage = (array) $chunk['x_groq']['usage'];
-                $stream->setUsage($lastUsage);
+                $usageData = $this->formatter->extractUsage(['usage' => $chunk['x_groq']['usage']]);
+                $stream->setUsage(Usage::fromArray($usageData));
             } elseif (isset($chunk['usage']) && is_array($chunk['usage'])) {
-                $lastUsage = (array) $chunk['usage'];
-                $stream->setUsage($lastUsage);
+                $usageData = $this->formatter->extractUsage($chunk);
+                $stream->setUsage(Usage::fromArray($usageData));
             }
 
             $choice = $chunk['choices'][0] ?? [];
@@ -136,11 +151,12 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
                 );
             }, array_values($toolCallsSummary));
 
-            $toolMsg = new ToolCallMessage(
-                $toolCallObjects,
-                $this->toolCallsToMessage($toolCallObjects),
-                $lastUsage ? ['usage' => $lastUsage] : []
-            );
+            $toolMsg = new ToolCallMessage($toolCallObjects);
+
+            // Transfer usage from streamed message if available
+            if ($stream->getUsage() !== null) {
+                $toolMsg->setUsage($stream->getUsage());
+            }
 
             if ($callback) {
                 $callback($toolMsg);
@@ -151,9 +167,6 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
 
         // Always yield final message
-        if ($lastUsage) {
-            $stream->setUsage($lastUsage);
-        }
         $stream->setComplete(true);
 
         if ($callback) {
@@ -212,11 +225,11 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         }
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
     {
-        $content = json_decode($toolCall->getArguments(), true);
-        $content[$toolCall->getToolName()] = $result;
-
         return [
             'role' => 'tool',
             'name' => $toolCall->getToolName(),
@@ -225,6 +238,9 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolCallsToMessage(array $toolCalls): array
     {
         $toolCallsArray = [];
@@ -245,40 +261,105 @@ class GroqDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
-    protected function preparePayload(array $messages, array $options = []): array
+    protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
-        if (empty($options['model'])) {
-            $options['model'] = $this->getSettings()['model'] ?? 'llama-3.3-70b-versatile';
+        // Merge driver config with override settings
+        $overrideConfig = DriverConfig::wrap($overrideSettings);
+        $config = $this->getDriverConfig()->merge($overrideConfig);
+
+        // Format messages using the formatter (converts Message objects to API format)
+        $formattedMessages = $this->formatter->formatMessages($messages);
+
+        // Build payload with known properties
+        $payload = [
+            'model' => $config->model ?? 'llama-3.3-70b-versatile',
+            'messages' => $formattedMessages,
+        ];
+
+        // Add optional known properties
+        if ($config->has('temperature')) {
+            $payload['temperature'] = $config->temperature;
+        }
+        if ($config->has('maxCompletionTokens')) {
+            $payload['max_tokens'] = $config->maxCompletionTokens;
+        }
+        if ($config->has('topP')) {
+            $payload['top_p'] = $config->topP;
+        }
+        if ($config->has('frequencyPenalty')) {
+            $payload['frequency_penalty'] = $config->frequencyPenalty;
+        }
+        if ($config->has('presencePenalty')) {
+            $payload['presence_penalty'] = $config->presencePenalty;
         }
 
-        $this->setConfig($options);
+        // Add any extra/custom settings
+        foreach ($config->getExtras() as $key => $value) {
+            $payload[$key] = $value;
+        }
 
-        $payload = array_merge($this->getConfig(), [
-            'messages' => $messages,
-        ]);
-
+        // Structured output support
         if ($this->structuredOutputEnabled()) {
             $schema = $this->getResponseSchema();
+            $wrapped = $this->wrapResponseSchema($schema);
 
-            if (is_array($schema) && isset($schema['schema']) && isset($schema['name'])) {
-                $payload['response_format'] = [
-                    'type' => 'json_schema',
-                    'json_schema' => [
-                        'name' => $schema['name'],
-                        'schema' => $schema['schema'],
-                    ],
-                ];
-            } elseif (is_array($schema) && ($schema['type'] ?? null) === 'json_object') {
-                $payload['response_format'] = ['type' => 'json_object'];
-            }
+            $payload['response_format'] = [
+                'type' => 'json_schema',
+                'json_schema' => $wrapped,
+            ];
         }
 
         if (! empty($this->tools)) {
-            foreach ($this->getRegisteredTools() as $tool) {
-                $payload['tools'][] = $this->formatToolForPayload($tool);
-            }
+            $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
         }
 
         return $payload;
+    }
+
+    /**
+     * Wrap a JSON schema in the required format with name and schema.
+     * Groq uses similar format to OpenAI but without strict mode.
+     * Preserves existing name if already set via title or name key.
+     *
+     * @param  array  $schema  The schema to wrap (can be raw or already wrapped)
+     * @return array The wrapped schema ready for Groq API
+     */
+    protected function wrapResponseSchema(array $schema): array
+    {
+        // If already wrapped with name and schema keys, preserve existing values
+        if (isset($schema['name']) && isset($schema['schema'])) {
+            return [
+                'name' => $schema['name'],
+                'schema' => $schema['schema'],
+            ];
+        }
+
+        // Raw schema - wrap it, using title as name if available
+        return [
+            'name' => $schema['title'] ?? $this->generateSchemaName($schema),
+            'schema' => $schema,
+        ];
+    }
+
+    /**
+     * Generate a schema name from the schema structure.
+     *
+     * @param  array  $schema  The schema to generate name from
+     * @return string Generated schema name
+     */
+    protected function generateSchemaName(array $schema): string
+    {
+        if (isset($schema['title'])) {
+            return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', str_replace(' ', '_', $schema['title'])));
+        }
+
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            $keys = array_slice(array_keys($schema['properties']), 0, 3);
+            if (! empty($keys)) {
+                return 'response_'.implode('_', $keys);
+            }
+        }
+
+        return 'structured_response';
     }
 }

@@ -26,7 +26,7 @@ beforeEach(function () {
             'driver' => FailingLlmDriver::class,
             'model' => 'gpt-test',
             'api_key' => 'fail',
-            'default_context_window' => 10,
+            'default_truncation_threshold' => 10,
             'default_max_completion_tokens' => 10,
             'default_temperature' => 1,
         ],
@@ -35,7 +35,7 @@ beforeEach(function () {
             'driver' => PreloadedFakeLlmDriver::class,
             'model' => 'gpt-test',
             'api_key' => 'success',
-            'default_context_window' => 10,
+            'default_truncation_threshold' => 10,
             'default_max_completion_tokens' => 10,
             'default_temperature' => 1,
         ],
@@ -59,7 +59,7 @@ it('falls back to secondary provider on streamed failure', function () {
     $chunks = [];
     foreach ($stream as $message) {
         if ($message instanceof StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
-            $chunks[] = $message->getContent();
+            $chunks[] = $message->getContentAsString();
         }
     }
 

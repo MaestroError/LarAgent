@@ -84,7 +84,7 @@ class AgentChatCommand extends Command
         $messages = $agent->chatHistory()->getMessages();
 
         // Check only new messages for tool calls
-        $newMessages = array_slice($messages, $messageCountBefore);
+        $newMessages = array_slice($messages->all(), $messageCountBefore);
 
         foreach ($newMessages as $message) {
             if ($message instanceof \LarAgent\Messages\ToolCallMessage) {

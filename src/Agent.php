@@ -5,13 +5,19 @@ namespace LarAgent;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Str;
 use LarAgent\Attributes\Tool as ToolAttribute;
+use LarAgent\Context\Storages\ChatHistoryStorage;
+use LarAgent\Context\Traits\HasContext;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
+use LarAgent\Core\Contracts\DataModel;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\DTO\AgentDTO;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Events;
+use LarAgent\Core\Traits\UsesCachedReflection;
+use LarAgent\Core\Traits\UsesLogger;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
@@ -26,6 +32,9 @@ class Agent
 {
     use Configs;
     use Events;
+    use HasContext;
+    use UsesCachedReflection;
+    use UsesLogger;
 
     // Agent properties
 
@@ -39,8 +48,6 @@ class Agent
      */
     protected bool $returnMessage = false;
 
-    protected ChatHistoryInterface $chatHistory;
-
     /** @var string|null */
     protected $message;
 
@@ -50,8 +57,8 @@ class Agent
     /** @var string */
     protected $instructions;
 
-    /** @var array */
-    protected $responseSchema = [];
+    /** @var array|string|\LarAgent\Core\Contracts\DataModel|null - Array schema, DataModel class name, or DataModel instance */
+    protected $responseSchema = null;
 
     /** @var array */
     protected $tools = [];
@@ -65,8 +72,11 @@ class Agent
     /** @var array */
     protected $mcpConnections = [];
 
-    /** @var string */
+    /** @var string|array */
     protected $history;
+
+    /** @var array */
+    protected $storage;
 
     /** @var string */
     protected $driver;
@@ -91,8 +101,16 @@ class Agent
     /** @var string */
     protected $apiUrl;
 
-    /** @var int */
-    protected $contextWindowSize;
+    /**
+     * Truncation threshold (in tokens) for this agent.
+     * When chat history exceeds this threshold, truncation strategies are applied.
+     * If not set, uses provider's default_truncation_threshold config.
+     * NOTE: This is NOT the model's context window - it should be set lower to leave
+     * room for new messages and responses.
+     *
+     * @var int|null
+     */
+    protected $truncationThreshold;
 
     /**
      * Store message metadata with messages in chat history
@@ -101,9 +119,6 @@ class Agent
      */
     protected $storeMeta;
 
-    /** @var bool */
-    protected $saveChatKeys;
-
     /**
      * Name of the agent
      * Basename of the class by default
@@ -111,20 +126,6 @@ class Agent
      * @var string
      */
     protected $name;
-
-    /**
-     * Chat key associated with this agent
-     *
-     * @var string
-     */
-    protected $chatKey;
-
-    /**
-     * Include model name in chat session ID
-     *
-     * @var bool
-     */
-    protected $includeModelInChatSessionId = false;
 
     /** @var int */
     protected $maxCompletionTokens;
@@ -153,9 +154,6 @@ class Agent
     /** @var float|null */
     protected $presencePenalty;
 
-    /** @var string */
-    protected $chatSessionId;
-
     /** @var bool */
     protected $toolCaching = false;
 
@@ -167,11 +165,13 @@ class Agent
 
     // Misc
     private array $builtInHistories = [
-        'in_memory' => \LarAgent\History\InMemoryChatHistory::class,
-        'session' => \LarAgent\History\SessionChatHistory::class,
-        'cache' => \LarAgent\History\CacheChatHistory::class,
-        'file' => \LarAgent\History\FileChatHistory::class,
-        'json' => \LarAgent\History\JsonChatHistory::class,
+        'in_memory' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+        'session' => \LarAgent\Context\Drivers\SessionStorage::class,
+        'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
+        'file' => \LarAgent\Context\Drivers\FileStorage::class,
+        'json' => \LarAgent\Context\Drivers\FileStorage::class,
+        'database' => \LarAgent\Context\Drivers\EloquentStorage::class,
+        'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
     ];
 
     /** @var array */
@@ -186,20 +186,121 @@ class Agent
     /** @var array|null */
     protected $audio = null;
 
-    public function __construct($key)
+    /**
+     * Force read history from storage drivers
+     * On agent initialization
+     *
+     * @var bool
+     */
+    protected $forceReadHistory = false;
+
+    /**
+     * Force save history to storage drivers
+     * After each agent response
+     *
+     * @var bool
+     */
+    protected $forceSaveHistory = false;
+
+    /**
+     * Force read context from storage drivers
+     * On agent initialization
+     *
+     * @var bool
+     */
+    protected $forceReadContext = false;
+
+    /**
+     * Enable usage tracking to store token usage per response.
+     * When enabled, usage is stored after each response via afterResponse hook.
+     * Set to true/false to override config, or leave null to use config.
+     *
+     * @var bool|null
+     */
+    protected $trackUsage = null;
+
+    /**
+     * Storage drivers configuration for usage storage.
+     * Can be array of driver classes or string alias from builtInUsageStorages.
+     * If not set, uses provider's usage_storage, then default_usage_storage config, then defaultStorageDrivers.
+     *
+     * @var array|string|null
+     */
+    protected $usageStorage = null;
+
+    /**
+     * Built-in usage storage driver aliases.
+     */
+    private array $builtInUsageStorages = [
+        'in_memory' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+        'session' => \LarAgent\Context\Drivers\SessionStorage::class,
+        'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
+        'file' => \LarAgent\Context\Drivers\FileStorage::class,
+        'database' => \LarAgent\Usage\Drivers\EloquentUsageDriver::class,
+        'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
+    ];
+
+    /**
+     * Enable context window truncation.
+     * When enabled, truncation is applied before sending messages to LLM.
+     * Priority: Agent property > Provider config > Global config
+     *
+     * @var bool|null
+     */
+    protected $enableTruncation = null;
+
+    public function __construct($key, bool $usesUserId = false, ?string $group = null)
     {
+        $this->usesUserId = $usesUserId;
+
+        // Set group before identity is built (if provided)
+        if ($group !== null) {
+            $this->group = $group;
+        }
+
         $this->setupProviderData();
         $this->setName();
-        $this->setChatSessionId($key);
+        $this->setChatSessionId($key, $this->name());
+
+        $defaultStorageDrivers = $this->defaultStorageDrivers();
+        $this->setupContext($defaultStorageDrivers);
+
+        if ($this->forceReadContext) {
+            $this->readContext();
+        }
+
         $this->setupChatHistory();
+
+        if ($this->forceReadHistory) {
+            $this->chatHistory()->read();
+        }
+
+        // Setup usage tracking if enabled
+        if ($this->shouldTrackUsage()) {
+            $this->setupUsageStorage();
+        }
+
+        // Setup truncation if enabled
+        if ($this->shouldTruncate()) {
+            $this->setupTruncation();
+        }
+
         $this->setupToolCaching();
         $this->initMcpClient();
+
         $this->callEvent('onInitialize');
     }
 
     public function __destruct()
     {
+        $this->cleanup();
         $this->onTerminate();
+    }
+
+    protected function cleanup()
+    {
+        // Save context (dirty tracking handled by storages, events handled safely by Context)
+        $this->context()->save();
     }
 
     // Public API
@@ -211,10 +312,36 @@ class Agent
      */
     public static function forUser(Authenticatable $user): static
     {
-        $userId = $user->getAuthIdentifier();
-        $instance = new static($userId);
+        return static::forUserId($user->getAuthIdentifier());
+    }
 
-        return $instance;
+    /**
+     * Create an agent instance for a specific user ID
+     *
+     * @param  string  $userId  The user ID to create agent for
+     */
+    public static function forUserId(string $userId): static
+    {
+        return new static($userId, usesUserId: true);
+    }
+
+    /**
+     * Reconstruct an agent instance from a SessionIdentity.
+     * Useful for operating on tracked storages without knowing the original creation method.
+     *
+     * @param  \LarAgent\Context\Contracts\SessionIdentity  $identity  The identity to reconstruct from
+     * @return static The reconstructed agent instance
+     */
+    public static function fromIdentity(\LarAgent\Context\Contracts\SessionIdentity $identity): static
+    {
+        $group = $identity->getGroup();
+
+        // Determine if this was a user-based or chat-based identity
+        if ($identity->getUserId() !== null) {
+            return new static($identity->getUserId(), usesUserId: true, group: $group);
+        }
+
+        return new static($identity->getChatName() ?? 'default', usesUserId: false, group: $group);
     }
 
     /**
@@ -264,9 +391,9 @@ class Agent
      * Quick one-off response without chat history
      *
      * @param  string  $message  The message to process
-     * @return string|array The agent's response
+     * @return string|array|\LarAgent\Core\Contracts\DataModel The agent's response
      */
-    public static function ask(string $message): string|array
+    public static function ask(string $message): string|array|\LarAgent\Core\Contracts\DataModel
     {
         return static::make()->respond($message);
     }
@@ -285,9 +412,9 @@ class Agent
      * Process a message and get the agent's response
      *
      * @param  string|null  $message  Optional message to process
-     * @return string|array|MessageInterface The agent's response
+     * @return string|array|\LarAgent\Core\Contracts\DataModel|MessageInterface The agent's response
      */
-    public function respond(?string $message = null): string|array|MessageInterface
+    public function respond(?string $message = null): string|array|\LarAgent\Core\Contracts\DataModel|MessageInterface
     {
         if ($message) {
             $this->message($message);
@@ -338,7 +465,7 @@ class Agent
         }
 
         if (is_array($response)) {
-            return $response;
+            return $this->processArrayResponse($response);
         }
 
         return (string) $response;
@@ -567,7 +694,72 @@ class Agent
      */
     public function structuredOutput()
     {
-        return $this->responseSchema ?? null;
+        if (empty($this->responseSchema)) {
+            return null;
+        }
+
+        // If it's a DataModel instance, call toSchema()
+        if ($this->responseSchema instanceof \LarAgent\Core\Contracts\DataModel) {
+            return $this->responseSchema->toSchema();
+        }
+
+        // If it's a DataModel class name, call generateSchema() statically
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+            return $this->responseSchema::generateSchema();
+        }
+
+        // Otherwise, return the array schema as-is if it's an array, otherwise return null
+        return is_array($this->responseSchema) ? $this->responseSchema : null;
+    }
+
+    /**
+     * Get the DataModel class name if responseSchema is a DataModel
+     *
+     * Override this method when using structuredOutput() with a custom array schema
+     * but still want DataModel reconstruction.
+     *
+     * @return string|null The DataModel class name or null if not applicable
+     */
+    public function getResponseSchemaClass(): ?string
+    {
+        if ($this->responseSchema instanceof \LarAgent\Core\Contracts\DataModel) {
+            return get_class($this->responseSchema);
+        }
+
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+            return $this->responseSchema;
+        }
+
+        return null;
+    }
+
+    /**
+     * Reconstruct a DataModel instance from array response
+     *
+     * @param  array  $response  The array response from LLM
+     * @param  string  $class  The DataModel class name
+     * @return \LarAgent\Core\Contracts\DataModel The reconstructed DataModel instance
+     */
+    protected function reconstructDataModel(array $response, string $class): \LarAgent\Core\Contracts\DataModel
+    {
+        return $class::fromArray($response);
+    }
+
+    /**
+     * Process array response and reconstruct DataModel if applicable
+     *
+     * @param  array  $response  The array response from LLM
+     * @return array|\LarAgent\Core\Contracts\DataModel The processed response
+     */
+    protected function processArrayResponse(array $response): array|\LarAgent\Core\Contracts\DataModel
+    {
+        $class = $this->getResponseSchemaClass();
+
+        if ($class !== null) {
+            return $this->reconstructDataModel($response, $class);
+        }
+
+        return $response;
     }
 
     /**
@@ -578,23 +770,6 @@ class Agent
     public function name()
     {
         return $this->name;
-    }
-
-    /**
-     * Create a new chat history instance
-     *
-     * @param  string  $sessionId  The session ID for the chat history
-     * @return ChatHistoryInterface The created chat history instance
-     */
-    public function createChatHistory(string $sessionId)
-    {
-        $historyClass = $this->builtInHistories[$this->history] ?? $this->history;
-
-        return new $historyClass($sessionId, [
-            'context_window' => $this->contextWindowSize,
-            'store_meta' => $this->storeMeta,
-            'save_chat_keys' => $this->saveChatKeys,
-        ]);
     }
 
     /**
@@ -963,16 +1138,6 @@ class Agent
 
     // Public accessors / mutators
 
-    public function getChatSessionId(): string
-    {
-        return $this->chatSessionId;
-    }
-
-    public function keyIncludesModelName(): bool
-    {
-        return $this->includeModelInChatSessionId;
-    }
-
     public function getProviderName(): string
     {
         return $this->providerName;
@@ -1013,14 +1178,418 @@ class Agent
 
     public function chatHistory(): ChatHistoryInterface
     {
-        return $this->chatHistory;
+        return $this->context()->getStorage(ChatHistoryStorage::class);
     }
 
     public function setChatHistory(ChatHistoryInterface $chatHistory): static
     {
-        $this->chatHistory = $chatHistory;
+        $this->context()->register($chatHistory);
 
         return $this;
+    }
+
+    protected function setupChatHistory(): void
+    {
+        $this->setChatHistory($this->createChatHistory());
+    }
+
+    /**
+     * Create a new chat history instance
+     *
+     * @return ChatHistoryInterface The created chat history instance
+     */
+    public function createChatHistory()
+    {
+        $historyStorageDrivers = $this->historyStorageDrivers();
+
+        $ChatHistoryStorage = new ChatHistoryStorage(
+            $this->context()->getIdentity(),
+            $historyStorageDrivers,
+            $this->storeMeta ?? false
+        );
+
+        return $ChatHistoryStorage;
+    }
+
+    /**
+     * Save the context manually.
+     * Useful for explicitly saving mid-request.
+     * Events are dispatched safely (skipped if app is shutting down).
+     */
+    public function saveContext(): static
+    {
+        $this->context()->save();
+
+        return $this;
+    }
+
+    public function readContext(): static
+    {
+        $this->context()->read();
+
+        return $this;
+    }
+
+    protected function historyStorageDrivers(): string|array
+    {
+        if (is_string($this->history)) {
+            return $this->builtInHistories[$this->history] ?? $this->history;
+        }
+        if (! isset($this->history)) {
+            return $this->defaultStorageDrivers();
+        }
+
+        return $this->history;
+    }
+
+    // ========== Usage Storage Methods ==========
+
+    /**
+     * Check if usage tracking is enabled.
+     * Priority: Agent property > Provider config > Global config
+     */
+    public function shouldTrackUsage(): bool
+    {
+        // Check agent property first (if explicitly set to true/false)
+        if ($this->trackUsage !== null) {
+            return $this->trackUsage;
+        }
+
+        // Check provider-specific config
+        $providerConfig = config("laragent.providers.{$this->provider}.track_usage");
+        if ($providerConfig !== null) {
+            return (bool) $providerConfig;
+        }
+
+        // Fall back to global config
+        return config('laragent.track_usage', false);
+    }
+
+    /**
+     * Enable or disable usage tracking.
+     */
+    public function trackUsage(bool $enabled = true): static
+    {
+        $this->trackUsage = $enabled;
+
+        // Setup storage if enabling tracking after construction
+        if ($enabled && ! $this->context()->has(\LarAgent\Usage\UsageStorage::class)) {
+            $this->setupUsageStorage();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the usage storage instance.
+     *
+     * @return \LarAgent\Usage\UsageStorage|null Returns null if tracking is disabled
+     */
+    public function usageStorage(): ?\LarAgent\Usage\UsageStorage
+    {
+        if (! $this->shouldTrackUsage()) {
+            return null;
+        }
+
+        return $this->context()->getStorage(\LarAgent\Usage\UsageStorage::class);
+    }
+
+    /**
+     * Set usage storage instance.
+     */
+    public function setUsageStorage(\LarAgent\Usage\UsageStorage $usageStorage): static
+    {
+        $this->context()->register($usageStorage);
+
+        return $this;
+    }
+
+    /**
+     * Setup usage storage.
+     */
+    protected function setupUsageStorage(): void
+    {
+        $this->setUsageStorage($this->createUsageStorage());
+    }
+
+    /**
+     * Create a new usage storage instance.
+     * Can be overridden in child classes for custom behavior.
+     */
+    public function createUsageStorage(): \LarAgent\Usage\UsageStorage
+    {
+        $usageStorageDrivers = $this->usageStorageDrivers();
+
+        return new \LarAgent\Usage\UsageStorage(
+            $this->context()->getIdentity(),
+            $usageStorageDrivers,
+            $this->model(),
+            $this->providerName
+        );
+    }
+
+    /**
+     * Get usage storage drivers configuration.
+     * Priority: agent property > provider config > default_usage_storage config > defaultStorageDrivers
+     * Note: Provider and global config are resolved in setupProviderData()
+     */
+    protected function usageStorageDrivers(): string|array
+    {
+        if (is_string($this->usageStorage)) {
+            return $this->builtInUsageStorages[$this->usageStorage] ?? $this->usageStorage;
+        }
+        if (isset($this->usageStorage) && is_array($this->usageStorage)) {
+            return $this->usageStorage;
+        }
+
+        return $this->defaultStorageDrivers();
+    }
+
+    /**
+     * Track usage from a message response.
+     * Called automatically in afterResponse hook.
+     */
+    protected function trackUsageFromMessage(\LarAgent\Core\Contracts\Message $message): void
+    {
+        if (! $this->shouldTrackUsage()) {
+            return;
+        }
+
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return;
+        }
+
+        // Update model and provider name in case they changed
+        $storage->setModelName($this->model());
+        $storage->setProviderName($this->providerName);
+
+        // Check if message has usage data
+        if (method_exists($message, 'getUsage')) {
+            $usage = $message->getUsage();
+            if ($usage !== null) {
+                $storage->addUsage($usage);
+            }
+        }
+    }
+
+    /**
+     * Get usage records filtered by criteria.
+     *
+     * @param  array  $filters  Optional filters (agent_name, user_id, model_name, provider_name, date, etc.)
+     */
+    public function getUsage(array $filters = []): ?\LarAgent\Usage\DataModels\UsageArray
+    {
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return null;
+        }
+
+        return $storage->getFilteredUsage($filters);
+    }
+
+    /**
+     * Get aggregated usage statistics.
+     *
+     * @param  array  $filters  Optional filters
+     */
+    public function getUsageAggregate(array $filters = []): ?array
+    {
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return null;
+        }
+
+        return $storage->aggregate($filters);
+    }
+
+    /**
+     * Get usage grouped by a field.
+     *
+     * @param  string  $field  Field to group by (agent_name, user_id, model_name, provider_name)
+     * @param  array  $filters  Optional filters
+     */
+    public function getUsageGroupedBy(string $field, array $filters = []): ?array
+    {
+        $storage = $this->usageStorage();
+        if ($storage === null) {
+            return null;
+        }
+
+        return $storage->groupBy($field, $filters);
+    }
+
+    /**
+     * Get usage identities tracked for this agent class.
+     */
+    public function getUsageIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
+    {
+        return $this->context()->getTrackedIdentitiesByScope(\LarAgent\Usage\UsageStorage::getStoragePrefix());
+    }
+
+    /**
+     * Clear all usage records for this identity.
+     */
+    public function clearUsage(): static
+    {
+        $storage = $this->usageStorage();
+        if ($storage !== null) {
+            $storage->clear();
+            $storage->save();
+        }
+
+        return $this;
+    }
+
+    // ========== End Usage Storage Methods ==========
+
+    // ========== Truncation Methods ==========
+
+    /**
+     * Check if truncation is enabled.
+     * Priority: Agent property > Provider config > Global config
+     */
+    public function shouldTruncate(): bool
+    {
+        if ($this->enableTruncation !== null) {
+            return $this->enableTruncation;
+        }
+
+        $providerConfig = config("laragent.providers.{$this->provider}.enable_truncation");
+        if ($providerConfig !== null) {
+            return (bool) $providerConfig;
+        }
+
+        return config('laragent.enable_truncation', false);
+    }
+
+    /**
+     * Enable or disable truncation.
+     */
+    public function enableTruncation(bool $enabled = true): static
+    {
+        $this->enableTruncation = $enabled;
+        if ($enabled) {
+            $this->setupTruncation();
+        }
+
+        return $this;
+    }
+
+    /**
+     * Get the truncation strategy for this agent.
+     * Override this method to provide custom strategy configuration.
+     * Uses config values as defaults when not overridden.
+     */
+    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
+    {
+        $strategyClass = config('laragent.default_truncation_strategy', \LarAgent\Context\Truncation\SimpleTruncationStrategy::class);
+        $strategyConfig = config('laragent.default_truncation_config', [
+            'keep_messages' => 10,
+            'preserve_system' => true,
+        ]);
+
+        return new $strategyClass($strategyConfig);
+    }
+
+    /**
+     * Setup truncation on context.
+     */
+    protected function setupTruncation(): void
+    {
+        if (! $this->shouldTruncate()) {
+            return;
+        }
+
+        $strategy = $this->truncationStrategy();
+        $threshold = $this->getTruncationThreshold();
+        $buffer = config('laragent.truncation_buffer', 0.2);
+
+        $this->context()->setTruncationStrategy($strategy);
+        $this->context()->setTruncationThreshold($threshold);
+        $this->context()->setTruncationBuffer($buffer);
+    }
+
+    /**
+     * Get truncation threshold (in tokens).
+     * This is the token count at which truncation strategies are applied.
+     * Priority: Agent property > Provider config > Default (128000)
+     */
+    public function getTruncationThreshold(): int
+    {
+        if ($this->truncationThreshold !== null) {
+            return $this->truncationThreshold;
+        }
+
+        return config(
+            "laragent.providers.{$this->provider}.default_truncation_threshold",
+            128000
+        );
+    }
+
+    /**
+     * Apply truncation to chat history if needed.
+     * Called before sending messages to the LLM.
+     */
+    protected function applyTruncationIfNeeded(): void
+    {
+        if (! $this->shouldTruncate()) {
+            return;
+        }
+
+        // Get total tokens from the last message with usage data
+        // total_tokens represents the cumulative token count of the entire conversation
+        $currentTokens = $this->getLastKnownTotalTokens();
+
+        // Apply truncation via context
+        $this->context()->applyTruncation($this->chatHistory(), $currentTokens);
+    }
+
+    /**
+     * Get total tokens from the last message that has usage data.
+     * Searches messages in reverse order to find the most recent usage information.
+     *
+     * @return int Total tokens from last message with usage, or 0 if none found
+     */
+    protected function getLastKnownTotalTokens(): int
+    {
+        $messages = $this->chatHistory()->getMessages()->all();
+
+        // Search from the end to find the last message with usage data
+        for ($i = count($messages) - 1; $i >= 0; $i--) {
+            $message = $messages[$i];
+
+            if (method_exists($message, 'getUsage')) {
+                $usage = $message->getUsage();
+                if ($usage !== null && isset($usage->totalTokens)) {
+                    return $usage->totalTokens;
+                }
+            }
+        }
+
+        // Log warning when truncation is enabled but no usage data is available
+        if (count($messages) > 0) {
+            $this->logWarning(
+                'LarAgent: Truncation is enabled but no messages have usage data. '
+                .'Truncation will not trigger until usage data is available. '
+                .'Ensure your LLM driver provides usage information in responses.',
+                ['agent' => static::class, 'message_count' => count($messages)]
+            );
+        }
+
+        return 0;
+    }
+
+    // ========== End Truncation Methods ==========
+
+    protected function defaultStorageDrivers(): array
+    {
+        if (! isset($this->storage)) {
+            // Ultimate fallback to InMemoryStorage
+            return [\LarAgent\Context\Drivers\InMemoryStorage::class];
+        }
+
+        return $this->storage;
     }
 
     /**
@@ -1040,36 +1609,46 @@ class Agent
 
     public function lastMessage(): ?MessageInterface
     {
-        return $this->chatHistory->getLastMessage();
+        return $this->chatHistory()->getLastMessage();
     }
 
     public function clear(): static
     {
         $this->callEvent('onClear');
-        $this->chatHistory->clear();
-        $this->chatHistory->writeToMemory();
+        $this->chatHistory()->clear();
+        $this->chatHistory()->writeToMemory();
 
         return $this;
     }
 
-    public function getChatKey(): string
+    /**
+     * Get all storage keys associated with this agent class
+     *
+     * @return array Array of all storage keys tracked by the context
+     */
+    public function getStorageKeys(): array
     {
-        return $this->chatKey;
+        return $this->context()->getTrackedKeys();
     }
 
     /**
-     * Get all chat keys associated with this agent class
+     * Get chat history keys associated with this agent class
      *
-     * @return array Array of chat keys filtered by agent class name
+     * @return array Array of chat history keys filtered by 'chatHistory' prefix
      */
     public function getChatKeys(): array
     {
-        $keys = $this->chatHistory->loadKeysFromMemory();
-        $agentClass = $this->name();
+        return $this->context()->getTrackedKeysByPrefix(ChatHistoryStorage::getStoragePrefix());
+    }
 
-        return array_filter($keys, function ($key) use ($agentClass) {
-            return str_starts_with($key, $agentClass.'_');
-        });
+    /**
+     * Get chat history identities associated with this agent class
+     *
+     * @return \LarAgent\Context\DataModels\SessionIdentityArray Array of chat history identities
+     */
+    public function getChatIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
+    {
+        return $this->context()->getTrackedIdentitiesByScope(ChatHistoryStorage::getStoragePrefix());
     }
 
     public function getModalities(): array
@@ -1192,7 +1771,7 @@ class Agent
         return $this;
     }
 
-    public function responseSchema(?array $schema): static
+    public function responseSchema(null|array|string|\LarAgent\Core\Contracts\DataModel $schema): static
     {
         $this->responseSchema = $schema;
 
@@ -1269,34 +1848,6 @@ class Agent
     {
         $this->model = $model;
 
-        if ($this->keyIncludesModelName()) {
-            $this->refreshChatHistory();
-        }
-
-        return $this;
-    }
-
-    protected function refreshChatHistory(): void
-    {
-        // Update chat session ID with new model
-        $this->setChatSessionId($this->getChatKey());
-
-        // Create new chat history with updated session ID
-        $this->setupChatHistory();
-    }
-
-    public function withoutModelInChatSessionId(): static
-    {
-        $this->includeModelInChatSessionId = false;
-
-        return $this;
-    }
-
-    public function withModelInChatSessionId(): static
-    {
-        $this->includeModelInChatSessionId = true;
-        $this->refreshChatHistory();
-
         return $this;
     }
 
@@ -1313,19 +1864,7 @@ class Agent
      */
     public function toDTO(): AgentDTO
     {
-        $driverConfigs = array_filter([
-            'model' => $this->model(),
-            'contextWindowSize' => $this->contextWindowSize ?? null,
-            'maxCompletionTokens' => $this->maxCompletionTokens ?? null,
-            'temperature' => $this->temperature ?? null,
-            'n' => $this->n ?? null,
-            'topP' => $this->topP ?? null,
-            'frequencyPenalty' => $this->frequencyPenalty ?? null,
-            'presencePenalty' => $this->presencePenalty ?? null,
-            'reinjectInstructionsPer' => $this->reinjectInstructionsPer ?? null,
-            'parallelToolCalls' => $this->parallelToolCalls ?? null,
-            'chatSessionId' => $this->chatSessionId,
-        ], fn ($value) => ! is_null($value));
+        $driverConfigs = $this->buildConfigsFromAgent();
 
         return new AgentDTO(
             provider: $this->provider,
@@ -1333,15 +1872,37 @@ class Agent
             message: $this->message,
             tools: array_map(fn (ToolInterface $tool) => $tool->getName(), $this->getTools()),
             instructions: $this->instructions,
-            responseSchema: $this->responseSchema,
+            responseSchema: $this->resolveResponseSchema($this->responseSchema),
             configuration: [
                 'history' => $this->history,
                 'model' => $this->model(),
                 'driver' => $this->driver,
-                ...$driverConfigs,
-                ...$this->getConfigs(),
-            ]
+            ],
+            driverConfig: $driverConfigs,
         );
+    }
+
+    /**
+     * Resolve responseSchema to array format.
+     */
+    protected function resolveResponseSchema(null|array|string|DataModel $schema): ?array
+    {
+        if (empty($schema)) {
+            return null;
+        }
+
+        // If it's a DataModel instance, call toSchema()
+        if ($schema instanceof DataModel) {
+            return $schema->toSchema();
+        }
+
+        // If it's a DataModel class name, call generateSchema() statically
+        if (is_string($schema) && is_subclass_of($schema, DataModel::class)) {
+            return $schema::generateSchema();
+        }
+
+        // Otherwise, return the array schema as-is
+        return is_array($schema) ? $schema : null;
     }
 
     // Helper methods
@@ -1351,32 +1912,6 @@ class Agent
         $this->name = class_basename(static::class);
 
         return $this;
-    }
-
-    protected function setChatSessionId(string $id): static
-    {
-        $this->chatKey = $id;
-        $this->chatSessionId = $this->buildSessionId();
-
-        return $this;
-    }
-
-    protected function buildSessionId()
-    {
-        if ($this->keyIncludesModelName()) {
-            return sprintf(
-                '%s_%s_%s',
-                $this->name(),
-                $this->model(),
-                $this->getChatKey()
-            );
-        }
-
-        return sprintf(
-            '%s_%s',
-            $this->name(),
-            $this->getChatKey()
-        );
     }
 
     protected function getProviderData(): ?array
@@ -1399,14 +1934,11 @@ class Agent
         if (! isset($this->maxCompletionTokens) && isset($providerData['default_max_completion_tokens'])) {
             $this->maxCompletionTokens = $providerData['default_max_completion_tokens'];
         }
-        if (! isset($this->contextWindowSize) && isset($providerData['default_context_window'])) {
-            $this->contextWindowSize = $providerData['default_context_window'];
+        if (! isset($this->truncationThreshold) && isset($providerData['default_truncation_threshold'])) {
+            $this->truncationThreshold = $providerData['default_truncation_threshold'];
         }
         if (! isset($this->storeMeta) && isset($providerData['store_meta'])) {
             $this->storeMeta = $providerData['store_meta'];
-        }
-        if (! isset($this->saveChatKeys) && isset($providerData['save_chat_keys'])) {
-            $this->saveChatKeys = $providerData['save_chat_keys'];
         }
         if (! isset($this->temperature) && isset($providerData['default_temperature'])) {
             $this->temperature = $providerData['default_temperature'];
@@ -1428,9 +1960,9 @@ class Agent
         }
     }
 
-    protected function initDriver($settings): void
+    protected function initDriver(DriverConfig $config): void
     {
-        $this->llmDriver = new $this->driver($settings);
+        $this->llmDriver = new $this->driver($config);
     }
 
     protected function setupProviderData(): void
@@ -1440,68 +1972,56 @@ class Agent
             $this->driver = $provider['driver'] ?? config('laragent.default_driver');
         }
         if (! isset($this->history)) {
-            $this->history = $provider['chat_history'] ?? config('laragent.default_chat_history');
+            $this->history = $provider['history'] ?? config('laragent.default_history_storage');
         }
-        $this->providerName = $provider['name'] ?? '';
+        if (! isset($this->usageStorage)) {
+            $this->usageStorage = $provider['usage_storage'] ?? config('laragent.default_usage_storage');
+        }
+        if (! isset($this->storage)) {
+            $this->storage = $provider['storage'] ?? config('laragent.default_storage');
+        }
+        $this->providerName = $provider['label'] ?? $this->provider ?? '';
+
+        // Extract provider settings into agent properties
         $this->setupDriverConfigs($provider);
 
-        $settings = array_merge($provider, $this->buildConfigsFromAgent());
-        $this->initDriver($settings);
+        // Build final config from agent properties (which now include provider defaults)
+        $finalConfig = $this->buildConfigsFromAgent();
+
+        $this->initDriver($finalConfig);
     }
 
     protected function setupAgent(): void
     {
         $config = $this->buildConfigsFromAgent();
-        $this->agent = LarAgent::setup($this->llmDriver, $this->chatHistory, $config);
+        $this->agent = LarAgent::setup($this->llmDriver, $this->chatHistory(), $config);
     }
 
     /**
-     * Build configuration array from agent properties.
+     * Build configuration DriverConfig from agent properties.
      * Overrides provider data with agent properties.
      *
-     * @return array The configuration array with model, API key, API URL, and optional parameters.
+     * @return DriverConfig The configuration DTO with model, API key, API URL, and optional parameters.
      */
-    protected function buildConfigsFromAgent(): array
+    protected function buildConfigsFromAgent(): DriverConfig
     {
-        $config = [
-            'model' => $this->model(),
-            'api_key' => $this->getApiKey(),
-            'api_url' => $this->getApiUrl(),
-        ];
-        if (property_exists($this, 'maxCompletionTokens')) {
-            $config['maxCompletionTokens'] = $this->maxCompletionTokens;
-        }
-        if (property_exists($this, 'temperature')) {
-            $config['temperature'] = $this->temperature;
-        }
-        if (property_exists($this, 'n')) {
-            $config['n'] = $this->n;
-        }
-        if (property_exists($this, 'topP')) {
-            $config['topP'] = $this->topP;
-        }
-        if (property_exists($this, 'frequencyPenalty')) {
-            $config['frequencyPenalty'] = $this->frequencyPenalty;
-        }
-        if (property_exists($this, 'presencePenalty')) {
-            $config['presencePenalty'] = $this->presencePenalty;
-        }
-        if (property_exists($this, 'parallelToolCalls')) {
-            $config['parallelToolCalls'] = $this->parallelToolCalls;
-        }
-        if (property_exists($this, 'toolChoice')) {
-            $config['toolChoice'] = $this->toolChoice;
-        }
+        $config = new DriverConfig(
+            model: $this->model(),
+            apiKey: $this->getApiKey(),
+            apiUrl: $this->getApiUrl(),
+            maxCompletionTokens: $this->maxCompletionTokens ?? null,
+            temperature: $this->temperature ?? null,
+            n: $this->n ?? null,
+            topP: $this->topP ?? null,
+            frequencyPenalty: $this->frequencyPenalty ?? null,
+            presencePenalty: $this->presencePenalty ?? null,
+            parallelToolCalls: $this->parallelToolCalls ?? null,
+            toolChoice: $this->toolChoice ?? null,
+            modalities: ! empty($this->modalities) ? $this->modalities : null,
+            audio: ! empty($this->audio) ? $this->audio : null,
+        );
 
-        if (! empty($this->modalities)) {
-            $config['modalities'] = $this->modalities;
-        }
-
-        if (! empty($this->audio)) {
-            $config['audio'] = $this->audio;
-        }
-
-        return [...$config, ...$this->configs];
+        return $config->withExtra($this->getConfigs());
     }
 
     protected function registerEvents(): void
@@ -1522,8 +2042,14 @@ class Agent
             return $returnValue === false ? false : true;
         });
 
-        $this->agent->afterSend(function ($agent, $history, $message) use ($instance) {
+        $forceSaveChatHistory = $this->forceSaveHistory;
+
+        $this->agent->afterSend(function ($agent, $history, $message) use ($instance, $forceSaveChatHistory) {
             $returnValue = $instance->callEvent('afterSend', [$history, $message]);
+
+            if ($forceSaveChatHistory) {
+                $instance->chatHistory()->save();
+            }
 
             // Explicitly check for false
             return $returnValue === false ? false : true;
@@ -1544,6 +2070,9 @@ class Agent
         });
 
         $this->agent->afterResponse(function ($agent, $message) use ($instance) {
+            // Track usage if enabled and message has usage data
+            $instance->trackUsageFromMessage($message);
+
             $returnValue = $instance->callEvent('afterResponse', [$message]);
 
             // Explicitly check for false
@@ -1578,12 +2107,6 @@ class Agent
         $this->registerEvents();
     }
 
-    protected function setupChatHistory(): void
-    {
-        $chatHistory = $this->createChatHistory($this->getChatSessionId());
-        $this->setChatHistory($chatHistory);
-    }
-
     protected function prepareMessage(): MessageInterface
     {
         if ($this->readyMessage) {
@@ -1614,6 +2137,9 @@ class Agent
 
     protected function prepareAgent(MessageInterface $message): void
     {
+        // Apply truncation before preparing agent
+        $this->applyTruncationIfNeeded();
+
         $this->agent
             ->withInstructions($this->instructions(), $this->developerRoleForInstructions)
             ->withMessage($message)
@@ -1637,13 +2163,10 @@ class Agent
     protected function buildToolsFromAttributeMethods(): array
     {
         $tools = [];
-        $reflection = new \ReflectionClass($this);
+        $methods = static::getCachedMethodsWithAttribute(ToolAttribute::class);
 
-        foreach ($reflection->getMethods(\ReflectionMethod::IS_PUBLIC) as $method) {
+        foreach ($methods as $method) {
             $attributes = $method->getAttributes(ToolAttribute::class);
-            if (empty($attributes)) {
-                continue;
-            }
 
             foreach ($attributes as $attribute) {
                 $toolAttribute = $attribute->newInstance();
@@ -1652,22 +2175,49 @@ class Agent
                     $toolAttribute->description
                 );
 
-                // Add parameters as tool properties
+                // Add parameters as tool properties using trait methods
                 foreach ($method->getParameters() as $param) {
-                    $type = $param->getType()?->getName() ?? 'string';
-                    $AiType = $this->convertToOpenAIType($type);
+                    $typeInfo = static::getTypeInfo($param->getType());
+                    $schema = $typeInfo['schema'];
+
+                    // Extract type and enum values from schema
+                    $type = $schema['type'] ?? 'string';
+                    $enum = [];
+
+                    if (isset($schema['enum'])) {
+                        $enum = [
+                            'values' => $schema['enum'],
+                            'enumClass' => $typeInfo['enumClass'],
+                        ];
+                    } elseif (isset($schema['oneOf'])) {
+                        // For union types, use the schema as-is
+                        $type = $schema;
+
+                        // Store enum classes for union types (can be array of classes)
+                        if ($typeInfo['enumClass']) {
+                            $tool->addEnumType($param->getName(), $typeInfo['enumClass']);
+                        }
+                    } elseif ($typeInfo['dataModelClass'] || (($schema['type'] ?? '') === 'object' && isset($schema['properties']))) {
+                        // For DataModels/objects with nested properties, use the full schema
+                        $type = $schema;
+                    }
+
+                    // Store DataModel class if present (can be array for union types)
+                    if ($typeInfo['dataModelClass']) {
+                        $tool->addDataModelType($param->getName(), $typeInfo['dataModelClass']);
+                    }
+
                     $tool->addProperty(
                         $param->getName(),
-                        isset($AiType['type']) ? $AiType['type'] : $AiType,
-                        isset($toolAttribute->parameterDescriptions[$param->getName()]) ? $toolAttribute->parameterDescriptions[$param->getName()] : '',
-                        isset($AiType['enum']) ? $AiType['enum'] : []
+                        $type,
+                        $toolAttribute->parameterDescriptions[$param->getName()] ?? '',
+                        $enum
                     );
                     if (! $param->isOptional()) {
                         $tool->setRequired($param->getName());
                     }
                 }
 
-                $instance = $this;
                 // Bind the method to the tool, handling both static and instance methods
                 $tool->setCallback(
                     $method->isStatic()
@@ -1679,38 +2229,5 @@ class Agent
         }
 
         return $tools;
-    }
-
-    protected function convertToOpenAIType($type)
-    {
-
-        if ($type instanceof \ReflectionEnum || (is_string($type) && enum_exists($type))) {
-            $enumClass = is_string($type) ? $type : $type->getName();
-
-            return [
-                'type' => 'string',
-                'enum' => [
-                    'values' => array_map(fn ($case) => $case->value, $enumClass::cases()),
-                    'enumClass' => $enumClass, // Store the enum class name for conversion
-                ],
-            ];
-        }
-
-        switch ($type) {
-            case 'string':
-                return 'string';
-            case 'int':
-                return 'integer';
-            case 'float':
-                return 'number';
-            case 'bool':
-                return 'boolean';
-            case 'array':
-                return 'array';
-            case 'object':
-                return 'object';
-            default:
-                return 'string';
-        }
     }
 }

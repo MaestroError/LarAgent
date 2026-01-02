@@ -35,9 +35,15 @@ abstract class Tool implements ToolInterface
 
     public function addProperty(string $name, string|array $type, string $description = '', array $enum = []): self
     {
-        $property = [
-            'type' => $type,
-        ];
+        // If type is an array (complex schema like oneOf, object, etc.), merge it directly
+        if (is_array($type)) {
+            $property = $type;
+        } else {
+            $property = [
+                'type' => $type,
+            ];
+        }
+
         if ($description) {
             $property['description'] = $description;
         }

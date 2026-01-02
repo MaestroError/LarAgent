@@ -19,7 +19,7 @@ beforeEach(function () {
         'model' => 'claude-3-7-sonnet-latest',
         'api_key' => $yourApiKey,
         'driver' => ClaudeDriver::class,
-        'default_context_window' => 200000,
+        'default_truncation_threshold' => 200000,
         'default_max_completion_tokens' => 8192,
         'default_temperature' => 0.9,
     ]);
@@ -174,7 +174,7 @@ class ToolTestAgent extends ClaudeTestAgent
         ];
     }
 
-    protected function afterToolExecution($tool, &$result)
+    protected function afterToolExecution(\LarAgent\Core\Contracts\Tool $tool, \LarAgent\Core\Contracts\ToolCall $toolCall, &$result)
     {
         $this->saveToolResult = $result;
     }
@@ -212,7 +212,7 @@ class ParallelToolTestAgent extends ClaudeTestAgent
         ];
     }
 
-    protected function afterToolExecution($tool, &$result)
+    protected function afterToolExecution(\LarAgent\Core\Contracts\Tool $tool, \LarAgent\Core\Contracts\ToolCall $toolCall, &$result)
     {
         $this->toolCalls[] = [
             'tool' => $tool->getName(),
@@ -296,14 +296,14 @@ it('can stream responses using respondStreamed', function () {
 
     // Check the content of the last message
     $lastMessage = end($messages);
-    expect($lastMessage->getContent() ?? $lastMessage)->toContain('This is a streaming response');
+    expect($lastMessage->getContentAsString())->toContain('This is a streaming response');
 });
 
 it('can stream responses using streamResponse in plain format', function () {
     $agent = ClaudeTestAgent::for('stream_response_test');
 
     // Get the response
-    $response = $agent->streamResponse('Say anything and end your response with "This is a streaming response', 'plain');
+    $response = $agent->streamResponse('Say any sentence and end your response with "This is a response from claude"', 'plain');
 
     // Verify it's a StreamedResponse
     expect($response)->toBeInstanceOf(StreamedResponse::class);
@@ -319,7 +319,7 @@ it('can stream responses using streamResponse in plain format', function () {
     $output = ob_get_clean();
 
     // Ensure the body contains the expected text
-    expect($output)->toContain('This is a streaming response');
+    expect($output)->toContain('This is a response from claude');
 });
 
 it('can stream with tools use', function () {

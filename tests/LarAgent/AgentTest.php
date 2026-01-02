@@ -3,6 +3,8 @@
 use Illuminate\Contracts\Auth\Authenticatable;
 use LarAgent\Agent;
 use LarAgent\Message;
+use LarAgent\Messages\DataModels\Content\TextContent;
+use LarAgent\Messages\DataModels\MessageContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
 
@@ -56,13 +58,29 @@ class TestAgent extends Agent
         if ($this->n > 1) {
             return;
         } else {
-            $message->setContent($message.'. Edited via event');
+            $message->setContent(new MessageContent(new TextContent($message->getContentAsString().'. Edited via event')));
         }
     }
 
     protected function afterToolExecution($tool, $toolCall, &$result)
     {
         $this->saveToolResult = $result;
+    }
+}
+
+// Test agent without storage property set - for testing fallback behavior
+class TestAgentNoStorage extends Agent
+{
+    protected $model = 'gpt-4o-mini';
+
+    protected $driver = FakeLlmDriver::class;
+
+    // Intentionally NOT setting $storage or $history properties
+    // to test fallback behavior
+
+    public function instructions()
+    {
+        return 'You are a test agent.';
     }
 }
 
@@ -103,14 +121,14 @@ it('can create an agent for a user', function () {
     $agent = TestAgent::forUser($user);
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('user_123');
+    expect($agent->getSessionId())->toContain('user_123');
 });
 
 it('can create an agent with a specific key', function () {
     $agent = TestAgent::for('test_key');
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('test_key');
+    expect($agent->getSessionId())->toContain('test_key');
 });
 
 it('can set and get message', function () {
@@ -155,14 +173,14 @@ it('can build an instance with a key', function () {
     $agent = TestAgent::make('test_key');
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('test_key');
+    expect($agent->getSessionId())->toContain('test_key');
 });
 
 it('can chain method after make', function () {
     $agent = TestAgent::make('test_key')->withModel('gpt-4');
 
     expect($agent)->toBeInstanceOf(Agent::class);
-    expect($agent->getChatSessionId())->toContain('test_key');
+    expect($agent->getSessionId())->toContain('test_key');
     expect($agent->model())->toBe('gpt-4');
 });
 
@@ -181,17 +199,17 @@ it('can handle image urls in response', function () {
     $messages = $agent->chatHistory()->getMessages();
     $firstUserMessage = $messages[1];
 
-    expect($firstUserMessage->getContent())->toBeArray()
-        ->and($firstUserMessage->getContent())->toHaveCount(3) // text + 2 images
-        ->and($firstUserMessage->getContent()[0])->toMatchArray([
+    expect($firstUserMessage->getContent()->toArray())->toBeArray()
+        ->and($firstUserMessage->getContent()->toArray())->toHaveCount(3) // text + 2 images
+        ->and($firstUserMessage->getContent()->toArray()[0])->toMatchArray([
             'type' => 'text',
             'text' => 'Test message Please respond appropriately.',
         ])
-        ->and($firstUserMessage->getContent()[1])->toMatchArray([
+        ->and($firstUserMessage->getContent()->toArray()[1])->toMatchArray([
             'type' => 'image_url',
             'image_url' => ['url' => 'http://example.com/image1.jpg'],
         ])
-        ->and($firstUserMessage->getContent()[2])->toMatchArray([
+        ->and($firstUserMessage->getContent()->toArray()[2])->toMatchArray([
             'type' => 'image_url',
             'image_url' => ['url' => 'http://example.com/image2.jpg'],
         ]);
@@ -216,12 +234,12 @@ it('can dynamically change model', function () {
 it('can get chat keys filtered by agent class', function () {
     // Create a few chat sessions with different agents and models
     $agent1 = TestAgent::for('user1');
-    $agent1->withModelInChatSessionId()->withModel('gpt-4')->respond('First message from user1');
+    $agent1->withModel('gpt-4')->respond('First message from user1');
 
     // Create a different agent class to ensure filtering works
     class AnotherAgent extends TestAgent {}
     $otherAgent = AnotherAgent::for('user3');
-    $otherAgent->withModelInChatSessionId()->respond('Message from other agent');
+    $otherAgent->respond('Message from other agent');
 
     // Get chat keys for TestAgent
     $testAgentKeys = $agent1->getChatKeys();
@@ -230,8 +248,8 @@ it('can get chat keys filtered by agent class', function () {
     expect($testAgentKeys)
         ->toBeArray()
         ->and($testAgentKeys)->toHaveCount(1)
-        ->and($testAgentKeys)->toContain('TestAgent_gpt-4_user1')
-        ->and($testAgentKeys)->not->toContain('AnotherAgent_gpt-4o-mini_user3');
+        ->and($testAgentKeys)->toContain('chatHistory_TestAgent_user1')
+        ->and($testAgentKeys)->not->toContain('chatHistory_AnotherAgent_user3');
 
     // Get chat keys for AnotherAgent
     $otherAgentKeys = $otherAgent->getChatKeys();
@@ -240,9 +258,9 @@ it('can get chat keys filtered by agent class', function () {
     expect($otherAgentKeys)
         ->toBeArray()
         ->and($otherAgentKeys)->toHaveCount(1)
-        ->and($otherAgentKeys)->toEqual(['AnotherAgent_gpt-4o-mini_user3'])
-        ->and($otherAgentKeys)->toContain('AnotherAgent_gpt-4o-mini_user3')
-        ->and($otherAgentKeys)->not->toContain('TestAgent_gpt-4_user1');
+        ->and($otherAgentKeys)->toEqual(['chatHistory_AnotherAgent_user3'])
+        ->and($otherAgentKeys)->toContain('chatHistory_AnotherAgent_user3')
+        ->and($otherAgentKeys)->not->toContain('chatHistory_TestAgent_user1');
 });
 
 it('can add custom message to chat history', function () {
@@ -267,10 +285,11 @@ it('excludes parallel_tool_calls from config when set to null', function () {
 
     $buildConfigsFromAgent = $reflection->getMethod('buildConfigsFromAgent');
     $buildConfigsFromAgent->setAccessible(true);
-    $config = $buildConfigsFromAgent->invoke($agent);
+    $driverConfig = $buildConfigsFromAgent->invoke($agent);
 
-    expect($config)->toHaveKey('parallelToolCalls')
-        ->and($config['parallelToolCalls'])->toBeNull();
+    // DriverConfig has parallelToolCalls as null, and toArray() filters out null values
+    expect($driverConfig->parallelToolCalls)->toBeNull()
+        ->and($driverConfig->toArray())->not->toHaveKey('parallelToolCalls');
 });
 
 it('includes toolChoice when using tool selection methods', function () {
@@ -282,24 +301,25 @@ it('includes toolChoice when using tool selection methods', function () {
     $agent->withTool(Tool::create('dummy', 'd')->setCallback(fn () => 'x'));
 
     $agent->toolAuto();
-    $config = $buildConfigs->invoke($agent);
-    expect($config)->toHaveKey('toolChoice')
-        ->and($config['toolChoice'])->toBe('auto')
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toBe('auto')
+        ->and($driverConfig->toArray())->toHaveKey('toolChoice')
+        ->and($driverConfig->toArray()['toolChoice'])->toBe('auto')
         ->and($agent->getToolChoice())->toBe('auto');
 
     $agent->toolNone();
-    $config = $buildConfigs->invoke($agent);
-    expect($config['toolChoice'])->toBe('none')
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toBe('none')
         ->and($agent->getToolChoice())->toBe('none');
 
     $agent->toolRequired();
-    $config = $buildConfigs->invoke($agent);
-    expect($config['toolChoice'])->toBe('required')
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toBe('required')
         ->and($agent->getToolChoice())->toBe('required');
 
     $agent->forceTool('test_tool');
-    $config = $buildConfigs->invoke($agent);
-    expect($config['toolChoice'])->toMatchArray([
+    $driverConfig = $buildConfigs->invoke($agent);
+    expect($driverConfig->toolChoice)->toMatchArray([
         'type' => 'function',
         'function' => ['name' => 'test_tool'],
     ])->and($agent->getToolChoice())->toMatchArray([
@@ -338,9 +358,9 @@ it('passes optional parameters to driver config', function () {
 
     expect($config)->toMatchArray([
         'n' => 3,
-        'top_p' => 0.7,
-        'frequency_penalty' => 0.2,
-        'presence_penalty' => 0.1,
+        'topP' => 0.7,
+        'frequencyPenalty' => 0.2,
+        'presencePenalty' => 0.1,
     ]);
 });
 
@@ -464,7 +484,7 @@ it('uses developer role for instructions when enabled', function () {
     $messages = $agent->chatHistory()->getMessages();
     $hasDevMessage = false;
     foreach ($messages as $message) {
-        if ($message->getRole() === 'developer' && $message->getContent() === 'You are a test agent.') {
+        if ($message->getRole() === 'developer' && $message->getContentAsString() === 'You are a test agent.') {
             $hasDevMessage = true;
             break;
         }
@@ -546,8 +566,8 @@ it('can accept UserMessage instance in message method', function () {
     ];
 
     expect($storedMessage)->toBe($userMessage);
-    expect($storedMessage->getContent())->toBeArray();
-    expect($storedMessage->getContent())->toEqual($expectedContent);
+    expect($storedMessage->getContent()->toArray())->toBeArray();
+    expect($storedMessage->getContent()->toArray())->toEqual($expectedContent);
     expect($storedMessage->getMetadata())->toHaveKey('custom_field');
     expect($storedMessage->getMetadata()['custom_field'])->toBe('test_value');
 
@@ -747,4 +767,33 @@ it('arbitrary configs are overwritten during chaining', function () {
     $agent->withConfigs(['test_key' => 'test_value']);
     $agent->withConfigs(['test_key' => 'test_value2']);
     expect($agent->getConfig('test_key'))->toBe('test_value2');
+});
+
+// ===========================================
+// Storage Driver Configuration Tests
+// ===========================================
+
+it('uses InMemoryStorage as fallback when no storage configured', function () {
+    // Clear the config temporarily
+    $originalConfig = config('laragent.default_storage');
+    config(['laragent.default_storage' => null]);
+
+    // Create agent without storage configured - should not infinite loop
+    $agent = TestAgentNoStorage::for('test_storage_fallback');
+
+    // The agent should have been created successfully
+    expect($agent)->toBeInstanceOf(Agent::class);
+
+    // Restore config
+    config(['laragent.default_storage' => $originalConfig]);
+});
+
+it('uses config default_storage when agent storage not set', function () {
+    $configDrivers = config('laragent.default_storage');
+
+    $agent = TestAgentNoStorage::for('test_config_storage');
+
+    // Should work without errors
+    expect($agent)->toBeInstanceOf(Agent::class);
+    expect($agent->chatHistory())->not->toBeNull();
 });

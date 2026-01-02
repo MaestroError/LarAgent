@@ -2,46 +2,11 @@
 
 namespace LarAgent\History;
 
-use LarAgent\Core\Abstractions\ChatHistory;
+use LarAgent\Context\Drivers\InMemoryStorage;
+use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 
-class InMemoryChatHistory extends ChatHistory implements ChatHistoryInterface
+class InMemoryChatHistory extends ChatHistoryStorage implements ChatHistoryInterface
 {
-    protected array $storage = [];
-
-    protected array $keyStorage = [];
-
-    public function readFromMemory(): void
-    {
-        $this->setMessages($this->storage[$this->getIdentifier()] ?? []);
-    }
-
-    public function writeToMemory(): void
-    {
-        $this->storage[$this->getIdentifier()] = $this->getMessages();
-    }
-
-    public function saveKeyToMemory(): void
-    {
-        $key = $this->getIdentifier();
-        if (! in_array($key, $this->keyStorage)) {
-            $this->keyStorage[] = $key;
-        }
-    }
-
-    public function loadKeysFromMemory(): array
-    {
-        return $this->keyStorage;
-    }
-
-    public function removeChatFromMemory(string $key): void
-    {
-        unset($this->storage[$key]);
-        $this->removeChatKey($key);
-    }
-
-    protected function removeChatKey(string $key): void
-    {
-        $this->keyStorage = array_filter($this->keyStorage, fn ($k) => $k !== $key);
-    }
+    protected array $defaultDrivers = [InMemoryStorage::class];
 }

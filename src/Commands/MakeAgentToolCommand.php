@@ -16,8 +16,9 @@ class MakeAgentToolCommand extends Command
     {
         $name = $this->argument('name');
         // Validate that the name is a valid PHP class name (PascalCase)
-        if (!preg_match('/^[A-Z][a-zA-Z0-9]*$/', $name)) {
+        if (! preg_match('/^[A-Z][a-zA-Z0-9]*$/', $name)) {
             $this->error('Invalid tool name. Tool name must be a valid PHP class name (PascalCase).');
+
             return Command::FAILURE;
         }
         $toolsDir = app_path('AgentTools');

@@ -10,8 +10,9 @@ class AgentDTO
         public readonly ?string $message,
         public readonly array $tools = [],
         public readonly ?string $instructions = null,
-        public readonly ?array $responseSchema = [],
-        public readonly array $configuration = []
+        public readonly ?array $responseSchema = null,
+        public readonly array $configuration = [],
+        public readonly ?DriverConfig $driverConfig = null
     ) {}
 
     /**
@@ -27,6 +28,7 @@ class AgentDTO
             'instructions' => $this->instructions,
             'responseSchema' => $this->responseSchema,
             'configuration' => $this->configuration,
+            'driverConfig' => $this->driverConfig?->toArray(),
         ];
     }
 }

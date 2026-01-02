@@ -84,7 +84,7 @@ trait Events
                 $event = new $eventClass($this->toDTO(), ...$args);
             }
 
-            Event::dispatch($event);
+            $this->dispatchAgentEvent($event);
         }
 
         // Call the actual method if it exists
@@ -110,6 +110,33 @@ trait Events
         }
 
         return null;
+    }
+
+    /**
+     * Safely dispatch an agent event, handling cases where the Laravel app may not be available.
+     * This prevents errors during shutdown when the container is being destroyed.
+     *
+     * @param  object  $event  The event to dispatch
+     */
+    protected function dispatchAgentEvent(object $event): void
+    {
+        if (! class_exists('Illuminate\Support\Facades\Event')) {
+            return;
+        }
+
+        try {
+            $app = \Illuminate\Support\Facades\Facade::getFacadeApplication();
+            if ($app === null) {
+                return;
+            }
+
+            $events = $app->make('events');
+            if ($events !== null) {
+                $events->dispatch($event);
+            }
+        } catch (\Throwable $e) {
+            // Silently ignore - app is likely shutting down
+        }
     }
 
     /**

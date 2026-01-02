@@ -1,8 +1,12 @@
 <?php
 
+use Illuminate\Support\Facades\Session;
 use LarAgent\Agent;
 
 beforeEach(function () {
+    // Clear session to ensure test isolation
+    Session::flush();
+
     // Create a mock agent class file
     if (! is_dir(app_path('AiAgents'))) {
         mkdir(app_path('AiAgents'), 0755, true);
@@ -19,7 +23,7 @@ use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 class TestAgent extends Agent
 {
     protected $model = 'gpt-4o-mini';
-    protected $history = 'in_memory';
+    protected $history = 'session';
     protected $provider = 'default';
     protected $tools = [];
     protected $driver = FakeLlmDriver::class;
@@ -70,12 +74,15 @@ test('it fails when agent does not exist', function () {
 test('it can remove chat history for existing agent', function () {
     // Create some chat history first
     $agent = \App\AiAgents\TestAgent::for('test_key');
-    $agent->withModelInChatSessionId()->message('Hello')->respond();
+    $agent->message('Hello')->respond();
 
     // Verify chat histories exist
     $chatKeys = $agent->getChatKeys();
     expect($chatKeys)->toHaveCount(1)
-        ->toContain('TestAgent_gpt-4o-mini_test_key');
+        ->toContain('chatHistory_TestAgent_test_key');
+
+    // Save context before agent goes out of scope
+    $agent->context()->save();
 
     // Remove the histories
     $this->artisan('agent:chat:remove', ['agent' => 'TestAgent'])
@@ -85,7 +92,7 @@ test('it can remove chat history for existing agent', function () {
 
     // Verify all chat histories and keys are completely removed
     $agent = \App\AiAgents\TestAgent::for('new_key');
-    expect($agent->withModelInChatSessionId()->chatHistory()->getMessages())->toBeEmpty()
+    expect($agent->chatHistory()->getMessages())->toBeEmpty()
         ->and($agent->getChatKeys())->toHaveCount(1)
-        ->and($agent->getChatKeys())->toContain('TestAgent_gpt-4o-mini_new_key');
+        ->and($agent->getChatKeys())->toContain('chatHistory_TestAgent_new_key');
 });

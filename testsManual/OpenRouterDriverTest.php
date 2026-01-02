@@ -18,7 +18,7 @@ beforeEach(function () {
         'model' => 'deepseek/deepseek-chat-v3.1:free', // Using a free model for testing
         'api_key' => $yourApiKey,
         'driver' => OpenRouter::class,
-        'default_context_window' => 200000,
+        'default_truncation_threshold' => 200000,
         'default_max_completion_tokens' => 8192,
         'default_temperature' => 0.9,
         'referer' => 'https://laragent.ai/',

@@ -3,6 +3,7 @@
 namespace LarAgent\Commands;
 
 use Illuminate\Console\Command;
+use LarAgent\Facades\Context;
 
 class AgentChatRemoveCommand extends Command
 {
@@ -25,18 +26,21 @@ class AgentChatRemoveCommand extends Command
             }
         }
 
-        // Create a temporary instance to get chat keys
-        $agent = $agentClass::for('temp');
-        $chatKeys = $agent->getChatKeys();
+        // Use Context facade to get chat identities count
+        $manager = Context::of($agentClass);
+        $chatIdentities = $manager->getChatIdentities();
+        $count = $chatIdentities->count();
 
-        if (! empty($chatKeys)) {
-            // Remove each chat history
-            $this->info('Found '.count($chatKeys).' chat histories to remove...');
+        if ($count > 0) {
+            $this->info("Found {$count} chat histories to remove...");
 
-            foreach ($chatKeys as $key) {
-                $this->line("Removing chat history: {$key}");
-                $agent->chatHistory()->removeChatFromMemory($key);
+            // List the keys being removed
+            foreach ($chatIdentities as $identity) {
+                $this->line("Removing chat history: {$identity->getKey()}");
             }
+
+            // Remove all chat histories
+            $manager->removeAllChats();
 
             $this->info("Successfully removed all chat histories for agent: {$agentName}");
         } else {

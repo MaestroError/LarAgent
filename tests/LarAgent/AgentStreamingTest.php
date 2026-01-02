@@ -1,6 +1,7 @@
 <?php
 
 use LarAgent\Agent;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Message;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
@@ -10,9 +11,11 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class StreamedFakeLlmDriver extends FakeLlmDriver
 {
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
     {
-        $this->setConfig($options);
+        $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig
+            ? $overrideSettings->toArray()
+            : $overrideSettings;
 
         if (empty($this->mockResponses)) {
             throw new \Exception('No mock responses are defined.');
@@ -160,7 +163,7 @@ it('can stream responses using respondStreamed method', function () {
 
     // Check the content of the last message
     $lastMessage = end($messages);
-    expect($lastMessage->getContent() ?? $lastMessage)->toContain('This is a streaming response');
+    expect($lastMessage->getContentAsString())->toContain('This is a streaming response');
 });
 
 // Test the streaming with a callback
@@ -185,7 +188,7 @@ it('can stream responses with a callback', function () {
 
     // Check the content of the last chunk
     $lastChunk = end($receivedChunks);
-    expect($lastChunk->getContent() ?? $lastChunk)->toContain('This is a streaming response');
+    expect($lastChunk->getContentAsString())->toContain('This is a streaming response');
 });
 
 // Test structured output streaming

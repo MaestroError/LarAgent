@@ -1,8 +1,12 @@
 <?php
 
+use Illuminate\Support\Facades\Session;
 use LarAgent\Agent;
 
 beforeEach(function () {
+    // Clear session to ensure test isolation
+    Session::flush();
+
     // Create a mock agent class file
     if (! is_dir(app_path('AiAgents'))) {
         mkdir(app_path('AiAgents'), 0755, true);

@@ -2,15 +2,17 @@
 
 namespace LarAgent\Drivers\OpenAi;
 
+use LarAgent\Core\DTO\DriverConfig;
 use OpenAI;
 
 class OpenAiDriver extends BaseOpenAiDriver
 {
     protected mixed $client;
 
-    public function __construct(array $provider = [])
+    public function __construct(DriverConfig|array $settings = [])
     {
-        parent::__construct($provider);
-        $this->client = $provider['api_key'] ? OpenAI::client($provider['api_key']) : null;
+        parent::__construct($settings);
+        $apiKey = $this->getDriverConfig()->apiKey;
+        $this->client = $apiKey ? OpenAI::client($apiKey) : null;
     }
 }

@@ -13,6 +13,7 @@
 require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Drivers\Gemini\GeminiDriver;
+use LarAgent\Message;
 use LarAgent\Tool;
 
 // Load API key
@@ -47,7 +48,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $messages = [
-        ['role' => 'user', 'content' => 'Say "Hello, World!" and nothing else.'],
+        Message::user('Say "Hello, World!" and nothing else.'),
     ];
 
     $response = $driver->sendMessage($messages);
@@ -82,9 +83,9 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $messages = [
-        ['role' => 'user', 'content' => 'My favorite color is blue.'],
-        ['role' => 'assistant', 'content' => 'That\'s nice! Blue is a great color.'],
-        ['role' => 'user', 'content' => 'What did I say my favorite color was?'],
+        Message::user('My favorite color is blue.'),
+        Message::assistant('That\'s nice! Blue is a great color.'),
+        Message::user('What did I say my favorite color was?'),
     ];
 
     $response = $driver->sendMessage($messages);
@@ -114,8 +115,8 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $messages = [
-        ['role' => 'system', 'content' => 'You are a pirate. Always respond in pirate speak.'],
-        ['role' => 'user', 'content' => 'Hello there!'],
+        Message::system('You are a pirate. Always respond in pirate speak.'),
+        Message::user('Hello there!'),
     ];
 
     $response = $driver->sendMessage($messages);
@@ -167,7 +168,7 @@ try {
     $driver->registerTool($weatherTool);
 
     $messages = [
-        ['role' => 'user', 'content' => 'What is the weather in Boston?'],
+        Message::user('What is the weather in Boston?'),
     ];
 
     $response = $driver->sendMessage($messages);
@@ -234,7 +235,7 @@ try {
     ];
 
     $messages = [
-        ['role' => 'user', 'content' => 'Create a user profile for Jane Smith, age 30, email jane@example.com, who enjoys reading, hiking, and photography.'],
+        Message::user('Create a user profile for Jane Smith, age 30, email jane@example.com, who enjoys reading, hiking, and photography.'),
     ];
 
     $response = $driverStr->sendMessage($messages, [
@@ -289,7 +290,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     $messages = [
-        ['role' => 'user', 'content' => 'Count from 1 to 5, one number per line.'],
+        Message::user('Count from 1 to 5, one number per line.'),
     ];
 
     echo 'Streaming response: ';
@@ -333,7 +334,7 @@ try {
         'model' => 'gemini-2.5-flash',
     ]);
 
-    $messages = [['role' => 'user', 'content' => 'test']];
+    $messages = [Message::user('test')];
     $invalidDriver->sendMessage($messages);
 
     echo "❌ TEST 7 FAILED: Expected exception was not thrown\n";

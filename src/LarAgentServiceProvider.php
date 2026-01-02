@@ -8,6 +8,9 @@ use LarAgent\Commands\AgentChatCommand;
 use LarAgent\Commands\AgentChatRemoveCommand;
 use LarAgent\Commands\MakeAgentCommand;
 use LarAgent\Commands\MakeAgentToolCommand;
+use LarAgent\Commands\MakeTruncationStrategyCommand;
+use LarAgent\Commands\PublishCommand;
+use LarAgent\Context\ContextManager;
 use LarAgent\Core\Contracts\ChatHistory;
 use LarAgent\Core\Contracts\LlmDriver;
 use Spatie\LaravelPackageTools\Package;
@@ -25,12 +28,15 @@ class LarAgentServiceProvider extends PackageServiceProvider
         $package
             ->name('laragent')
             ->hasConfigFile()
+            ->hasViews()
             ->hasCommands([
                 MakeAgentCommand::class,
                 MakeAgentToolCommand::class,
+                MakeTruncationStrategyCommand::class,
                 AgentChatCommand::class,
                 AgentChatClearCommand::class,
                 AgentChatRemoveCommand::class,
+                PublishCommand::class,
                 \LarAgent\Commands\AgentToolClearCommand::class,
             ]);
 
@@ -52,6 +58,11 @@ class LarAgentServiceProvider extends PackageServiceProvider
             $defaultChatHistory = $app['config']->get('laragent.default_chat_history');
 
             return new $defaultChatHistory($name, []);
+        });
+
+        // Register ContextManager for facade
+        $this->app->bind(ContextManager::class, function ($app) {
+            return new ContextManager;
         });
     }
 }

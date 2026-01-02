@@ -28,7 +28,7 @@ beforeEach(function () {
         'api_key' => 'ollama', // Can be any string for Ollama
         'api_url' => 'http://localhost:11434/v1',
         'model' => 'llama3.2:3b',
-        'default_context_window' => 50000,
+        'default_truncation_threshold' => 50000,
         'default_max_completion_tokens' => 100,
         'default_temperature' => 1,
     ]);
@@ -39,7 +39,7 @@ beforeEach(function () {
         'driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
         'api_key' => 'oneagent', // Can be any string for Ollama
         'api_url' => '/api/one-agent',
-        'default_context_window' => 50000,
+        'default_truncation_threshold' => 50000,
         'default_max_completion_tokens' => 1000,
         'default_temperature' => 1,
     ]);
@@ -48,7 +48,7 @@ beforeEach(function () {
         'driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
         'api_key' => 'multiagent', // Can be any string for Ollama
         'api_url' => '/api/multi-agent',
-        'default_context_window' => 50000,
+        'default_truncation_threshold' => 50000,
         'default_max_completion_tokens' => 1000,
         'default_temperature' => 1,
     ]);

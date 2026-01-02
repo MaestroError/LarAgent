@@ -1,6 +1,7 @@
 <?php
 
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\ToolCall;
@@ -13,11 +14,11 @@ it('returns an assistant message', function () {
         'metaData' => ['usage' => ['tokens' => 10]],
     ]);
 
-    $message = $driver->sendMessage([]);
+    $message = $driver->sendMessage(MessageArray::fromArray([])->all());
 
     expect($message)
         ->toBeInstanceOf(AssistantMessage::class)
-        ->and($message->getContent())->toBe('This is a simulated assistant response');
+        ->and($message->getContentAsString())->toBe('This is a simulated assistant response');
 });
 
 it('returns a tool call message', function () {
@@ -29,10 +30,10 @@ it('returns a tool call message', function () {
         'metaData' => ['usage' => ['tokens' => 15]],
     ]);
 
-    $message = $driver->sendMessage([]);
+    $message = $driver->sendMessage(MessageArray::fromArray([])->all());
 
     expect($message)
         ->toBeInstanceOf(ToolCallMessage::class)
-        ->and($message->getToolCalls())->toBeArray()
+        ->and($message->getToolCalls()->toArray())->toBeArray()
         ->and($message->getToolCalls()[0])->toBeInstanceOf(ToolCall::class);
 });

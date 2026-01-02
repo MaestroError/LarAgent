@@ -4,12 +4,15 @@ namespace LarAgent\Drivers\OpenAi;
 
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
+use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\ToolCall;
-use OpenAI;
+use LarAgent\Usage\DataModels\Usage;
 
 /**
  * Base class for OpenAI and OpenAI-compatible drivers
@@ -19,58 +22,80 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 {
     protected mixed $client;
 
+    protected MessageFormatter $formatter;
+
+    public function __construct(DriverConfig|array $settings = [])
+    {
+        parent::__construct($settings);
+        $this->formatter = $this->createFormatter();
+    }
+
+    /**
+     * Create the message formatter for this driver.
+     * Can be overridden by child classes to use a different formatter.
+     */
+    protected function createFormatter(): MessageFormatter
+    {
+        return new OpenAiMessageFormatter;
+    }
+
+    /**
+     * Get the message formatter.
+     */
+    public function getFormatter(): MessageFormatter
+    {
+        return $this->formatter;
+    }
+
     /**
      * Send a message to the LLM and receive a response.
      *
-     * @param  array  $messages  Array of messages to send
-     * @param  array  $options  Configuration options
+     * @param  MessageArray  $messages  Array of messages to send
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @return AssistantMessage The response from the LLM
      *
      * @throws \Exception
      */
-    public function sendMessage(array $messages, array $options = []): AssistantMessage
+    public function sendMessage(array $messages, DriverConfig|array $overrideSettings = []): AssistantMessage
     {
         if (empty($this->client)) {
             throw new \Exception('API key is required to use the OpenAI driver.');
         }
 
         // Prepare the payload with common settings
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         // Make an API call to OpenAI ("/chat" endpoint)
-        $this->lastResponse = $response = $this->client->chat()->create($payload);
+        $this->lastResponse = $this->client->chat()->create($payload);
+        $responseArray = $this->lastResponse->toArray();
 
-        // Handle the response
-        $finishReason = $this->lastResponse->choices[0]->finishReason;
-        $metaData = [
-            'usage' => $this->lastResponse->usage->toArray(),
-        ];
+        // Extract data using formatter
+        $finishReason = $this->formatter->extractFinishReason($responseArray);
+        $usageData = $this->formatter->extractUsage($responseArray);
+        $usage = ! empty($usageData) ? Usage::fromArray($usageData) : null;
 
         // If tool is forced, finish reason is 'stop', so to process forced tool, we need extra checks for "tool_choice"
         if (
             $finishReason === 'tool_calls'
-            || (isset($options['tool_choice']) && is_array($options['tool_choice']) && isset($this->lastResponse->choices[0]->message->toolCalls))
+            || (isset($payload['tool_choice']) && is_array($payload['tool_choice']) && isset($responseArray['choices'][0]['message']['tool_calls']))
         ) {
+            // Extract tool calls using formatter
+            $toolCalls = $this->formatter->extractToolCalls($responseArray);
 
-            // Collect tool calls from the response
-            $toolCalls = array_map(function ($toolCall) {
-                return new ToolCall($toolCall->id, $toolCall->function->name, $toolCall->function->arguments);
-            }, $this->lastResponse->choices[0]->message->toolCalls);
+            $message = new ToolCallMessage($toolCalls);
+            $message->setUsage($usage);
 
-            // Build tool calls message with needed structure
-            $message = $this->toolCallsToMessage($toolCalls);
-
-            return new ToolCallMessage($toolCalls, $message, $metaData);
+            return $message;
         }
 
         if ($finishReason === 'stop') {
-            $content = $this->lastResponse->choices[0]->message->content;
+            $content = $this->formatter->extractContent($responseArray);
 
-            if (isset($options['n']) && $options['n'] > 1) {
+            if (isset($payload['n']) && $payload['n'] > 1) {
                 $contentsArray = [];
 
-                foreach ($this->lastResponse->choices as $choice) {
-                    $contentsArray[] = $choice->message->content;
+                foreach ($responseArray['choices'] as $choice) {
+                    $contentsArray[] = $choice['message']['content'];
                 }
 
                 // @todo: get rid of encoding/decoding the same data
@@ -78,7 +103,10 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
                 $content = json_encode($contentsArray);
             }
 
-            return new AssistantMessage($content, $metaData);
+            $message = new AssistantMessage($content);
+            $message->setUsage($usage);
+
+            return $message;
         }
 
         throw new \Exception('Unexpected finish reason: '.$finishReason);
@@ -87,21 +115,21 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
     /**
      * Send a message to the LLM and receive a streamed response.
      *
-     * @param  array  $messages  Array of messages to send
-     * @param  array  $options  Configuration options
+     * @param  MessageArray  $messages  Array of messages to send
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @param  callable|null  $callback  Optional callback function to process each chunk
      * @return \Generator A generator that yields chunks of the response
      *
      * @throws \Exception
      */
-    public function sendMessageStreamed(array $messages, array $options = [], ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = [], ?callable $callback = null): \Generator
     {
         if (empty($this->client)) {
             throw new \Exception('OpenAI API key is required to use the OpenAI driver.');
         }
 
         // Prepare the payload with common settings
-        $payload = $this->preparePayload($messages, $options);
+        $payload = $this->preparePayload($messages, $overrideSettings);
 
         // Add stream-specific options
         $payload['stream'] = true;
@@ -114,7 +142,6 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         // Initialize variables to track the streamed response
         $streamedMessage = new StreamedAssistantMessage;
-        $content = '';
         $toolCalls = [];
         $toolCallsSummary = []; // Store complete tool calls by ID
         $finishReason = null;
@@ -126,11 +153,11 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             // Check if this is the last chunk with usage information
             if (isset($response->usage)) {
-                $streamedMessage->setUsage([
-                    'prompt_tokens' => $response->usage->promptTokens,
-                    'completion_tokens' => $response->usage->completionTokens,
-                    'total_tokens' => $response->usage->totalTokens,
-                ]);
+                $streamedMessage->setUsage(new Usage(
+                    $response->usage->promptTokens,
+                    $response->usage->completionTokens,
+                    $response->usage->totalTokens
+                ));
                 $streamedMessage->setComplete(true);
 
                 // Execute callback if provided
@@ -149,7 +176,6 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             // Handle tool calls
             if ($this->hasToolCalls($delta)) {
-
                 $this->processToolCallDelta($delta, $toolCalls, $toolCallsSummary, $lastIndex);
             }
             // Handle regular content
@@ -173,7 +199,6 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
             // Convert to ToolCall objects
             $toolCallObjects = array_map(function ($tc) {
-                // Ensure we have valid values for all parameters
                 $id = $tc['id'] ?? 'tool_call_'.uniqid();
                 $name = $tc['function']['name'] ?? '';
                 $arguments = $tc['function']['arguments'] ?? '{}';
@@ -181,15 +206,13 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
                 return new ToolCall($id, $name, $arguments);
             }, array_values($toolCallsSummary));
 
-            // Build tool calls message
-            $message = $this->toolCallsToMessage($toolCallObjects);
+            // Create ToolCallMessage directly - formatter handles conversion when needed
+            $toolCallMessage = new ToolCallMessage($toolCallObjects);
 
-            // Create and return a ToolCallMessage
-            $toolCallMessage = new ToolCallMessage(
-                $toolCallObjects,
-                $message,
-                $streamedMessage->getUsage() ? ['usage' => $streamedMessage->getUsage()] : []
-            );
+            // Transfer usage from streamed message if available
+            if ($streamedMessage->getUsage() !== null) {
+                $toolCallMessage->setUsage($streamedMessage->getUsage());
+            }
 
             // Execute callback if provided
             if ($callback) {
@@ -268,9 +291,11 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         }
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolResultToMessage(ToolCallInterface $toolCall, mixed $result): array
     {
-        // Build toolCall message content from toolCall
         $content = json_decode($toolCall->getArguments(), true);
         $content[$toolCall->getToolName()] = $result;
 
@@ -281,11 +306,21 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
+    /**
+     * @deprecated Use formatter instead. This method is kept for backward compatibility.
+     */
     public function toolCallsToMessage(array $toolCalls): array
     {
         $toolCallsArray = [];
         foreach ($toolCalls as $tc) {
-            $toolCallsArray[] = $this->toolCallToContent($tc);
+            $toolCallsArray[] = [
+                'id' => $tc->getId(),
+                'type' => 'function',
+                'function' => [
+                    'name' => $tc->getToolName(),
+                    'arguments' => $tc->getArguments(),
+                ],
+            ];
         }
 
         return [
@@ -294,67 +329,196 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         ];
     }
 
-    // Helper methods
-
-    protected function toolCallToContent(ToolCallInterface $toolCall): array
-    {
-        $this->validateJson($toolCall->getArguments());
-
-        return [
-            'id' => $toolCall->getId(),
-            'type' => 'function',
-            'function' => [
-                'name' => $toolCall->getToolName(),
-                'arguments' => $toolCall->getArguments(),
-            ],
-        ];
-    }
-
-    protected function validateJson(string $json): void
-    {
-        // Validate JSON arguments
-        json_decode($json, true);
-        if (json_last_error() !== JSON_ERROR_NONE) {
-            throw new \JsonException('Invalid JSON provided for tool call arguments: '.$json);
-        }
-    }
-
     /**
      * Prepare the payload for API request with common settings
      *
      * @param  array  $messages  The messages to send
-     * @param  array  $options  Configuration options
+     * @param  DriverConfig|array  $overrideSettings  Optional settings to override driver defaults
      * @return array The prepared payload
      */
-    protected function preparePayload(array $messages, array $options = []): array
+    protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
-        // Add model if from provider data if not provided via options
-        if (empty($options['model'])) {
-            $options['model'] = $this->getSettings()['model'] ?? 'gpt-4o-mini';
+        // Merge driver config with override settings
+        $overrideConfig = DriverConfig::wrap($overrideSettings);
+        $config = $this->getDriverConfig()->merge($overrideConfig);
+
+        // Format messages using the formatter (converts Message objects to API format)
+        $formattedMessages = $this->formatter->formatMessages($messages);
+
+        // Build payload with known properties
+        $payload = [
+            'model' => $config->model ?? 'gpt-4o-mini',
+            'messages' => $formattedMessages,
+        ];
+
+        // Add optional known properties
+        if ($config->has('temperature')) {
+            $payload['temperature'] = $config->temperature;
+        }
+        if ($config->has('maxCompletionTokens')) {
+            $payload['max_completion_tokens'] = $config->maxCompletionTokens;
+        }
+        if ($config->has('n')) {
+            $payload['n'] = $config->n;
+        }
+        if ($config->has('topP')) {
+            $payload['top_p'] = $config->topP;
+        }
+        if ($config->has('frequencyPenalty')) {
+            $payload['frequency_penalty'] = $config->frequencyPenalty;
+        }
+        if ($config->has('presencePenalty')) {
+            $payload['presence_penalty'] = $config->presencePenalty;
+        }
+        if ($config->has('toolChoice')) {
+            $payload['tool_choice'] = $config->toolChoice;
+        }
+        if ($config->has('parallelToolCalls')) {
+            $payload['parallel_tool_calls'] = $config->parallelToolCalls;
+        }
+        if ($config->has('modalities')) {
+            $payload['modalities'] = $config->modalities;
+        }
+        if ($config->has('audio')) {
+            $payload['audio'] = $config->audio;
         }
 
-        $this->setConfig($options);
-
-        $payload = array_merge($this->getConfig(), [
-            'messages' => $messages,
-        ]);
+        // Add any extra/custom settings
+        foreach ($config->getExtras() as $key => $value) {
+            $payload[$key] = $value;
+        }
 
         // Set the response format if "responseSchema" is provided
         if ($this->structuredOutputEnabled()) {
             $payload['response_format'] = [
                 'type' => 'json_schema',
-                'json_schema' => $this->getResponseSchema(),
+                'json_schema' => $this->wrapResponseSchema($this->getResponseSchema()),
             ];
         }
 
         // Add tools to payload if any are registered
         if (! empty($this->tools)) {
-            $tools = $this->getRegisteredTools();
-            foreach ($tools as $tool) {
-                $payload['tools'][] = $this->formatToolForPayload($tool);
-            }
+            $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
         }
 
         return $payload;
+    }
+
+    /**
+     * Wrap a JSON schema in OpenAI's required format with name, strict, and schema.
+     * Also ensures additionalProperties: false is set on all objects for strict mode.
+     * Preserves existing values for name, strict, and additionalProperties if already set.
+     *
+     * @param  array  $schema  The schema to wrap (can be raw or already wrapped)
+     * @return array The wrapped schema ready for OpenAI API
+     */
+    protected function wrapResponseSchema(array $schema): array
+    {
+        // If already wrapped with name and schema keys, preserve existing values
+        if (isset($schema['name']) && isset($schema['schema'])) {
+            return [
+                'name' => $schema['name'],
+                'schema' => $this->ensureAdditionalPropertiesFalse($schema['schema']),
+                'strict' => $schema['strict'] ?? true,
+            ];
+        }
+
+        // Raw schema - wrap it, preserving any existing additionalProperties settings
+        $wrappedSchema = $this->ensureAdditionalPropertiesFalse($schema);
+
+        return [
+            'name' => $schema['title'] ?? $this->generateSchemaName($schema),
+            'schema' => $wrappedSchema,
+            'strict' => true,
+        ];
+    }
+
+    /**
+     * Generate a schema name from the schema structure.
+     *
+     * @param  array  $schema  The schema to generate name from
+     * @return string Generated schema name
+     */
+    protected function generateSchemaName(array $schema): string
+    {
+        // Try to derive name from schema title or properties
+        if (isset($schema['title'])) {
+            return $this->toSnakeCase($schema['title']);
+        }
+
+        // Use first few property names to create a meaningful name
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            $keys = array_slice(array_keys($schema['properties']), 0, 3);
+            if (! empty($keys)) {
+                return 'response_'.implode('_', $keys);
+            }
+        }
+
+        return 'structured_response';
+    }
+
+    /**
+     * Convert a string to snake_case.
+     *
+     * @param  string  $string  The string to convert
+     * @return string Snake case string
+     */
+    protected function toSnakeCase(string $string): string
+    {
+        return strtolower(preg_replace('/(?<!^)[A-Z]/', '_$0', str_replace(' ', '_', $string)));
+    }
+
+    /**
+     * Recursively ensure additionalProperties: false is set on all objects.
+     * This is required for OpenAI's strict mode.
+     * Preserves existing additionalProperties value if already set.
+     *
+     * @param  array  $schema  The schema to process
+     * @return array Schema with additionalProperties: false on all objects (unless already set)
+     */
+    protected function ensureAdditionalPropertiesFalse(array $schema): array
+    {
+        // If this is an object type, add additionalProperties: false only if not already set
+        if (isset($schema['type']) && $schema['type'] === 'object') {
+            if (! array_key_exists('additionalProperties', $schema)) {
+                $schema['additionalProperties'] = false;
+            }
+        }
+
+        // Process nested properties
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            foreach ($schema['properties'] as $key => $propSchema) {
+                if (is_array($propSchema)) {
+                    $schema['properties'][$key] = $this->ensureAdditionalPropertiesFalse($propSchema);
+                }
+            }
+        }
+
+        // Process array items
+        if (isset($schema['items']) && is_array($schema['items'])) {
+            $schema['items'] = $this->ensureAdditionalPropertiesFalse($schema['items']);
+        }
+
+        // Process oneOf/anyOf/allOf
+        foreach (['oneOf', 'anyOf', 'allOf'] as $combinator) {
+            if (isset($schema[$combinator]) && is_array($schema[$combinator])) {
+                foreach ($schema[$combinator] as $index => $subSchema) {
+                    if (is_array($subSchema)) {
+                        $schema[$combinator][$index] = $this->ensureAdditionalPropertiesFalse($subSchema);
+                    }
+                }
+            }
+        }
+
+        // Process $defs definitions
+        if (isset($schema['$defs']) && is_array($schema['$defs'])) {
+            foreach ($schema['$defs'] as $defName => $defSchema) {
+                if (is_array($defSchema)) {
+                    $schema['$defs'][$defName] = $this->ensureAdditionalPropertiesFalse($defSchema);
+                }
+            }
+        }
+
+        return $schema;
     }
 }
