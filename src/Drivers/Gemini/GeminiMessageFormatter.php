@@ -137,6 +137,7 @@ class GeminiMessageFormatter implements MessageFormatter
     /**
      * Extract tool calls from Gemini response.
      * Gemini uses 'functionCall' in parts array.
+     * For Gemini 3 models, also captures thoughtSignature from parts.
      */
     public function extractToolCalls(array $response): array
     {
@@ -145,10 +146,15 @@ class GeminiMessageFormatter implements MessageFormatter
         if (isset($response['candidates'][0]['content']['parts'])) {
             foreach ($response['candidates'][0]['content']['parts'] as $part) {
                 if (isset($part['functionCall'])) {
+                    // Extract thought signature if present in this part
+                    // For parallel function calls, only the first part has the signature
+                    $thoughtSignature = $part['thoughtSignature'] ?? null;
+
                     $toolCalls[] = new ToolCall(
                         'tool_call_'.uniqid(), // Gemini doesn't provide IDs
                         $part['functionCall']['name'] ?? '',
-                        json_encode($part['functionCall']['args'] ?? [])
+                        json_encode($part['functionCall']['args'] ?? []),
+                        $thoughtSignature
                     );
                 }
             }
@@ -164,6 +170,33 @@ class GeminiMessageFormatter implements MessageFormatter
     public function extractContent(array $response): string
     {
         return $response['candidates'][0]['content']['parts'][0]['text'] ?? '';
+    }
+
+    /**
+     * Extract thought signature from Gemini response for non-function call responses.
+     * For Gemini 3 models, the thought signature appears in the last part with text content.
+     * This is optional but recommended for maintaining reasoning quality.
+     *
+     * @param  array  $response  Raw API response
+     * @return string|null The thought signature if present, null otherwise
+     */
+    public function extractThoughtSignature(array $response): ?string
+    {
+        if (! isset($response['candidates'][0]['content']['parts'])) {
+            return null;
+        }
+
+        $parts = $response['candidates'][0]['content']['parts'];
+
+        // The thought signature can be in any part, typically the last one for text responses
+        // We check all parts since Gemini might return it in different positions
+        foreach ($parts as $part) {
+            if (isset($part['thoughtSignature'])) {
+                return $part['thoughtSignature'];
+            }
+        }
+
+        return null;
     }
 
     /**
@@ -314,32 +347,47 @@ class GeminiMessageFormatter implements MessageFormatter
 
     /**
      * Format an AssistantMessage for Gemini.
+     * Includes thoughtSignature when present in extras (recommended for quality).
      */
     protected function formatAssistantMessage(AssistantMessage $message): array
     {
+        $part = ['text' => $message->getContentAsString()];
+
+        // Include thought signature if present in extras (optional but recommended)
+        $thoughtSignature = $message->getExtra('thought_signature');
+        if ($thoughtSignature !== null) {
+            $part['thoughtSignature'] = $thoughtSignature;
+        }
+
         return [
             'role' => 'model',
-            'parts' => [
-                ['text' => $message->getContentAsString()],
-            ],
+            'parts' => [$part],
         ];
     }
 
     /**
      * Format a ToolCallMessage for Gemini.
      * Uses 'functionCall' format in parts.
+     * Includes thoughtSignature when present (required for Gemini 3 models).
      */
     protected function formatToolCallMessage(ToolCallMessage $message): array
     {
         $parts = [];
 
         foreach ($message->getToolCalls() as $toolCall) {
-            $parts[] = [
+            $part = [
                 'functionCall' => [
                     'name' => $toolCall->getToolName(),
                     'args' => json_decode($toolCall->getArguments(), true) ?? [],
                 ],
             ];
+
+            // Include thought signature if present (required for Gemini 3 function calling)
+            if ($toolCall->hasThoughtSignature()) {
+                $part['thoughtSignature'] = $toolCall->getThoughtSignature();
+            }
+
+            $parts[] = $part;
         }
 
         return [

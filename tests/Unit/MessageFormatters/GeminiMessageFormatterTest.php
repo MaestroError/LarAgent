@@ -330,4 +330,144 @@ describe('GeminiMessageFormatter', function () {
 
         expect($this->formatter->hasToolCalls($response))->toBeFalse();
     });
+
+    // ========== Thought Signature Tests ==========
+
+    it('extracts thought signature from function call response', function () {
+        $response = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [
+                            [
+                                'functionCall' => [
+                                    'name' => 'check_flight',
+                                    'args' => ['flight' => 'AA100'],
+                                ],
+                                'thoughtSignature' => '<Signature_A>',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $toolCalls = $this->formatter->extractToolCalls($response);
+
+        expect($toolCalls)->toHaveCount(1)
+            ->and($toolCalls[0]->hasThoughtSignature())->toBeTrue()
+            ->and($toolCalls[0]->getThoughtSignature())->toBe('<Signature_A>');
+    });
+
+    it('extracts thought signature only on first parallel function call', function () {
+        $response = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [
+                            [
+                                'functionCall' => [
+                                    'name' => 'get_weather',
+                                    'args' => ['location' => 'Paris'],
+                                ],
+                                'thoughtSignature' => '<Signature_Parallel>',
+                            ],
+                            [
+                                'functionCall' => [
+                                    'name' => 'get_weather',
+                                    'args' => ['location' => 'London'],
+                                ],
+                                // No thoughtSignature on parallel calls
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $toolCalls = $this->formatter->extractToolCalls($response);
+
+        expect($toolCalls)->toHaveCount(2)
+            ->and($toolCalls[0]->hasThoughtSignature())->toBeTrue()
+            ->and($toolCalls[0]->getThoughtSignature())->toBe('<Signature_Parallel>')
+            ->and($toolCalls[1]->hasThoughtSignature())->toBeFalse();
+    });
+
+    it('extracts thought signature from text response', function () {
+        $response = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [
+                            [
+                                'text' => 'Let me think about this...',
+                                'thoughtSignature' => '<Text_Signature>',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $signature = $this->formatter->extractThoughtSignature($response);
+
+        expect($signature)->toBe('<Text_Signature>');
+    });
+
+    it('returns null when no thought signature present', function () {
+        $response = [
+            'candidates' => [
+                [
+                    'content' => [
+                        'parts' => [
+                            ['text' => 'Hello, how can I help?'],
+                        ],
+                    ],
+                ],
+            ],
+        ];
+
+        $signature = $this->formatter->extractThoughtSignature($response);
+
+        expect($signature)->toBeNull();
+    });
+
+    it('formats tool call message with thought signature', function () {
+        $toolCall = new ToolCall('call_123', 'check_flight', '{"flight": "AA100"}', '<Signature_A>');
+        $message = Message::toolCall([$toolCall]);
+        $formatted = $this->formatter->formatMessage($message);
+
+        expect($formatted['role'])->toBe('model')
+            ->and($formatted['parts'][0]['functionCall']['name'])->toBe('check_flight')
+            ->and($formatted['parts'][0]['thoughtSignature'])->toBe('<Signature_A>');
+    });
+
+    it('formats tool call message without thought signature when not present', function () {
+        $toolCall = new ToolCall('call_123', 'check_flight', '{"flight": "AA100"}');
+        $message = Message::toolCall([$toolCall]);
+        $formatted = $this->formatter->formatMessage($message);
+
+        expect($formatted['role'])->toBe('model')
+            ->and($formatted['parts'][0]['functionCall']['name'])->toBe('check_flight')
+            ->and($formatted['parts'][0])->not->toHaveKey('thoughtSignature');
+    });
+
+    it('formats assistant message with thought signature from extras', function () {
+        $message = Message::assistant('Let me think about this...');
+        $message->setExtra('thought_signature', '<Text_Signature>');
+        $formatted = $this->formatter->formatMessage($message);
+
+        expect($formatted['role'])->toBe('model')
+            ->and($formatted['parts'][0]['text'])->toBe('Let me think about this...')
+            ->and($formatted['parts'][0]['thoughtSignature'])->toBe('<Text_Signature>');
+    });
+
+    it('formats assistant message without thought signature when not in extras', function () {
+        $message = Message::assistant('Hello!');
+        $formatted = $this->formatter->formatMessage($message);
+
+        expect($formatted['role'])->toBe('model')
+            ->and($formatted['parts'][0]['text'])->toBe('Hello!')
+            ->and($formatted['parts'][0])->not->toHaveKey('thoughtSignature');
+    });
 });

@@ -23,7 +23,7 @@ class GeminiDriver extends LlmDriver
 
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/';
 
-    protected MessageFormatter $formatter;
+    protected GeminiMessageFormatter $formatter;
 
     public function __construct(DriverConfig|array $settings = [])
     {
@@ -55,7 +55,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Create the message formatter for this driver.
      */
-    protected function createFormatter(): MessageFormatter
+    protected function createFormatter(): GeminiMessageFormatter
     {
         return new GeminiMessageFormatter;
     }
@@ -63,7 +63,7 @@ class GeminiDriver extends LlmDriver
     /**
      * Get the message formatter.
      */
-    public function getFormatter(): MessageFormatter
+    public function getFormatter(): GeminiMessageFormatter
     {
         return $this->formatter;
     }
@@ -118,6 +118,12 @@ class GeminiDriver extends LlmDriver
 
             $message = new AssistantMessage($content);
             $message->setUsage($usage);
+
+            // Extract and store thought signature for text responses (optional but recommended)
+            $thoughtSignature = $this->formatter->extractThoughtSignature($responseData);
+            if ($thoughtSignature !== null) {
+                $message->setExtra('thought_signature', $thoughtSignature);
+            }
 
             return $message;
         }
@@ -197,23 +203,42 @@ class GeminiDriver extends LlmDriver
 
                     // Check for tool calls (function calls in Gemini)
                     if (isset($responseData['candidates'][0]['content']['parts'])) {
+                        $isFirstToolCall = true;
+                        $currentThoughtSignature = null;
+
                         foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
+                            // Capture thought signature from any part (it appears alongside function calls or text)
+                            if (isset($part['thoughtSignature'])) {
+                                $currentThoughtSignature = $part['thoughtSignature'];
+                            }
+
                             // Handle function calls
                             if (isset($part['functionCall'])) {
                                 $functionCall = $part['functionCall'];
                                 $toolCallId = 'tool_call_'.uniqid();
 
-                                // Store complete tool call
+                                // For parallel function calls, only the first has the signature
+                                // Store thought signature with the tool call (required for Gemini 3)
+                                $thoughtSignature = $isFirstToolCall ? ($part['thoughtSignature'] ?? $currentThoughtSignature) : null;
+                                $isFirstToolCall = false;
+
+                                // Store complete tool call with thought signature
                                 $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(
                                     $toolCallId,
                                     $functionCall['name'] ?? '',
-                                    json_encode($functionCall['args'] ?? [])
+                                    json_encode($functionCall['args'] ?? []),
+                                    $thoughtSignature
                                 );
                             }
                             // Handle text content
                             elseif (isset($part['text'])) {
                                 $delta = $part['text'];
                                 $streamedMessage->appendContent($delta);
+
+                                // Store thought signature in extras for text responses
+                                if ($currentThoughtSignature !== null) {
+                                    $streamedMessage->setExtra('thought_signature', $currentThoughtSignature);
+                                }
 
                                 // Execute callback if provided
                                 if ($callback) {
@@ -241,6 +266,12 @@ class GeminiDriver extends LlmDriver
                 $usageData = $this->formatter->extractUsage($lastResponseData);
                 if (! empty($usageData)) {
                     $streamedMessage->setUsage(Usage::fromArray($usageData));
+                }
+
+                // Extract thought signature for final text response
+                $thoughtSignature = $this->formatter->extractThoughtSignature($lastResponseData);
+                if ($thoughtSignature !== null && empty($toolCallsSummary)) {
+                    $streamedMessage->setExtra('thought_signature', $thoughtSignature);
                 }
             }
 
