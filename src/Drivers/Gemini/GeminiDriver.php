@@ -6,7 +6,6 @@ use Generator;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
-use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
