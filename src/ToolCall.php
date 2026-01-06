@@ -3,6 +3,7 @@
 namespace LarAgent;
 
 use LarAgent\Attributes\Desc;
+use LarAgent\Attributes\ExcludeFromSchema;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Messages\DataModels\ToolCallFunction;
@@ -18,7 +19,14 @@ class ToolCall extends DataModel implements ToolCallInterface
     #[Desc('Function details')]
     public ToolCallFunction $function;
 
-    public function __construct(string $id, string $toolName, string $arguments = '{}')
+    /**
+     * Thought signature for Gemini thinking models.
+     * Required for Gemini 3 function calling - must be passed back exactly as received.
+     */
+    #[ExcludeFromSchema]
+    protected ?string $thoughtSignature = null;
+
+    public function __construct(string $id, string $toolName, string $arguments = '{}', ?string $thoughtSignature = null)
     {
         $this->id = $id;
         $this->type = 'function';
@@ -30,6 +38,7 @@ class ToolCall extends DataModel implements ToolCallInterface
         }
 
         $this->function = new ToolCallFunction($toolName, $arguments);
+        $this->thoughtSignature = $thoughtSignature;
     }
 
     /**
@@ -40,8 +49,9 @@ class ToolCall extends DataModel implements ToolCallInterface
         $id = $data['id'] ?? '';
         $type = $data['type'] ?? 'function';
         $function = ToolCallFunction::fromArray($data['function'] ?? []);
+        $thoughtSignature = $data['thought_signature'] ?? null;
 
-        $instance = new static($id, $function->name, $function->arguments);
+        $instance = new static($id, $function->name, $function->arguments, $thoughtSignature);
         $instance->type = $type;
 
         return $instance;
@@ -52,11 +62,18 @@ class ToolCall extends DataModel implements ToolCallInterface
      */
     public function toArray(): array
     {
-        return [
+        $result = [
             'id' => $this->id,
             'type' => $this->type,
             'function' => $this->function->toArray(),
         ];
+
+        // Include thought signature if present (for storage and Gemini API)
+        if ($this->thoughtSignature !== null) {
+            $result['thought_signature'] = $this->thoughtSignature;
+        }
+
+        return $result;
     }
 
     // ToolCallInterface methods
@@ -73,5 +90,35 @@ class ToolCall extends DataModel implements ToolCallInterface
     public function getArguments(): string
     {
         return $this->function->arguments;
+    }
+
+    /**
+     * Get the thought signature for this tool call.
+     * Used by Gemini thinking models.
+     */
+    public function getThoughtSignature(): ?string
+    {
+        return $this->thoughtSignature;
+    }
+
+    /**
+     * Set the thought signature for this tool call.
+     * Used by Gemini thinking models.
+     *
+     * @return $this
+     */
+    public function setThoughtSignature(?string $signature): static
+    {
+        $this->thoughtSignature = $signature;
+
+        return $this;
+    }
+
+    /**
+     * Check if this tool call has a thought signature.
+     */
+    public function hasThoughtSignature(): bool
+    {
+        return $this->thoughtSignature !== null;
     }
 }
