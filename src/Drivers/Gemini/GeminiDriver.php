@@ -203,7 +203,6 @@ class GeminiDriver extends LlmDriver
 
                     // Check for tool calls (function calls in Gemini)
                     if (isset($responseData['candidates'][0]['content']['parts'])) {
-                        $isFirstToolCall = true;
                         $currentThoughtSignature = null;
 
                         foreach ($responseData['candidates'][0]['content']['parts'] as $part) {
@@ -217,10 +216,10 @@ class GeminiDriver extends LlmDriver
                                 $functionCall = $part['functionCall'];
                                 $toolCallId = 'tool_call_'.uniqid();
 
-                                // For parallel function calls, only the first has the signature
-                                // Store thought signature with the tool call (required for Gemini 3)
+                                // For parallel function calls, only the first has the signature (per Gemini docs)
+                                // Use empty($toolCallsSummary) to check across all chunks, not just current chunk
+                                $isFirstToolCall = empty($toolCallsSummary);
                                 $thoughtSignature = $isFirstToolCall ? ($part['thoughtSignature'] ?? $currentThoughtSignature) : null;
-                                $isFirstToolCall = false;
 
                                 // Store complete tool call with thought signature
                                 $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(

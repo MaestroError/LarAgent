@@ -174,7 +174,7 @@ class GeminiMessageFormatter implements MessageFormatter
 
     /**
      * Extract thought signature from Gemini response for non-function call responses.
-     * For Gemini 3 models, the thought signature appears in the last part with text content.
+     * For Gemini 3 models, the thought signature may appear alongside text content.
      * This is optional but recommended for maintaining reasoning quality.
      *
      * @param  array  $response  Raw API response
@@ -188,8 +188,8 @@ class GeminiMessageFormatter implements MessageFormatter
 
         $parts = $response['candidates'][0]['content']['parts'];
 
-        // The thought signature can be in any part, typically the last one for text responses
-        // We check all parts since Gemini might return it in different positions
+        // For text responses, Gemini typically returns a single part with the thought signature.
+        // We return the first signature found since that's what Gemini provides.
         foreach ($parts as $part) {
             if (isset($part['thoughtSignature'])) {
                 return $part['thoughtSignature'];
