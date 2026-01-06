@@ -86,7 +86,7 @@ class FlightBookingAgent extends Agent
                     'booking_status' => 'success',
                     'pickup_time' => $time,
                     'destination' => $destination,
-                    'confirmation_code' => 'TX' . rand(1000, 9999),
+                    'confirmation_code' => 'TX'.rand(1000, 9999),
                 ]);
             });
 
@@ -122,6 +122,7 @@ class WeatherAgent extends Agent
                 ];
                 $city = strtolower(trim($location));
                 $temp = $temps[$city] ?? '20°C';
+
                 return json_encode(['location' => $location, 'temperature' => $temp]);
             });
 
@@ -207,7 +208,7 @@ try {
     }
 } catch (Exception $e) {
     echo '❌ TEST 1 FAILED: '.$e->getMessage()."\n";
-    echo "Stack trace: ".$e->getTraceAsString()."\n\n";
+    echo 'Stack trace: '.$e->getTraceAsString()."\n\n";
     $testsFailed++;
 }
 
@@ -259,7 +260,7 @@ try {
     }
 } catch (Exception $e) {
     echo '❌ TEST 2 FAILED: '.$e->getMessage()."\n";
-    echo "Stack trace: ".$e->getTraceAsString()."\n\n";
+    echo 'Stack trace: '.$e->getTraceAsString()."\n\n";
     $testsFailed++;
 }
 
@@ -283,7 +284,7 @@ try {
     foreach ($messages as $msg) {
         if ($msg instanceof ToolCallMessage) {
             $toolCalls = $msg->getToolCalls();
-            echo "Number of parallel function calls: ".count($toolCalls)."\n";
+            echo 'Number of parallel function calls: '.count($toolCalls)."\n";
 
             $firstHasSignature = false;
             foreach ($toolCalls as $index => $tc) {
@@ -310,7 +311,7 @@ try {
     echo "\n";
 } catch (Exception $e) {
     echo '❌ TEST 3 FAILED: '.$e->getMessage()."\n";
-    echo "Stack trace: ".$e->getTraceAsString()."\n\n";
+    echo 'Stack trace: '.$e->getTraceAsString()."\n\n";
     $testsFailed++;
 }
 
@@ -333,10 +334,10 @@ try {
 
     $foundSignature = false;
     foreach ($messages as $msg) {
-        if ($msg->getRole() === 'assistant' && !($msg instanceof ToolCallMessage)) {
+        if ($msg->getRole() === 'assistant' && ! ($msg instanceof ToolCallMessage)) {
             $thoughtSignature = $msg->getExtra('thought_signature');
             if ($thoughtSignature) {
-                echo "🧠 Text response has thought signature: ".substr($thoughtSignature, 0, 50)."...\n";
+                echo '🧠 Text response has thought signature: '.substr($thoughtSignature, 0, 50)."...\n";
                 $foundSignature = true;
             }
         }
@@ -351,7 +352,7 @@ try {
     $testsPassed++;
 } catch (Exception $e) {
     echo '❌ TEST 4 FAILED: '.$e->getMessage()."\n";
-    echo "Stack trace: ".$e->getTraceAsString()."\n\n";
+    echo 'Stack trace: '.$e->getTraceAsString()."\n\n";
     $testsFailed++;
 }
 
@@ -373,8 +374,8 @@ try {
 
     // Serialize to array
     $array = $originalToolCall->toArray();
-    echo "Serialized array keys: ".implode(', ', array_keys($array))."\n";
-    echo "Has thought_signature key: ".(isset($array['thought_signature']) ? 'Yes' : 'No')."\n";
+    echo 'Serialized array keys: '.implode(', ', array_keys($array))."\n";
+    echo 'Has thought_signature key: '.(isset($array['thought_signature']) ? 'Yes' : 'No')."\n";
 
     // Deserialize back
     $restoredToolCall = \LarAgent\ToolCall::fromArray($array);
