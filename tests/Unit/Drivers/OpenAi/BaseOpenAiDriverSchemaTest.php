@@ -239,6 +239,52 @@ describe('BaseOpenAiDriver Schema Transformation', function () {
             // email was optional in nested, should have null
             expect($result['properties']['user']['properties']['email']['type'])->toBe(['string', 'null']);
         });
+
+        it('processes objects inside items -> anyOf', function () {
+            $schema = [
+                'type' => 'object',
+                'properties' => [
+                    'nodes' => [
+                        'type' => 'array',
+                        'items' => [
+                            'anyOf' => [
+                                [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'lists' => ['type' => 'array'],
+                                        'include_existing' => ['type' => 'boolean'],
+                                    ],
+                                    'required' => ['lists'],
+                                ],
+                                [
+                                    'type' => 'object',
+                                    'properties' => [
+                                        'segments' => ['type' => 'array'],
+                                        'include_existing' => ['type' => 'boolean'],
+                                    ],
+                                    // No required - all should get null
+                                ],
+                            ],
+                        ],
+                    ],
+                ],
+                'required' => ['nodes'],
+            ];
+
+            $result = $this->driver->publicMakeAllPropertiesRequired($schema);
+
+            // Object 0: lists was required, include_existing was not
+            $obj0 = $result['properties']['nodes']['items']['anyOf'][0];
+            expect($obj0['required'])->toContain('lists', 'include_existing');
+            expect($obj0['properties']['lists']['type'])->toBe('array'); // was required, no null
+            expect($obj0['properties']['include_existing']['type'])->toBe(['boolean', 'null']); // was optional
+
+            // Object 1: nothing was required, both get null
+            $obj1 = $result['properties']['nodes']['items']['anyOf'][1];
+            expect($obj1['required'])->toContain('segments', 'include_existing');
+            expect($obj1['properties']['segments']['type'])->toBe(['array', 'null']);
+            expect($obj1['properties']['include_existing']['type'])->toBe(['boolean', 'null']);
+        });
     });
 
     describe('transformSchemaForStrictMode()', function () {

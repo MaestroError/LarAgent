@@ -394,6 +394,7 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
                 'type' => 'json_schema',
                 'json_schema' => $this->wrapResponseSchema($this->getResponseSchema()),
             ];
+
         }
 
         // Add tools to payload if any are registered
@@ -546,7 +547,23 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
      */
     protected function makeAllPropertiesRequired(array $schema): array
     {
-        // Only process object types with properties
+        // Process anyOf/allOf at schema root level (handles items with anyOf, etc.)
+        foreach (['anyOf', 'allOf'] as $combinator) {
+            if (isset($schema[$combinator]) && is_array($schema[$combinator])) {
+                foreach ($schema[$combinator] as $index => $subSchema) {
+                    if (is_array($subSchema)) {
+                        $schema[$combinator][$index] = $this->makeAllPropertiesRequired($subSchema);
+                    }
+                }
+            }
+        }
+
+        // Process items at schema root level (handles array types)
+        if (isset($schema['items']) && is_array($schema['items'])) {
+            $schema['items'] = $this->makeAllPropertiesRequired($schema['items']);
+        }
+
+        // Only process object types with properties for the required array logic
         if (! isset($schema['properties']) || ! is_array($schema['properties'])) {
             return $schema;
         }
