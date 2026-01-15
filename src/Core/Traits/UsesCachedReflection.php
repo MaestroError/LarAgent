@@ -330,39 +330,16 @@ trait UsesCachedReflection
 
         // Handle union types
         if ($type instanceof ReflectionUnionType) {
-            $schemas = [];
             $enumClasses = TypeInfoExtractor::getEnumClasses($type);
             $dataModelClasses = TypeInfoExtractor::getClassesOfType($type, DataModelContract::class);
 
-            // Build schemas for each non-null type
-            foreach ($type->getTypes() as $subType) {
-                // Skip null type
-                if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
-                    continue;
-                }
-                $schemas[] = SchemaGenerator::fromReflectionType($subType);
-            }
-
-            if (count($schemas) > 1) {
-                return [
-                    'schema' => ['oneOf' => $schemas],
-                    'enumClass' => ! empty($enumClasses) ? $enumClasses : null,
-                    'dataModelClass' => ! empty($dataModelClasses) ? $dataModelClasses : null,
-                ];
-            }
-
-            if (count($schemas) === 1) {
-                return [
-                    'schema' => $schemas[0],
-                    'enumClass' => ! empty($enumClasses) ? $enumClasses[0] : null,
-                    'dataModelClass' => ! empty($dataModelClasses) ? $dataModelClasses[0] : null,
-                ];
-            }
+            // Use centralized SchemaGenerator for consistent null handling
+            $schema = SchemaGenerator::fromUnionType($type);
 
             return [
-                'schema' => ['type' => 'string'],
-                'enumClass' => null,
-                'dataModelClass' => null,
+                'schema' => $schema,
+                'enumClass' => ! empty($enumClasses) ? (count($enumClasses) === 1 ? $enumClasses[0] : $enumClasses) : null,
+                'dataModelClass' => ! empty($dataModelClasses) ? (count($dataModelClasses) === 1 ? $dataModelClasses[0] : $dataModelClasses) : null,
             ];
         }
 

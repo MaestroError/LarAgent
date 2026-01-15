@@ -74,7 +74,7 @@ class GeminiDriver extends LlmDriver
     {
         try {
             $payload = $this->preparePayload($messages, $overrideSettings);
-
+            
             // Get merged config for model
             $overrideConfig = DriverConfig::wrap($overrideSettings);
             $config = $this->getDriverConfig()->merge($overrideConfig);

@@ -398,10 +398,35 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
         // Add tools to payload if any are registered
         if (! empty($this->tools)) {
-            $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
+            $tools = $this->formatter->formatTools(array_values($this->tools));
+            $payload['tools'] = $this->transformToolsForStrictMode($tools);
         }
 
         return $payload;
+    }
+
+    /**
+     * Transform tool definitions for OpenAI strict mode.
+     *
+     * Applies the same schema transformations (anyOf, required, additionalProperties)
+     * to tool parameter schemas.
+     *
+     * @param  array  $tools  Array of formatted tool definitions
+     * @return array Transformed tools for OpenAI strict mode
+     */
+    protected function transformToolsForStrictMode(array $tools): array
+    {
+        foreach ($tools as $index => $tool) {
+            if (isset($tool['function']['parameters']) && is_array($tool['function']['parameters'])) {
+                $tools[$index]['function']['parameters'] = $this->transformSchemaForStrictMode(
+                    $tool['function']['parameters']
+                );
+                // Add strict mode flag to each tool
+                $tools[$index]['function']['strict'] = true;
+            }
+        }
+
+        return $tools;
     }
 
     /**
@@ -418,19 +443,202 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
         if (isset($schema['name']) && isset($schema['schema'])) {
             return [
                 'name' => $schema['name'],
-                'schema' => $this->ensureAdditionalPropertiesFalse($schema['schema']),
+                'schema' => $this->transformSchemaForStrictMode($schema['schema']),
                 'strict' => $schema['strict'] ?? true,
             ];
         }
 
-        // Raw schema - wrap it, preserving any existing additionalProperties settings
-        $wrappedSchema = $this->ensureAdditionalPropertiesFalse($schema);
+        // Raw schema - wrap it with strict mode transformations
+        $transformedSchema = $this->transformSchemaForStrictMode($schema);
 
         return [
             'name' => $schema['title'] ?? $this->generateSchemaName($schema),
-            'schema' => $wrappedSchema,
+            'schema' => $transformedSchema,
             'strict' => true,
         ];
+    }
+
+    /**
+     * Transform a schema for OpenAI strict mode compatibility.
+     *
+     * OpenAI strict mode requires:
+     * 1. All properties must be in the required array
+     * 2. Optional properties must have null as a valid type (using anyOf)
+     * 3. additionalProperties: false on all objects
+     * 4. Use anyOf instead of oneOf for union types
+     *
+     * @param  array  $schema  The schema to transform
+     * @return array Transformed schema for OpenAI strict mode
+     */
+    protected function transformSchemaForStrictMode(array $schema): array
+    {
+        // First convert oneOf to anyOf and handle nested schemas
+        $schema = $this->convertOneOfToAnyOf($schema);
+
+        // Then ensure additionalProperties: false
+        $schema = $this->ensureAdditionalPropertiesFalse($schema);
+
+        // Finally, make all properties required with null support for optional ones
+        $schema = $this->makeAllPropertiesRequired($schema);
+
+        return $schema;
+    }
+
+    /**
+     * Convert oneOf to anyOf throughout the schema (recursive).
+     *
+     * @param  array  $schema  The schema to process
+     * @return array Schema with oneOf converted to anyOf
+     */
+    protected function convertOneOfToAnyOf(array $schema): array
+    {
+        // Convert oneOf to anyOf at current level
+        if (isset($schema['oneOf'])) {
+            $schema['anyOf'] = $schema['oneOf'];
+            unset($schema['oneOf']);
+        }
+
+        // Process nested properties
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            foreach ($schema['properties'] as $key => $propSchema) {
+                if (is_array($propSchema)) {
+                    $schema['properties'][$key] = $this->convertOneOfToAnyOf($propSchema);
+                }
+            }
+        }
+
+        // Process array items
+        if (isset($schema['items']) && is_array($schema['items'])) {
+            $schema['items'] = $this->convertOneOfToAnyOf($schema['items']);
+        }
+
+        // Process anyOf/allOf (and newly converted anyOf from oneOf)
+        foreach (['anyOf', 'allOf'] as $combinator) {
+            if (isset($schema[$combinator]) && is_array($schema[$combinator])) {
+                foreach ($schema[$combinator] as $index => $subSchema) {
+                    if (is_array($subSchema)) {
+                        $schema[$combinator][$index] = $this->convertOneOfToAnyOf($subSchema);
+                    }
+                }
+            }
+        }
+
+        // Process $defs definitions
+        if (isset($schema['$defs']) && is_array($schema['$defs'])) {
+            foreach ($schema['$defs'] as $defName => $defSchema) {
+                if (is_array($defSchema)) {
+                    $schema['$defs'][$defName] = $this->convertOneOfToAnyOf($defSchema);
+                }
+            }
+        }
+
+        return $schema;
+    }
+
+    /**
+     * Make all properties required, wrapping optional ones with null type.
+     *
+     * For OpenAI strict mode, all properties must be in required array.
+     * Properties that were originally optional get null added to their type.
+     *
+     * @param  array  $schema  The schema to process
+     * @return array Schema with all properties required
+     */
+    protected function makeAllPropertiesRequired(array $schema): array
+    {
+        // Only process object types with properties
+        if (! isset($schema['properties']) || ! is_array($schema['properties'])) {
+            return $schema;
+        }
+
+        $currentRequired = $schema['required'] ?? [];
+        $allPropertyNames = array_keys($schema['properties']);
+
+        // Process each property
+        foreach ($schema['properties'] as $name => $propSchema) {
+            if (! is_array($propSchema)) {
+                continue;
+            }
+
+            // Recursively process nested schemas first
+            $propSchema = $this->makeAllPropertiesRequired($propSchema);
+
+            // Process items in arrays
+            if (isset($propSchema['items']) && is_array($propSchema['items'])) {
+                $propSchema['items'] = $this->makeAllPropertiesRequired($propSchema['items']);
+            }
+
+            // Process anyOf/allOf schemas
+            foreach (['anyOf', 'allOf'] as $combinator) {
+                if (isset($propSchema[$combinator]) && is_array($propSchema[$combinator])) {
+                    foreach ($propSchema[$combinator] as $index => $subSchema) {
+                        if (is_array($subSchema)) {
+                            $propSchema[$combinator][$index] = $this->makeAllPropertiesRequired($subSchema);
+                        }
+                    }
+                }
+            }
+
+            // If property was not in original required, wrap with null
+            if (! in_array($name, $currentRequired)) {
+                $propSchema = $this->wrapSchemaWithNull($propSchema);
+            }
+
+            $schema['properties'][$name] = $propSchema;
+        }
+
+        // Make all properties required
+        $schema['required'] = $allPropertyNames;
+
+        return $schema;
+    }
+
+    /**
+     * Wrap a property schema with null type for optional fields.
+     *
+     * For simple types: uses type array format ["string", "null"]
+     * For complex types (anyOf, enums, objects): adds null to anyOf
+     *
+     * @param  array  $schema  The property schema to wrap
+     * @return array Schema with null type included
+     */
+    protected function wrapSchemaWithNull(array $schema): array
+    {
+        // If already has anyOf, add null to it
+        if (isset($schema['anyOf'])) {
+            // Check if null is already present
+            $hasNull = false;
+            foreach ($schema['anyOf'] as $subSchema) {
+                if (isset($subSchema['type']) && $subSchema['type'] === 'null') {
+                    $hasNull = true;
+                    break;
+                }
+            }
+            if (! $hasNull) {
+                $schema['anyOf'][] = ['type' => 'null'];
+            }
+
+            return $schema;
+        }
+
+        // Check if type is already an array containing null
+        if (isset($schema['type']) && is_array($schema['type'])) {
+            if (! in_array('null', $schema['type'])) {
+                $schema['type'][] = 'null';
+            }
+
+            return $schema;
+        }
+
+        // For simple types with just 'type' key and no special attributes
+        if (isset($schema['type']) && is_string($schema['type']) && ! isset($schema['enum']) && ! isset($schema['properties'])) {
+            $schema['type'] = [$schema['type'], 'null'];
+
+            return $schema;
+        }
+
+        // For complex types (enums, objects, etc.), wrap in anyOf with null
+        return ['anyOf' => [$schema, ['type' => 'null']]];
     }
 
     /**

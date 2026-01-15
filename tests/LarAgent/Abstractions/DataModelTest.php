@@ -251,6 +251,9 @@ class TestMultiTypeModel extends DataModel
     // Single type (baseline test)
     public string $singleType;
 
+    // Simple nullable type (should use type array format)
+    public ?string $nullableString = null;
+
     // Primitive union types
     public string|int $stringOrInt;
 
@@ -260,11 +263,20 @@ class TestMultiTypeModel extends DataModel
     // Union with enum
     public string|TestBackedEnum $stringOrEnum;
 
+    // Nullable enum (should use oneOf with null)
+    public ?TestBackedEnum $nullableEnum = null;
+
     // Union with DataModel
     public string|TestNestedModel $stringOrModel;
 
+    // Nullable DataModel (should use oneOf with null)
+    public ?TestNestedModel $nullableModel = null;
+
     // Complex union: primitive + enum + DataModel
     public string|int|TestBackedEnum|TestNestedModel $complexUnion;
+
+    // Nullable complex union: multiple enums/types + null (for OpenAI strict mode)
+    public string|int|TestBackedEnum|TestNestedModel|null $nullableComplexUnion = null;
 }
 
 test('DataModel: toSchema generates correct schema for single type (baseline)', function () {
@@ -285,12 +297,45 @@ test('DataModel: toSchema generates oneOf for primitive union types', function (
 test('DataModel: toSchema handles nullable union types correctly', function () {
     $schema = TestMultiTypeModel::generateSchema();
 
-    // Nullable union should still generate oneOf but without null type
+    // Nullable union should generate oneOf WITHOUT null (null handling done by driver)
     expect($schema['properties']['stringOrIntNullable'])->toHaveKey('oneOf');
     expect($schema['properties']['stringOrIntNullable']['oneOf'])->toHaveCount(2);
+    expect($schema['properties']['stringOrIntNullable']['oneOf'][0])->toBe(['type' => 'string']);
+    expect($schema['properties']['stringOrIntNullable']['oneOf'][1])->toBe(['type' => 'integer']);
 
     // Should not be in required array since it's nullable
     expect($schema['required'])->not->toContain('stringOrIntNullable');
+});
+
+test('DataModel: toSchema generates simple type for nullable builtin types (null handled by driver)', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    // Simple nullable string generates plain type (null handling done by driver)
+    expect($schema['properties']['nullableString'])->toBe(['type' => 'string']);
+
+    // Should not be in required array since it's nullable
+    expect($schema['required'])->not->toContain('nullableString');
+});
+
+test('DataModel: toSchema generates enum schema for nullable enum (null handled by driver)', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    // Nullable enum generates plain enum schema (null handling done by driver)
+    expect($schema['properties']['nullableEnum'])->toBe(['type' => 'string', 'enum' => ['value_1', 'value_2']]);
+
+    // Should not be in required array since it's nullable
+    expect($schema['required'])->not->toContain('nullableEnum');
+});
+
+test('DataModel: toSchema generates object schema for nullable DataModel (null handled by driver)', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    // Nullable DataModel generates plain object schema (null handling done by driver)
+    expect($schema['properties']['nullableModel']['type'])->toBe('object');
+    expect($schema['properties']['nullableModel']['properties'])->toHaveKey('nestedProp');
+
+    // Should not be in required array since it's nullable
+    expect($schema['required'])->not->toContain('nullableModel');
 });
 
 test('DataModel: toSchema generates oneOf for union with enum', function () {
@@ -329,6 +374,22 @@ test('DataModel: toSchema generates oneOf for complex union types', function () 
     // Check all type combinations are present
     $types = array_column($schema['properties']['complexUnion']['oneOf'], 'type');
     expect($types)->toContain('string', 'integer', 'object');
+});
+
+test('DataModel: toSchema generates oneOf for nullable complex union (null handled by driver)', function () {
+    $schema = TestMultiTypeModel::generateSchema();
+
+    // Nullable complex union generates oneOf WITHOUT null (null handling done by driver)
+    expect($schema['properties']['nullableComplexUnion'])->toHaveKey('oneOf');
+    expect($schema['properties']['nullableComplexUnion']['oneOf'])->toHaveCount(4); // string, int, enum, model (no null)
+
+    // Check type combinations are present (without null)
+    $types = array_column($schema['properties']['nullableComplexUnion']['oneOf'], 'type');
+    expect($types)->toContain('string', 'integer', 'object');
+    expect($types)->not->toContain('null');
+
+    // Should not be in required array since it's nullable
+    expect($schema['required'])->not->toContain('nullableComplexUnion');
 });
 
 test('DataModel: fill and casting work with union types - primitive values', function () {
