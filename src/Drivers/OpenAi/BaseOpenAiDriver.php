@@ -394,7 +394,6 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
                 'type' => 'json_schema',
                 'json_schema' => $this->wrapResponseSchema($this->getResponseSchema()),
             ];
-
         }
 
         // Add tools to payload if any are registered
