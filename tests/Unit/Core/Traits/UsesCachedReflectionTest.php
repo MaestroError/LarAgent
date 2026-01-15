@@ -121,9 +121,19 @@ describe('UsesCachedReflection Trait', function () {
             expect($schema)->toBe(['type' => 'string']);
         });
 
-        it('converts array to array schema', function () {
+        it('converts array to array schema with anyOf items', function () {
             $schema = TestClassUsingTrait::builtinTypeToSchema('array');
-            expect($schema)->toBe(['type' => 'array']);
+            expect($schema)->toBe([
+                'type' => 'array',
+                'items' => [
+                    'anyOf' => [
+                        ['type' => 'string'],
+                        ['type' => 'integer'],
+                        ['type' => 'number'],
+                        ['type' => 'boolean'],
+                    ],
+                ],
+            ]);
         });
 
         it('converts object to object schema', function () {
@@ -258,7 +268,7 @@ describe('UsesCachedReflection Trait', function () {
             expect($schema['oneOf'][1])->toBe(['type' => 'integer']);
         });
 
-        it('filters out null types from union', function () {
+        it('filters out null type from union (null handled by driver)', function () {
             // Note: string|null in PHP is internally ?string (ReflectionNamedType, not ReflectionUnionType)
             // So we need to use a three-way union with null to test this behavior
             $reflection = new ReflectionParameter([fn (string|int|null $param) => null, '__invoke'], 'param');
@@ -266,9 +276,11 @@ describe('UsesCachedReflection Trait', function () {
 
             $schema = TestClassUsingTrait::unionTypeToSchema($type);
 
-            // Should filter out null and return oneOf with string and int
+            // Should filter out null (null handling is done by provider-specific drivers)
             expect($schema)->toHaveKey('oneOf');
             expect($schema['oneOf'])->toHaveCount(2);
+            expect($schema['oneOf'][0])->toBe(['type' => 'string']);
+            expect($schema['oneOf'][1])->toBe(['type' => 'integer']);
         });
 
         it('handles three-way union', function () {

@@ -36,6 +36,7 @@ class SchemaGenerator
      *
      * This is the main entry point for schema generation. It handles all PHP type variants
      * including builtin types, named types (classes/enums), and union types.
+     * For simple nullable types (?string), includes null in type array format.
      *
      * @param  ReflectionType|null  $type  The reflection type to convert
      * @return array OpenAPI schema array (e.g., ['type' => 'string'] or ['oneOf' => [...]])
@@ -52,6 +53,7 @@ class SchemaGenerator
         }
 
         if ($type instanceof ReflectionNamedType) {
+            // Nullable handling is done by provider-specific drivers (e.g., BaseOpenAiDriver)
             return static::fromNamedType($type);
         }
 
@@ -61,6 +63,10 @@ class SchemaGenerator
     /**
      * Convert a union type to OpenAPI schema format using oneOf
      *
+     * Skips null types as they are handled separately by provider-specific drivers.
+     * For Gemini, null is not supported in oneOf. For OpenAI strict mode,
+     * null handling is done in BaseOpenAiDriver.
+     *
      * @param  ReflectionUnionType  $unionType  The union type to convert
      * @return array OpenAPI schema with oneOf or single type
      */
@@ -68,7 +74,7 @@ class SchemaGenerator
     {
         $schemas = [];
         foreach ($unionType->getTypes() as $subType) {
-            // Skip null type as it's handled by OpenAPI's nullable property
+            // Skip null type - handled by provider-specific drivers
             if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
                 continue;
             }
@@ -178,7 +184,17 @@ class SchemaGenerator
             'int' => ['type' => 'integer'],
             'float' => ['type' => 'number'],
             'bool' => ['type' => 'boolean'],
-            'array' => ['type' => 'array'],
+            'array' => [
+                'type' => 'array',
+                'items' => [
+                    'anyOf' => [
+                        ['type' => 'string'],
+                        ['type' => 'integer'],
+                        ['type' => 'number'],
+                        ['type' => 'boolean'],
+                    ],
+                ],
+            ],
             'object' => ['type' => 'object'],
             default => ['type' => 'string'],
         };
