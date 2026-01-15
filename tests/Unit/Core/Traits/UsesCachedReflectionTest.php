@@ -121,9 +121,19 @@ describe('UsesCachedReflection Trait', function () {
             expect($schema)->toBe(['type' => 'string']);
         });
 
-        it('converts array to array schema', function () {
+        it('converts array to array schema with anyOf items', function () {
             $schema = TestClassUsingTrait::builtinTypeToSchema('array');
-            expect($schema)->toBe(['type' => 'array']);
+            expect($schema)->toBe([
+                'type' => 'array',
+                'items' => [
+                    'anyOf' => [
+                        ['type' => 'string'],
+                        ['type' => 'integer'],
+                        ['type' => 'number'],
+                        ['type' => 'boolean'],
+                    ],
+                ],
+            ]);
         });
 
         it('converts object to object schema', function () {

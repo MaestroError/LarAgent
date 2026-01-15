@@ -185,7 +185,17 @@ class SchemaGenerator
             'int' => ['type' => 'integer'],
             'float' => ['type' => 'number'],
             'bool' => ['type' => 'boolean'],
-            'array' => ['type' => 'array'],
+            'array' => [
+                'type' => 'array',
+                'items' => [
+                    'anyOf' => [
+                        ['type' => 'string'],
+                        ['type' => 'integer'],
+                        ['type' => 'number'],
+                        ['type' => 'boolean'],
+                    ],
+                ],
+            ],
             'object' => ['type' => 'object'],
             default => ['type' => 'string'],
         };
