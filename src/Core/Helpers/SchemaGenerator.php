@@ -73,7 +73,6 @@ class SchemaGenerator
     public static function fromUnionType(ReflectionUnionType $unionType): array
     {
         $schemas = [];
-
         foreach ($unionType->getTypes() as $subType) {
             // Skip null type - handled by provider-specific drivers
             if ($subType instanceof ReflectionNamedType && $subType->getName() === 'null') {
