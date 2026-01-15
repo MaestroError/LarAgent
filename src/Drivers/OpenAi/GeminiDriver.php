@@ -12,7 +12,7 @@ class GeminiDriver extends OpenAiCompatible
     {
         // Create defaults config, then merge with provided settings (provided takes precedence)
         $defaults = new DriverConfig(
-            api_url: $this->default_url,
+            apiUrl: $this->default_url,
         );
 
         $provided = is_array($settings) ? DriverConfig::fromArray($settings) : $settings;
@@ -20,9 +20,9 @@ class GeminiDriver extends OpenAiCompatible
 
         parent::__construct($settings);
 
-        $apiKey = $this->getDriverConfig()->api_key;
+        $apiKey = $this->getDriverConfig()->apiKey;
         if ($apiKey) {
-            $this->client = $this->buildClient($apiKey, $this->getDriverConfig()->api_url);
+            $this->client = $this->buildClient($apiKey, $this->getDriverConfig()->apiUrl);
         } else {
             throw new \Exception('GeminiDriver driver requires api_key in provider settings.');
         }
