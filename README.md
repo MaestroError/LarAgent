@@ -15,7 +15,7 @@
 <p align="center">
   <a href="https://laragent.ai">Website</a> •
   <a href="https://docs.laragent.ai">Docs</a> •
-  <a href="https://discord.gg/laragent">Discord</a> •
+  <a href="https://discord.gg/NAczq2T9F8">Discord</a> •
   <a href="https://blog.laragent.ai">Blog</a> •
   <a href="https://redberry.international/ai-agent-development/?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign">AI Dev Sprint</a>
 </p>
@@ -59,7 +59,7 @@ __If you prefer article to get started, check it out: [Laravel AI Agent Developm
 
 ## 💬 Community & Support
 
-Join our [Discord community](https://discord.gg/laragent) to ask questions, suggest features, or share what you're building.
+Join our [Discord community](https://discord.gg/NAczq2T9F8) to ask questions, suggest features, or share what you're building.
 
 ---
 
