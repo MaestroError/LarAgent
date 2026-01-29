@@ -103,6 +103,11 @@ class AgentChatCommand extends Command
      */
     protected function formatResponse($response): void
     {
+        // Convert DataModel instances to arrays for consistent formatting
+        if ($response instanceof \LarAgent\Core\Contracts\DataModel) {
+            $response = $response->toArray();
+        }
+
         if (is_array($response)) {
             // Check if it's a single array with a key containing a list
             if (count($response) === 1 && isset(array_values($response)[0]) && is_array(array_values($response)[0])) {
