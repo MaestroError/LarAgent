@@ -1,11 +1,13 @@
 <?php
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
 use LarAgent\Agent;
 
 beforeEach(function () {
-    // Clear session to ensure test isolation
+    // Clear session and cache to ensure test isolation
     Session::flush();
+    Cache::flush();
 
     // Create a mock agent class file
     if (! is_dir(app_path('AiAgents'))) {
@@ -94,6 +96,7 @@ test('it can handle multiple messages', function () {
         ->expectsOutput('Starting chat with TestAgent')
         ->expectsQuestion('You', 'Hello')
         ->expectsOutputToContain('Test response')
+        ->expectsOutputToContain('Response completed in')
         ->expectsQuestion('You', 'exit')
         ->expectsOutput('Chat ended')
         ->assertExitCode(0);
@@ -151,6 +154,7 @@ PHP;
         ->expectsOutput('Starting chat with TestToolAgent')
         ->expectsQuestion('You', 'Use a tool')
         ->expectsOutput('Tool call: test_tool')
+        ->expectsOutputToContain('Response completed in')
         ->expectsQuestion('You', 'exit')
         ->expectsOutput('Chat ended')
         ->assertExitCode(0);
@@ -159,4 +163,22 @@ PHP;
     if (file_exists(app_path('AiAgents/TestToolAgent.php'))) {
         unlink(app_path('AiAgents/TestToolAgent.php'));
     }
+});
+
+test('formatElapsedTime formats seconds correctly', function () {
+    $command = new \LarAgent\Commands\AgentChatCommand;
+    $reflection = new ReflectionClass($command);
+    $method = $reflection->getMethod('formatElapsedTime');
+    $method->setAccessible(true);
+
+    // Test time under 1 second (should show milliseconds)
+    expect($method->invoke($command, 0.5))->toBe('500 ms');
+    expect($method->invoke($command, 0.123))->toBe('123 ms');
+    expect($method->invoke($command, 0.0567))->toBe('56 ms');
+
+    // Test time equal to or over 1 second (should show seconds)
+    expect($method->invoke($command, 1.0))->toBe('1.00 seconds');
+    expect($method->invoke($command, 1.5))->toBe('1.50 seconds');
+    expect($method->invoke($command, 2.345))->toBe('2.35 seconds');
+    expect($method->invoke($command, 10.999))->toBe('11.00 seconds');
 });
