@@ -1,11 +1,13 @@
 <?php
 
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
 use LarAgent\Agent;
 
 beforeEach(function () {
-    // Clear session to ensure test isolation
+    // Clear session and cache to ensure test isolation
     Session::flush();
+    Cache::flush();
 
     // Create a mock agent class file
     if (! is_dir(app_path('AiAgents'))) {
