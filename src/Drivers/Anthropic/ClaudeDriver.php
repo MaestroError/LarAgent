@@ -282,10 +282,6 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
     protected function preparePayload(array $messages, DriverConfig|array $overrideSettings = []): array
     {
-        if ($this->structuredOutputEnabled()) {
-            throw new \Exception('Anthropic/Claude driver does not support structured output through JSON schema.');
-        }
-
         // Merge driver config with override settings
         $overrideConfig = DriverConfig::wrap($overrideSettings);
         $config = $this->getDriverConfig()->merge($overrideConfig);
@@ -322,6 +318,16 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
         if (! empty($this->tools)) {
             $payload['tools'] = $this->formatter->formatTools(array_values($this->tools));
+        }
+
+        // Add structured output configuration if response schema is set
+        if ($this->structuredOutputEnabled()) {
+            $payload['output_config'] = [
+                'format' => [
+                    'type' => 'json_schema',
+                    'schema' => $this->unwrapResponseSchema($this->getResponseSchema()),
+                ],
+            ];
         }
 
         return $payload;
@@ -396,6 +402,24 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         }
 
         return $formattedImages;
+    }
+
+    /**
+     * Unwrap a response schema if it's wrapped in OpenAI format.
+     * Claude expects the raw schema object, not wrapped with 'name' and 'strict'.
+     *
+     * @param  array  $schema  The schema (either raw or OpenAI-wrapped)
+     * @return array The unwrapped schema
+     */
+    protected function unwrapResponseSchema(array $schema): array
+    {
+        // If wrapped in OpenAI format (has 'schema' key), extract the inner schema
+        if (isset($schema['schema']) && is_array($schema['schema'])) {
+            return $schema['schema'];
+        }
+
+        // Already a raw schema
+        return $schema;
     }
 
     private function mergeUsageSnapshots(?array $first, ?array $final): array
