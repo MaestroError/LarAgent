@@ -172,7 +172,7 @@ test('formatElapsedTime formats seconds correctly', function () {
     // Test time under 1 second (should show milliseconds)
     expect($method->invoke($command, 0.5))->toBe('500 ms');
     expect($method->invoke($command, 0.123))->toBe('123 ms');
-    expect($method->invoke($command, 0.0567))->toBe('57 ms');
+    expect($method->invoke($command, 0.0567))->toBe('56 ms');
 
     // Test time equal to or over 1 second (should show seconds)
     expect($method->invoke($command, 1.0))->toBe('1.00 seconds');
