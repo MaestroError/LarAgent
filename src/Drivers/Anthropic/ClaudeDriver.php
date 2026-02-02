@@ -322,10 +322,15 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
 
         // Add structured output configuration if response schema is set
         if ($this->structuredOutputEnabled()) {
+            $unwrappedSchema = $this->unwrapResponseSchema($this->getResponseSchema());
+            if (empty($unwrappedSchema) || ! is_array($unwrappedSchema)) {
+                throw new \InvalidArgumentException('Response schema is invalid or empty after unwrapping. Ensure the schema is a valid JSON schema object.');
+            }
+
             $payload['output_config'] = [
                 'format' => [
                     'type' => 'json_schema',
-                    'schema' => $this->unwrapResponseSchema($this->getResponseSchema()),
+                    'schema' => $unwrappedSchema,
                 ],
             ];
         }
