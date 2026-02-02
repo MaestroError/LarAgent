@@ -158,7 +158,7 @@ class AgentChatCommand extends Command
     protected function formatElapsedTime(float $seconds): string
     {
         if ($seconds < 1) {
-            return round($seconds * 1000).' ms';
+            return floor($seconds * 1000).' ms';
         }
 
         return number_format($seconds, 2).' seconds';
