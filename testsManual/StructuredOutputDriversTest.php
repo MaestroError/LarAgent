@@ -7,7 +7,7 @@
  * 1. DataModel-based schemas
  * 2. Manually defined array schemas
  *
- * Tests OpenAI, Gemini, and Groq drivers.
+ * Tests OpenAI, Gemini, Groq, and Claude drivers.
  *
  * Prerequisites:
  * - Set OPENAI_API_KEY in openai-api-key.php
@@ -22,6 +22,7 @@ use Illuminate\Support\Facades\Facade;
 use LarAgent\Agent;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Attributes\Desc;
+use LarAgent\Drivers\Anthropic\ClaudeDriver;
 use LarAgent\Drivers\Gemini\GeminiDriver;
 use LarAgent\Drivers\Groq\GroqDriver;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
@@ -37,6 +38,7 @@ Facade::setFacadeApplication($container);
 $apiKey = include __DIR__.'/openai-api-key.php';
 $geminiKey = include __DIR__.'/gemini-api-key.php';
 $groqKey = include __DIR__.'/groq-api-key.php';
+$claudeKey = include __DIR__.'/anthropic-api-key.php';
 
 if (empty($apiKey)) {
     echo "❌ Error: Please set your OpenAI API key in openai-api-key.php\n";
@@ -66,6 +68,12 @@ config()->set('laragent.providers.groq', [
     'model' => 'llama-3.3-70b-versatile',
     'api_key' => $groqKey ?: null,
     'driver' => GroqDriver::class,
+]);
+config()->set('laragent.providers.claude', [
+    'label' => 'claude',
+    'model' => 'claude-3-7-sonnet-latest',
+    'api_key' => $claudeKey ?: null,
+    'driver' => ClaudeDriver::class,
 ]);
 
 config()->set('laragent.storage.default_history_storage', [
@@ -221,6 +229,42 @@ class GroqDataModelAgent extends Agent
     protected $model = 'llama-3.3-70b-versatile';
 
     protected $provider = 'groq';
+
+    protected $responseSchema = PersonInfo::class;
+
+    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
+    protected $history = 'in_memory';
+
+    public function instructions(): string
+    {
+        return 'Extract person information from the text. Return structured data.';
+    }
+}
+
+// Claude Agent
+class ClaudeSchemaAgent extends Agent
+{
+    protected $model = 'claude-3-7-sonnet-latest';
+
+    protected $provider = 'claude';
+
+    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+
+    protected $history = 'in_memory';
+
+    public function instructions(): string
+    {
+        return 'Extract person information from the text. Return structured data.';
+    }
+}
+
+// Claude Agent with DataModel
+class ClaudeDataModelAgent extends Agent
+{
+    protected $model = 'claude-3-7-sonnet-latest';
+
+    protected $provider = 'claude';
 
     protected $responseSchema = PersonInfo::class;
 
@@ -571,6 +615,117 @@ if ($geminiKey) {
 } else {
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
     echo "TEST 9: Gemini unwrapResponseSchema - SKIPPED (gemini-api-key.php not set)\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+}
+
+// ============================================================================
+// TEST 10: Claude with Manual Array Schema (if API key available)
+// ============================================================================
+if ($claudeKey) {
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    echo "TEST 10: Manual Array Schema with Claude\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+    try {
+        $agent = ClaudeSchemaAgent::make();
+        $agent->responseSchema($manualSchema);
+
+        $response = $agent->respond('Alice Johnson is 29 years old and lives in Seattle.');
+
+        echo 'Response type: '.gettype($response)."\n";
+
+        if (is_array($response)) {
+            echo "✅ Got array response:\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
+        } else {
+            echo 'Response: '.json_encode($response)."\n";
+        }
+
+        echo "\n✅ TEST 10 PASSED\n\n";
+    } catch (\Exception $e) {
+        echo '❌ TEST 10 FAILED: '.$e->getMessage()."\n\n";
+    }
+} else {
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    echo "TEST 10: Claude - SKIPPED (anthropic-api-key.php not set)\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+}
+
+// ============================================================================
+// TEST 11: Claude with DataModel Schema (if API key available)
+// ============================================================================
+if ($claudeKey) {
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    echo "TEST 11: DataModel Schema with Claude\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+    try {
+        $agent = ClaudeDataModelAgent::make();
+        $response = $agent->respond('Robert Chen is 44 years old and lives in San Francisco.');
+
+        echo 'Response type: '.gettype($response)."\n";
+
+        if ($response instanceof PersonInfo) {
+            echo "✅ Got PersonInfo DataModel!\n";
+            echo "   Name: {$response->name}\n";
+            echo "   Age: {$response->age}\n";
+            echo "   City: {$response->city}\n";
+        } elseif (is_array($response)) {
+            echo "✅ Got array response:\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
+        } else {
+            echo 'Response: '.json_encode($response)."\n";
+        }
+
+        echo "\n✅ TEST 11 PASSED\n\n";
+    } catch (\Exception $e) {
+        echo '❌ TEST 11 FAILED: '.$e->getMessage()."\n\n";
+    }
+} else {
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    echo "TEST 11: Claude DataModel - SKIPPED (anthropic-api-key.php not set)\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+}
+
+// ============================================================================
+// TEST 12: Claude with OpenAI-wrapped Schema (if API key available)
+// ============================================================================
+if ($claudeKey) {
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    echo "TEST 12: Claude with OpenAI-style Wrapped Schema\n";
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
+
+    try {
+        $agent = ClaudeSchemaAgent::make();
+        $agent->responseSchema($wrappedSchema);
+
+        echo "Input schema (OpenAI-style wrapped):\n";
+        echo "Claude should unwrap this and use only the inner 'schema' object.\n\n";
+
+        $response = $agent->respond('Isabella Rodriguez is 31 years old and lives in Madrid.');
+
+        echo 'Response type: '.gettype($response)."\n";
+
+        if (is_array($response)) {
+            echo "✅ Got array response:\n";
+            echo '   Name: '.($response['name'] ?? 'N/A')."\n";
+            echo '   Age: '.($response['age'] ?? 'N/A')."\n";
+            echo '   City: '.($response['city'] ?? 'N/A')."\n";
+            echo "\n✅ TEST 12 PASSED - unwrapResponseSchema works correctly!\n\n";
+        } else {
+            echo 'Response: '.json_encode($response)."\n";
+            echo "\n❌ TEST 12 FAILED: Expected array response\n\n";
+        }
+    } catch (\Exception $e) {
+        echo '❌ TEST 12 FAILED: '.$e->getMessage()."\n\n";
+    }
+} else {
+    echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n";
+    echo "TEST 12: Claude unwrapResponseSchema - SKIPPED (anthropic-api-key.php not set)\n";
     echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━\n\n";
 }
 

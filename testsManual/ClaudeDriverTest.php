@@ -265,15 +265,79 @@ it('can send a message using respond', function () {
 });
 
 /**
- * This test ensures an error is thrown when structuredOutput is used with the Anthropic/Claude driver.
- * Claude does not support JSON schema-based structured output. Instead, Anthropic recommends using prompt-based methods to enforce JSON consistency.
- * Reference: https://docs.anthropic.com/en/docs/test-and-evaluate/strengthen-guardrails/increase-consistency
+ * This test verifies that structured output now works with the Anthropic/Claude driver.
+ * Claude now supports JSON schema-based structured output via the output_config parameter.
+ * Reference: https://docs.anthropic.com/en/docs/build-with-claude/structured-outputs
  */
-it('throws exception when structured output is enabled for Claude', function () {
+it('supports structured output with response schema', function () {
     $agent = StructuredOutputClaudeTestAgent::for('structured_test');
 
-    expect(fn () => $agent->respond('The Apple Watch is priced around $799.'))
-        ->toThrow(\Exception::class, 'Anthropic/Claude driver does not support structured output through JSON schema.');
+    $response = $agent->respond('The Apple Watch is priced around $799.');
+
+    // Response should be an array (JSON decoded)
+    expect($response)->toBeArray()
+        ->and($response)->toHaveKey('name')
+        ->and($response)->toHaveKey('price')
+        ->and($response['name'])->toBeString()
+        ->and($response['price'])->toBeString()
+        ->and(strtolower($response['name']))->toContain('watch')
+        ->and($response['price'])->toContain('799');
+});
+
+it('supports structured output with raw schema', function () {
+    // Use raw schema (not OpenAI-wrapped)
+    $rawSchema = [
+        'type' => 'object',
+        'properties' => [
+            'product_name' => ['type' => 'string', 'description' => 'Name of the product'],
+            'product_price' => ['type' => 'number', 'description' => 'Price as a number'],
+            'currency' => ['type' => 'string', 'description' => 'Currency code'],
+        ],
+        'required' => ['product_name', 'product_price', 'currency'],
+    ];
+
+    $agent = ClaudeTestAgent::for('raw_schema_test');
+    $agent->responseSchema($rawSchema);
+
+    $response = $agent->respond('Samsung Galaxy S24 costs $999 USD');
+
+    // Response should be an array matching the schema
+    expect($response)->toBeArray()
+        ->and($response)->toHaveKey('product_name')
+        ->and($response)->toHaveKey('product_price')
+        ->and($response)->toHaveKey('currency')
+        ->and(strtolower($response['product_name']))->toContain('samsung')
+        ->and($response['product_price'])->toBeNumeric()
+        ->and($response['currency'])->toBe('USD');
+});
+
+it('supports streaming with structured output', function () {
+    $agent = StructuredOutputClaudeTestAgent::for('structured_stream_test');
+
+    $stream = $agent->respondStreamed('Sony PlayStation 5 is priced at $499.');
+
+    expect($stream)->toBeInstanceOf(\Generator::class);
+
+    // Collect all messages from the stream
+    $messages = [];
+    foreach ($stream as $message) {
+        $messages[] = $message;
+    }
+
+    // Verify we received messages
+    expect($messages)->not->toBeEmpty();
+
+    // Check the content of the last message
+    $lastMessage = end($messages);
+    $content = $lastMessage->getContentAsString();
+
+    // Content should be valid JSON
+    $decoded = json_decode($content, true);
+    expect($decoded)->toBeArray()
+        ->and($decoded)->toHaveKey('name')
+        ->and($decoded)->toHaveKey('price')
+        ->and(strtolower($decoded['name']))->toContain('playstation')
+        ->and($decoded['price'])->toContain('499');
 });
 
 it('can stream responses using respondStreamed', function () {
