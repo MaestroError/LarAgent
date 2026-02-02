@@ -40,6 +40,9 @@ class AgentChatCommand extends Command
             }
 
             try {
+                // Start timing the response
+                $startTime = microtime(true);
+
                 // Track the number of messages before the response
                 $messageCountBefore = $agent->chatHistory()->count();
 
@@ -50,7 +53,11 @@ class AgentChatCommand extends Command
 
                 $this->line("\n<comment>{$agentName}:</comment>");
                 $this->formatResponse($response);
-                $this->line("\n");
+
+                // Calculate and display elapsed time
+                $elapsedTime = microtime(true) - $startTime;
+                $this->line("\n<fg=gray>Response completed in {$this->formatElapsedTime($elapsedTime)}.</>");
+                $this->line('');
             } catch (\Exception $e) {
                 $this->error('Error: '.$e->getMessage());
 
@@ -140,5 +147,20 @@ class AgentChatCommand extends Command
         } else {
             $this->line($response);
         }
+    }
+
+    /**
+     * Format elapsed time in a human-readable way
+     *
+     * @param  float  $seconds  The elapsed time in seconds
+     * @return string The formatted time string
+     */
+    protected function formatElapsedTime(float $seconds): string
+    {
+        if ($seconds < 1) {
+            return round($seconds * 1000).' ms';
+        }
+
+        return number_format($seconds, 2).' seconds';
     }
 }
