@@ -17,7 +17,6 @@ require_once __DIR__.'/../vendor/autoload.php';
 
 use Illuminate\Support\Facades\Cache;
 use LarAgent\Agent;
-use LarAgent\History\CacheChatHistory;
 use LarAgent\Messages\DataModels\MessageArray;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
@@ -74,9 +73,9 @@ function config(string $key): mixed
 
 function printHeader(string $title): void
 {
-    echo "\n" . str_repeat('=', 70) . "\n";
+    echo "\n".str_repeat('=', 70)."\n";
     echo "  $title\n";
-    echo str_repeat('=', 70) . "\n\n";
+    echo str_repeat('=', 70)."\n\n";
 }
 
 function printSuccess(string $message): void
@@ -109,36 +108,38 @@ function testToolResultMessageSerialization(): bool
         'get_weather'
     );
 
-    printInfo("Original message tool_name: " . $originalMessage->getToolName());
+    printInfo('Original message tool_name: '.$originalMessage->getToolName());
 
     // Serialize to array (as storage would do)
     $serialized = $originalMessage->toArray();
 
-    printInfo("Serialized data:");
+    printInfo('Serialized data:');
     print_r($serialized);
 
     // Check if tool_name is at top level
     if (isset($serialized['tool_name'])) {
-        printInfo("tool_name IS at top level: " . $serialized['tool_name']);
+        printInfo('tool_name IS at top level: '.$serialized['tool_name']);
     } else {
-        printInfo("tool_name is NOT at top level");
+        printInfo('tool_name is NOT at top level');
         if (is_array($serialized['content']) && isset($serialized['content']['tool_name'])) {
-            printInfo("tool_name is inside content: " . $serialized['content']['tool_name']);
+            printInfo('tool_name is inside content: '.$serialized['content']['tool_name']);
         }
     }
 
     // Deserialize (as loading from storage would do)
     $restored = ToolResultMessage::fromArray($serialized);
 
-    printInfo("Restored message tool_name: '" . $restored->getToolName() . "'");
+    printInfo("Restored message tool_name: '".$restored->getToolName()."'");
 
     // Verify the tool_name is preserved
     if ($restored->getToolName() === 'get_weather') {
-        printSuccess("Tool name preserved after serialization round-trip");
+        printSuccess('Tool name preserved after serialization round-trip');
+
         return true;
     } else {
-        printError("Tool name LOST after serialization round-trip!");
-        printError("Expected: 'get_weather', Got: '" . $restored->getToolName() . "'");
+        printError('Tool name LOST after serialization round-trip!');
+        printError("Expected: 'get_weather', Got: '".$restored->getToolName()."'");
+
         return false;
     }
 }
@@ -164,7 +165,7 @@ function testMessageArrayDeserialization(): bool
     // Serialize to array
     $serialized = $originalArray->toArray();
 
-    printInfo("Serialized MessageArray:");
+    printInfo('Serialized MessageArray:');
     print_r($serialized);
 
     // Deserialize back
@@ -173,14 +174,16 @@ function testMessageArrayDeserialization(): bool
     // Get the first message
     $restoredMessage = $restoredArray->first();
 
-    printInfo("Restored message type: " . get_class($restoredMessage));
-    printInfo("Restored message tool_name: '" . $restoredMessage->getToolName() . "'");
+    printInfo('Restored message type: '.get_class($restoredMessage));
+    printInfo("Restored message tool_name: '".$restoredMessage->getToolName()."'");
 
     if ($restoredMessage->getToolName() === 'get_weather') {
-        printSuccess("Tool name preserved through MessageArray round-trip");
+        printSuccess('Tool name preserved through MessageArray round-trip');
+
         return true;
     } else {
-        printError("Tool name LOST through MessageArray round-trip!");
+        printError('Tool name LOST through MessageArray round-trip!');
+
         return false;
     }
 }
@@ -207,19 +210,21 @@ function testBackwardCompatibilityWithOldStoredData(): bool
         'message_created' => '2026-01-01T00:00:00+00:00',
     ];
 
-    printInfo("Old format data (no top-level tool_name):");
+    printInfo('Old format data (no top-level tool_name):');
     print_r($oldFormatData);
 
     // Deserialize using fromArray
     $restored = ToolResultMessage::fromArray($oldFormatData);
 
-    printInfo("Restored message tool_name: '" . $restored->getToolName() . "'");
+    printInfo("Restored message tool_name: '".$restored->getToolName()."'");
 
     if ($restored->getToolName() === 'get_weather') {
-        printSuccess("Backward compatibility: tool_name extracted from nested content");
+        printSuccess('Backward compatibility: tool_name extracted from nested content');
+
         return true;
     } else {
-        printError("Backward compatibility FAILED: tool_name not extracted");
+        printError('Backward compatibility FAILED: tool_name not extracted');
+
         return false;
     }
 }
@@ -235,7 +240,8 @@ function testGeminiWithPersistedHistory(): bool
     // Skip if no API key
     $apiKey = @include __DIR__.'/gemini-api-key.php';
     if (empty($apiKey) || $apiKey === 'your-api-key-here') {
-        printInfo("Skipping: No Gemini API key configured");
+        printInfo('Skipping: No Gemini API key configured');
+
         return true;
     }
 
@@ -268,7 +274,7 @@ function testGeminiWithPersistedHistory(): bool
         $messageArray = new MessageArray(...$messages);
         $serialized = $messageArray->toArray();
 
-        printInfo("Serialized conversation history:");
+        printInfo('Serialized conversation history:');
         foreach ($serialized as $i => $msg) {
             printInfo("  [$i] role: {$msg['role']}");
         }
@@ -279,9 +285,10 @@ function testGeminiWithPersistedHistory(): bool
         // Check tool result message
         foreach ($restored as $msg) {
             if ($msg instanceof ToolResultMessage) {
-                printInfo("Tool result tool_name after restore: '" . $msg->getToolName() . "'");
+                printInfo("Tool result tool_name after restore: '".$msg->getToolName()."'");
                 if (empty($msg->getToolName())) {
-                    printError("Bug confirmed: tool_name is empty after deserialization");
+                    printError('Bug confirmed: tool_name is empty after deserialization');
+
                     return false;
                 }
             }
@@ -296,7 +303,7 @@ function testGeminiWithPersistedHistory(): bool
             'model' => 'gemini-2.5-flash',
         ]);
 
-        printInfo("Sending restored history + new message to Gemini API...");
+        printInfo('Sending restored history + new message to Gemini API...');
 
         // This is where the bug manifests - the API will reject the request
         // because functionResponse.name is empty
@@ -305,33 +312,35 @@ function testGeminiWithPersistedHistory(): bool
             []  // No tools needed for follow-up
         );
 
-        printSuccess("API call succeeded!");
-        printInfo("Response: " . substr($response->getContentAsString(), 0, 100) . "...");
+        printSuccess('API call succeeded!');
+        printInfo('Response: '.substr($response->getContentAsString(), 0, 100).'...');
+
         return true;
 
     } catch (Exception $e) {
         // Check if it's just a missing API key error
         if (strpos($e->getMessage(), 'requires an API key') !== false) {
-            printInfo("Skipping API call: No Gemini API key configured");
-            printSuccess("Data serialization/deserialization verified - API test skipped");
+            printInfo('Skipping API call: No Gemini API key configured');
+            printSuccess('Data serialization/deserialization verified - API test skipped');
+
             return true;
         }
-        
-        printError("API call failed: " . $e->getMessage());
+
+        printError('API call failed: '.$e->getMessage());
         if (strpos($e->getMessage(), 'function_response.name') !== false) {
-            printError("This is the exact bug from Issue #131!");
+            printError('This is the exact bug from Issue #131!');
         }
-        
+
         // Debug: print raw API response if available
         if (strpos($e->getMessage(), 'Unexpected response format') !== false) {
-            printInfo("Debug: Checking last response from driver...");
+            printInfo('Debug: Checking last response from driver...');
             $lastResponse = $driver->getLastResponse();
             if ($lastResponse) {
-                printInfo("Raw API response:");
+                printInfo('Raw API response:');
                 print_r($lastResponse);
             }
         }
-        
+
         return false;
     }
 }
@@ -368,7 +377,7 @@ foreach ($results as $name => $result) {
 }
 
 echo "\n";
-echo "Total: " . ($passed + $failed) . " tests, $passed passed, $failed failed\n";
+echo 'Total: '.($passed + $failed)." tests, $passed passed, $failed failed\n";
 echo "\n";
 
 if ($failed > 0) {
