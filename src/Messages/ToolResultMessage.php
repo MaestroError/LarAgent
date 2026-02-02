@@ -70,6 +70,7 @@ class ToolResultMessage extends Message implements MessageInterface
             'role' => $this->getRole(),
             'content' => $this->content ? $this->content->toArray() : '',
             'tool_call_id' => $this->getToolCallId(),
+            'tool_name' => $this->getToolName(),
             'message_uuid' => $this->message_uuid,
             'message_created' => $this->message_created,
         ];
@@ -88,9 +89,14 @@ class ToolResultMessage extends Message implements MessageInterface
         $toolName = $data['tool_name'] ?? '';
         $metadata = $data['metadata'] ?? [];
 
-        // Handle array content (convert to string)
+        // Handle array content - extract tool_name if nested (backward compatibility)
         if (is_array($content)) {
-            $content = json_encode($content);
+            // Extract tool_name from content array if not at top level
+            if (empty($toolName) && isset($content['tool_name'])) {
+                $toolName = $content['tool_name'];
+            }
+            // Extract the actual content string
+            $content = $content['content'] ?? json_encode($content);
         }
 
         $instance = new static($content, $toolCallId, $toolName, $metadata);
