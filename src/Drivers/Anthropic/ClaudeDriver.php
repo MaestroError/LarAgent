@@ -412,6 +412,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
     /**
      * Unwrap a response schema if it's wrapped in OpenAI format.
      * Claude expects the raw schema object, not wrapped with 'name' and 'strict'.
+     * Also ensures 'additionalProperties: false' is set on all object types as required by Claude.
      *
      * @param  array  $schema  The schema (either raw or OpenAI-wrapped)
      * @return array The unwrapped schema
@@ -420,10 +421,54 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
     {
         // If wrapped in OpenAI format (has 'schema' key), extract the inner schema
         if (isset($schema['schema']) && is_array($schema['schema'])) {
-            return $schema['schema'];
+            $schema = $schema['schema'];
         }
 
-        // Already a raw schema
+        // Ensure additionalProperties is set on all object types (Claude requirement)
+        return $this->ensureAdditionalPropertiesFalse($schema);
+    }
+
+    /**
+     * Recursively ensure 'additionalProperties: false' is set on all object types.
+     * Claude's API requires this for structured output schemas.
+     *
+     * @param  array  $schema  The schema to process
+     * @return array The schema with additionalProperties set
+     */
+    protected function ensureAdditionalPropertiesFalse(array $schema): array
+    {
+        // If this is an object type, ensure additionalProperties is false
+        if (isset($schema['type']) && $schema['type'] === 'object') {
+            if (! array_key_exists('additionalProperties', $schema)) {
+                $schema['additionalProperties'] = false;
+            }
+        }
+
+        // Recursively process nested properties
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            foreach ($schema['properties'] as $key => $property) {
+                if (is_array($property)) {
+                    $schema['properties'][$key] = $this->ensureAdditionalPropertiesFalse($property);
+                }
+            }
+        }
+
+        // Handle array items
+        if (isset($schema['items']) && is_array($schema['items'])) {
+            $schema['items'] = $this->ensureAdditionalPropertiesFalse($schema['items']);
+        }
+
+        // Handle anyOf, oneOf, allOf
+        foreach (['anyOf', 'oneOf', 'allOf'] as $keyword) {
+            if (isset($schema[$keyword]) && is_array($schema[$keyword])) {
+                foreach ($schema[$keyword] as $i => $subSchema) {
+                    if (is_array($subSchema)) {
+                        $schema[$keyword][$i] = $this->ensureAdditionalPropertiesFalse($subSchema);
+                    }
+                }
+            }
+        }
+
         return $schema;
     }
 

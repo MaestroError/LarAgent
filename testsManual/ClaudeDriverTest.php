@@ -16,7 +16,7 @@ beforeEach(function () {
 
     config()->set('laragent.providers.claude', [
         'label' => 'claude',
-        'model' => 'claude-3-7-sonnet-latest',
+        'model' => 'claude-sonnet-4-5',
         'api_key' => $yourApiKey,
         'driver' => ClaudeDriver::class,
         'default_truncation_threshold' => 200000,
@@ -130,7 +130,7 @@ class ClaudeTestAgent extends Agent
 {
     protected $provider = 'claude';
 
-    protected $model = 'claude-3-7-sonnet-latest';
+    protected $model = 'claude-sonnet-4-5';
 
     protected $history = 'in_memory';
 
