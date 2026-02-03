@@ -395,3 +395,47 @@ it('preserves agent-defined model when provider does not override', function () 
 it('throws exception for non-array provider override', function () {
     new InvalidOverrideTestAgent('test_key');
 })->throws(\InvalidArgumentException::class, "Provider override for 'success' must be an array");
+
+// ==================== Provider Reset Tests ====================
+
+it('resets to first provider on subsequent respond calls', function () {
+    $agent = new MultiProviderFallbackTestAgent('test_key');
+
+    // First call - should fall back through providers until success
+    $response1 = $agent->respond('Hello');
+    expect($response1)->toBe('fallback response');
+    expect($agent->getActiveProviderName())->toBe('success');
+
+    // Second call - should start from first provider again (not stay on 'success')
+    // Since first provider fails, it will fallback again
+    $response2 = $agent->respond('Hello again');
+    expect($response2)->toBe('fallback response');
+    // After fallback, we end up on 'success' again
+    expect($agent->getActiveProviderName())->toBe('success');
+});
+
+it('resets to first provider on subsequent respondStreamed calls', function () {
+    $agent = new MultiProviderFallbackTestAgent('test_key');
+
+    // First call
+    $stream1 = $agent->respondStreamed('Hello');
+    $chunks = [];
+    foreach ($stream1 as $message) {
+        if ($message instanceof \LarAgent\Messages\StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
+            $chunks[] = $message->getContentAsString();
+        }
+    }
+    expect($chunks)->not->toBeEmpty();
+    expect($agent->getActiveProviderName())->toBe('success');
+
+    // Second call - should start from first provider again
+    $stream2 = $agent->respondStreamed('Hello again');
+    $chunks2 = [];
+    foreach ($stream2 as $message) {
+        if ($message instanceof \LarAgent\Messages\StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
+            $chunks2[] = $message->getContentAsString();
+        }
+    }
+    expect($chunks2)->not->toBeEmpty();
+    expect($agent->getActiveProviderName())->toBe('success');
+});

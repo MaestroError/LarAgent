@@ -447,6 +447,9 @@ class Agent
             $this->message($message);
         }
 
+        // Reset to first provider on each respond() call
+        $this->resetToFirstProvider();
+
         $this->setupBeforeRespond();
 
         $this->callEvent('onConversationStart');
@@ -525,6 +528,9 @@ class Agent
         if ($message) {
             $this->message($message);
         }
+
+        // Reset to first provider on each respondStreamed() call
+        $this->resetToFirstProvider();
 
         $this->setupBeforeRespond();
 
@@ -2128,12 +2134,14 @@ class Agent
     /**
      * Reset provider index to primary (first) provider.
      */
+    /**
+     * Reset provider index to primary (first) provider.
+     * Only resets the index - does not re-apply provider config since
+     * it was already applied during construction.
+     */
     protected function resetToFirstProvider(): void
     {
         $this->currentProviderIndex = 0;
-        if (! empty($this->providerList)) {
-            $this->applyCurrentProvider();
-        }
     }
 
     /**
@@ -2144,24 +2152,6 @@ class Agent
     {
         if (empty($this->providerList) || ! isset($this->providerList[$this->currentProviderIndex])) {
             return;
-        }
-
-        // Store original agent-defined values on first call (before any provider config is applied)
-        if (empty($this->originalAgentValues)) {
-            $this->originalAgentValues = [
-                'model' => $this->model,
-                'apiKey' => $this->apiKey,
-                'apiUrl' => $this->apiUrl,
-                'maxCompletionTokens' => $this->maxCompletionTokens,
-                'truncationThreshold' => $this->truncationThreshold,
-                'storeMeta' => $this->storeMeta,
-                'temperature' => $this->temperature,
-                'n' => $this->n,
-                'topP' => $this->topP,
-                'frequencyPenalty' => $this->frequencyPenalty,
-                'presencePenalty' => $this->presencePenalty,
-                'parallelToolCalls' => $this->parallelToolCalls,
-            ];
         }
 
         $current = $this->providerList[$this->currentProviderIndex];
@@ -2187,6 +2177,35 @@ class Agent
         // Re-initialize the driver with new config
         $finalConfig = $this->buildConfigsFromAgent();
         $this->initDriver($finalConfig);
+    }
+
+    /**
+     * Capture original agent-defined property values using reflection.
+     * This captures the true class defaults before any provider config is applied.
+     */
+    protected function captureOriginalAgentValues(): void
+    {
+        if (! empty($this->originalAgentValues)) {
+            return;
+        }
+
+        $reflection = new \ReflectionClass($this);
+        $defaults = $reflection->getDefaultProperties();
+
+        $this->originalAgentValues = [
+            'model' => $defaults['model'] ?? null,
+            'apiKey' => $defaults['apiKey'] ?? null,
+            'apiUrl' => $defaults['apiUrl'] ?? null,
+            'maxCompletionTokens' => $defaults['maxCompletionTokens'] ?? null,
+            'truncationThreshold' => $defaults['truncationThreshold'] ?? null,
+            'storeMeta' => $defaults['storeMeta'] ?? null,
+            'temperature' => $defaults['temperature'] ?? null,
+            'n' => $defaults['n'] ?? null,
+            'topP' => $defaults['topP'] ?? null,
+            'frequencyPenalty' => $defaults['frequencyPenalty'] ?? null,
+            'presencePenalty' => $defaults['presencePenalty'] ?? null,
+            'parallelToolCalls' => $defaults['parallelToolCalls'] ?? null,
+        ];
     }
 
     protected function setupDriverConfigs(array $providerData): void
@@ -2237,6 +2256,10 @@ class Agent
 
     protected function setupProviderData(): void
     {
+        // Capture original agent-defined values using reflection BEFORE any provider config is applied
+        // This ensures we get the true class defaults, not values modified by provider configs
+        $this->captureOriginalAgentValues();
+
         // Build the provider list (with fallback sequence)
         $this->providerList = $this->resolveProviderList();
         $this->currentProviderIndex = 0;
