@@ -81,7 +81,7 @@ describe('addDataModelAsProperties', function () {
         // title and estimatedHours should be required (no default value, not nullable)
         expect($required)->toContain('title')
             ->and($required)->toContain('estimatedHours')
-            ->and($required)->not->toContain('description'); // has default value
+            ->and($required)->not->toContain('description'); // nullable with default value
     });
 
     it('sets root DataModel class for conversion', function () {
@@ -323,7 +323,8 @@ describe('dataModelClass property', function () {
 
     it('automatically populates properties from dataModelClass in class-based tool', function () {
         // Create an anonymous class that extends Tool with $dataModelClass set
-        $toolClass = new class extends Tool {
+        $toolClass = new class extends Tool
+        {
             protected string $name = 'create_task';
 
             protected string $description = 'Create a task';
@@ -332,8 +333,9 @@ describe('dataModelClass property', function () {
 
             public function execute(array $input): mixed
             {
-                // When rootDataModelClass is set, we receive a DataModel instance
-                // but for class-based tools without callback, we just return the input
+                // This execute() overrides the parent, so the automatic DataModel conversion
+                // from the parent class won't apply. When using callbacks, the parent's
+                // execute() method handles the conversion automatically.
                 return $input;
             }
         };
@@ -355,7 +357,8 @@ describe('dataModelClass property', function () {
 describe('properties array with DataModel class names', function () {
 
     it('expands DataModel class name in properties array', function () {
-        $toolClass = new class extends Tool {
+        $toolClass = new class extends Tool
+        {
             protected string $name = 'create_with_address';
 
             protected string $description = 'Create something with an address';
@@ -423,7 +426,8 @@ describe('properties array with DataModel class names', function () {
     });
 
     it('supports multiple DataModel class names in properties array', function () {
-        $toolClass = new class extends Tool {
+        $toolClass = new class extends Tool
+        {
             protected string $name = 'create_meeting';
 
             protected string $description = 'Create a meeting';
@@ -450,7 +454,8 @@ describe('properties array with DataModel class names', function () {
     });
 
     it('mixes DataModel class names with regular property definitions', function () {
-        $toolClass = new class extends Tool {
+        $toolClass = new class extends Tool
+        {
             protected string $name = 'mixed_tool';
 
             protected string $description = 'Tool with mixed property types';
@@ -567,7 +572,8 @@ describe('attribute-based tool integration', function () {
             ->addDataModelAsProperties(TaskDataModel::class);
 
         // Method 2: Using $dataModelClass property
-        $propertyTool = new class extends Tool {
+        $propertyTool = new class extends Tool
+        {
             protected string $name = 'create_task';
 
             protected string $description = 'Create a task';

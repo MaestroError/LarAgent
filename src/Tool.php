@@ -178,8 +178,6 @@ class Tool extends AbstractTool implements ToolInterface
 
     /**
      * Get the root DataModel class if set.
-     *
-     * @return string|null
      */
     public function getRootDataModelClass(): ?string
     {
