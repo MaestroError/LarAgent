@@ -2142,6 +2142,8 @@ class Agent
     protected function resetToFirstProvider(): void
     {
         $this->currentProviderIndex = 0;
+        // Re-apply the first provider's configuration to ensure driver is properly configured
+        $this->applyCurrentProvider();
     }
 
     /**
