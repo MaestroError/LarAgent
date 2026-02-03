@@ -284,12 +284,16 @@ it('supports per-provider overrides in default_providers config', function () {
 it('returns correct provider name after fallback', function () {
     $agent = new MultiProviderFallbackTestAgent('test_key');
 
-    // Initial provider
+    // Initial provider - getActiveProviderName() returns the provider key
+    expect($agent->getActiveProviderName())->toBe('fail');
+
+    // getProviderName() returns the label from provider config
     expect($agent->getProviderName())->toBe('fail');
 
     // After respond (which triggers fallback)
     $agent->respond('Hello');
 
     // Now should be the success provider
+    expect($agent->getActiveProviderName())->toBe('success');
     expect($agent->getProviderName())->toBe('success');
 });

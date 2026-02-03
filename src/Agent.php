@@ -2113,6 +2113,25 @@ class Agent
     }
 
     /**
+     * Provider-specific properties that can be overridden per provider.
+     * These properties are reset to null when switching providers.
+     */
+    protected const PROVIDER_SPECIFIC_PROPERTIES = [
+        'apiKey',
+        'apiUrl',
+        'model',
+        'maxCompletionTokens',
+        'truncationThreshold',
+        'storeMeta',
+        'temperature',
+        'n',
+        'topP',
+        'frequencyPenalty',
+        'presencePenalty',
+        'parallelToolCalls',
+    ];
+
+    /**
      * Apply the current provider configuration from providerList.
      */
     protected function applyCurrentProvider(): void
@@ -2129,18 +2148,7 @@ class Agent
         $this->providerName = $providerConfig['label'] ?? $current['name'] ?? '';
 
         // Reset provider-specific settings to null so they get re-applied from new provider
-        $this->apiKey = null;
-        $this->apiUrl = null;
-        $this->model = null;
-        $this->maxCompletionTokens = null;
-        $this->truncationThreshold = null;
-        $this->storeMeta = null;
-        $this->temperature = null;
-        $this->n = null;
-        $this->topP = null;
-        $this->frequencyPenalty = null;
-        $this->presencePenalty = null;
-        $this->parallelToolCalls = null;
+        $this->resetProviderSpecificProperties();
 
         // Re-apply driver configs from new provider
         $this->setupDriverConfigs($providerConfig);
@@ -2148,6 +2156,17 @@ class Agent
         // Re-initialize the driver with new config
         $finalConfig = $this->buildConfigsFromAgent();
         $this->initDriver($finalConfig);
+    }
+
+    /**
+     * Reset all provider-specific properties to null.
+     * This allows them to be re-applied from the new provider config.
+     */
+    protected function resetProviderSpecificProperties(): void
+    {
+        foreach (self::PROVIDER_SPECIFIC_PROPERTIES as $property) {
+            $this->{$property} = null;
+        }
     }
 
     protected function setupDriverConfigs(array $providerData): void
