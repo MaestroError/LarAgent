@@ -2051,6 +2051,11 @@ class Agent
             }
         }
 
+        if (empty($providerList)) {
+            throw new \RuntimeException(
+                'LarAgent: No valid providers found. Please configure at least one provider in "laragent.providers" or "laragent.default_providers".'
+            );
+        }
         return $providerList;
     }
 
