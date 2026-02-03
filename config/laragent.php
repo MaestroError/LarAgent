@@ -123,7 +123,30 @@ return [
     ],
 
     /**
+     * Default providers to use when agent doesn't specify a provider.
+     * This is the recommended way to configure multi-provider fallback.
+     *
+     * Can be a simple array of provider names:
+     *   'default_providers' => ['default', 'gemini', 'claude'],
+     *
+     * Or an array with per-provider overrides:
+     *   'default_providers' => [
+     *       'default',
+     *       'gemini' => ['model' => 'gemini-2.0-flash'],
+     *       'claude',
+     *   ],
+     *
+     * First provider is primary; subsequent providers are fallbacks in order.
+     * If null, defaults to 'default' provider only.
+     */
+    'default_providers' => null,
+
+    /**
+     * @deprecated since v1.x. Will be removed in v2.0.
+     * Use 'default_providers' or array-based $provider property instead.
      * Fallback provider to use when any provider fails.
+     * Instead, use the 'default_providers' config array or define multiple providers
+     * in your agent's $provider property as an array.
      */
     'fallback_provider' => null,
 

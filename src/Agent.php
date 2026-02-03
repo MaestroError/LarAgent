@@ -81,8 +81,35 @@ class Agent
     /** @var string */
     protected $driver;
 
-    /** @var string */
-    protected $provider = 'default';
+    /**
+     * Provider configuration - can be a string (single provider) or array (multiple with fallback).
+     *
+     * When array, first is primary, subsequent are fallback providers in priority order.
+     * Per-provider overrides are supported via associative entries:
+     * ['default', 'gemini' => ['model' => 'gemini-2.0'], 'claude']
+     *
+     * When null, uses 'default_providers' config or falls back to 'default' provider.
+     *
+     * @var string|array|null
+     */
+    protected $provider = null;
+
+    /**
+     * Resolved list of provider configurations for fallback sequence.
+     * Each entry contains: ['name' => string, 'config' => array]
+     */
+    protected array $providerList = [];
+
+    /**
+     * Index of the current provider in the provider list.
+     */
+    protected int $currentProviderIndex = 0;
+
+    /**
+     * Original agent-defined property values stored during initialization.
+     * Used as fallback when provider config doesn't specify a value.
+     */
+    protected array $originalAgentValues = [];
 
     /** @var string */
     protected $providerName = '';
@@ -420,6 +447,9 @@ class Agent
             $this->message($message);
         }
 
+        // Reset to first provider on each respond() call
+        $this->resetToFirstProvider();
+
         $this->setupBeforeRespond();
 
         $this->callEvent('onConversationStart');
@@ -428,58 +458,62 @@ class Agent
 
         $this->prepareAgent($message);
 
-        try {
-            if ($this->returnMessage) {
-                $this->agent->setReturnMessage(true);
+        $lastException = null;
+
+        // Try current provider and fallback to next providers on failure
+        do {
+            try {
+                if ($this->returnMessage) {
+                    $this->agent->setReturnMessage(true);
+                }
+                $response = $this->agent->run();
+
+                // Success - proceed with response handling
+                $this->callEvent('onConversationEnd', [$response]);
+
+                if ($this->returnMessage) {
+                    return $response;
+                }
+
+                if ($response instanceof ToolCallMessage) {
+                    return $response->toArrayWithMeta();
+                }
+
+                if (is_array($response)) {
+                    return $this->processArrayResponse($response);
+                }
+
+                return (string) $response;
+            } catch (\Throwable $th) {
+                $this->callEvent('onEngineError', [$th]);
+                $lastException = $th;
+
+                // Try to switch to next provider
+                if ($this->switchToNextProvider()) {
+                    // Re-setup agent with new provider
+                    $this->setupBeforeRespond();
+                    $this->prepareAgent($message);
+
+                    continue;
+                }
+
+                // No more providers to try, throw the last exception
+                throw $lastException;
             }
-            $response = $this->agent->run();
-        } catch (\Throwable $th) {
-            $this->callEvent('onEngineError', [$th]);
-            // Run fallback provider
-            $fallbackProvider = config('laragent.fallback_provider');
-
-            // Throw error if there is no fallback provider
-            if (! $fallbackProvider) {
-                throw $th;
-            }
-
-            // Throw error if fallback provider is same as current provider
-            if ($fallbackProvider === $this->provider) {
-                throw $th;
-            } else {
-                // Run fallback provider
-                $this->changeProvider($fallbackProvider);
-
-                return $this->respond();
-            }
-        }
-
-        $this->callEvent('onConversationEnd', [$response]);
-
-        if ($this->returnMessage) {
-            return $response;
-        }
-
-        if ($response instanceof ToolCallMessage) {
-            return $response->toArrayWithMeta();
-        }
-
-        if (is_array($response)) {
-            return $this->processArrayResponse($response);
-        }
-
-        return (string) $response;
+        } while (true);
     }
 
+    /**
+     * @deprecated Use array-based provider configuration instead.
+     * This method is kept for backward compatibility.
+     */
     protected function changeProvider(string $provider)
     {
         $this->provider = $provider;
-        $config = $this->getProviderData();
-        $this->apiKey = $config['api_key'] ?? null;
-        $this->apiUrl = $config['api_url'] ?? null;
-        $this->model = $config['model'] ?? null;
-        $this->driver = $config['driver'] ?? null;
-        $this->setupProviderData();
+        // Re-resolve provider list with new single provider
+        $this->providerList = $this->resolveProviderList();
+        $this->currentProviderIndex = 0;
+        $this->applyCurrentProvider();
     }
 
     /**
@@ -495,6 +529,9 @@ class Agent
             $this->message($message);
         }
 
+        // Reset to first provider on each respondStreamed() call
+        $this->resetToFirstProvider();
+
         $this->setupBeforeRespond();
 
         $this->callEvent('onConversationStart');
@@ -506,44 +543,51 @@ class Agent
         $instance = $this;
 
         $generator = (function () use ($instance, $message, $callback) {
-            try {
-                // Run the agent with streaming enabled
-                if ($instance->returnMessage) {
-                    $instance->agent->setReturnMessage(true);
-                }
-                $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
-                    if ($streamedMessage instanceof StreamedAssistantMessage) {
-                        // Call onConversationEnd when the stream message is complete
-                        if ($streamedMessage->isComplete()) {
-                            $instance->callEvent('onConversationEnd', [$streamedMessage]);
+            $lastException = null;
+
+            do {
+                try {
+                    // Run the agent with streaming enabled
+                    if ($instance->returnMessage) {
+                        $instance->agent->setReturnMessage(true);
+                    }
+                    $stream = $instance->agent->runStreamed(function ($streamedMessage) use ($callback, $instance) {
+                        if ($streamedMessage instanceof StreamedAssistantMessage) {
+                            // Call onConversationEnd when the stream message is complete
+                            if ($streamedMessage->isComplete()) {
+                                $instance->callEvent('onConversationEnd', [$streamedMessage]);
+                            }
                         }
+
+                        // Run callback if defined
+                        if ($callback) {
+                            $callback($streamedMessage);
+                        }
+                    });
+
+                    foreach ($stream as $chunk) {
+                        yield $chunk;
                     }
 
-                    // Run callback if defined
-                    if ($callback) {
-                        $callback($streamedMessage);
+                    // Success - exit the loop
+                    return;
+                } catch (\Throwable $th) {
+                    $instance->callEvent('onEngineError', [$th]);
+                    $lastException = $th;
+
+                    // Try to switch to next provider
+                    if ($instance->switchToNextProvider()) {
+                        // Re-setup agent with new provider
+                        $instance->setupBeforeRespond();
+                        $instance->prepareAgent($message);
+
+                        continue;
                     }
-                });
 
-                foreach ($stream as $chunk) {
-                    yield $chunk;
+                    // No more providers to try, throw the last exception
+                    throw $lastException;
                 }
-            } catch (\Throwable $th) {
-                $instance->callEvent('onEngineError', [$th]);
-                $fallbackProvider = config('laragent.fallback_provider');
-
-                if (! $fallbackProvider || $fallbackProvider === $instance->provider) {
-                    throw $th;
-                }
-
-                $instance->changeProvider($fallbackProvider);
-
-                $fallbackStream = $instance->respondStreamed($message, $callback);
-
-                foreach ($fallbackStream as $chunk) {
-                    yield $chunk;
-                }
-            }
+            } while (true);
         })();
 
         return $generator;
@@ -1256,7 +1300,8 @@ class Agent
         }
 
         // Check provider-specific config
-        $providerConfig = config("laragent.providers.{$this->provider}.track_usage");
+        $currentProviderName = $this->getCurrentProviderName();
+        $providerConfig = config("laragent.providers.{$currentProviderName}.track_usage");
         if ($providerConfig !== null) {
             return (bool) $providerConfig;
         }
@@ -1455,7 +1500,8 @@ class Agent
             return $this->enableTruncation;
         }
 
-        $providerConfig = config("laragent.providers.{$this->provider}.enable_truncation");
+        $currentProviderName = $this->getCurrentProviderName();
+        $providerConfig = config("laragent.providers.{$currentProviderName}.enable_truncation");
         if ($providerConfig !== null) {
             return (bool) $providerConfig;
         }
@@ -1521,8 +1567,10 @@ class Agent
             return $this->truncationThreshold;
         }
 
+        $currentProviderName = $this->getCurrentProviderName();
+
         return config(
-            "laragent.providers.{$this->provider}.default_truncation_threshold",
+            "laragent.providers.{$currentProviderName}.default_truncation_threshold",
             128000
         );
     }
@@ -1867,7 +1915,7 @@ class Agent
         $driverConfigs = $this->buildConfigsFromAgent();
 
         return new AgentDTO(
-            provider: $this->provider,
+            provider: $this->getCurrentProviderName(),
             providerName: $this->providerName,
             message: $this->message,
             tools: array_map(fn (ToolInterface $tool) => $tool->getName(), $this->getTools()),
@@ -1916,7 +1964,252 @@ class Agent
 
     protected function getProviderData(): ?array
     {
-        return config("laragent.providers.{$this->provider}");
+        // If providerList is already resolved, use current provider from list
+        if (! empty($this->providerList) && isset($this->providerList[$this->currentProviderIndex])) {
+            return $this->providerList[$this->currentProviderIndex]['config'];
+        }
+
+        // For string provider, just return config directly
+        if (is_string($this->provider)) {
+            return config("laragent.providers.{$this->provider}");
+        }
+
+        return null;
+    }
+
+    /**
+     * Get the current provider name (string identifier).
+     */
+    protected function getCurrentProviderName(): string
+    {
+        if (! empty($this->providerList) && isset($this->providerList[$this->currentProviderIndex])) {
+            return $this->providerList[$this->currentProviderIndex]['name'];
+        }
+
+        return is_string($this->provider) ? $this->provider : 'default';
+    }
+
+    /**
+     * Resolve provider configuration into a prioritized list for fallback.
+     *
+     * Handles:
+     * - String provider: 'default'
+     * - Array provider: ['default', 'gemini', 'claude']
+     * - Array with overrides: ['default', 'gemini' => ['model' => 'custom-model'], 'claude']
+     *
+     * @return array Array of ['name' => string, 'config' => array]
+     *
+     * @throws \RuntimeException If no valid providers are found
+     */
+    protected function resolveProviderList(): array
+    {
+        $providerList = [];
+
+        // Determine the provider source
+        $providerSource = $this->provider;
+
+        // Only use default_providers config if provider is truly not set (null or empty string)
+        // This preserves explicit 'default' provider selection
+        if ($providerSource === null || $providerSource === '') {
+            $defaultProviders = config('laragent.default_providers');
+            if (! empty($defaultProviders) && is_array($defaultProviders)) {
+                $providerSource = $defaultProviders;
+            } else {
+                // Fall back to 'default' provider if nothing configured
+                $providerSource = 'default';
+            }
+        }
+
+        // Handle string provider (single provider)
+        if (is_string($providerSource)) {
+            $config = config("laragent.providers.{$providerSource}");
+            if ($config !== null) {
+                $providerList[] = ['name' => $providerSource, 'config' => $config];
+            }
+
+            // Check for deprecated fallback_provider config
+            $fallbackProvider = config('laragent.fallback_provider');
+            if ($fallbackProvider && $fallbackProvider !== $providerSource) {
+                $fallbackConfig = config("laragent.providers.{$fallbackProvider}");
+                if ($fallbackConfig !== null) {
+                    $providerList[] = ['name' => $fallbackProvider, 'config' => $fallbackConfig];
+                }
+            }
+
+            if (empty($providerList)) {
+                throw new \RuntimeException(
+                    "LarAgent: Provider '{$providerSource}' not found. Please configure it in 'laragent.providers'."
+                );
+            }
+
+            return $providerList;
+        }
+
+        // Handle array provider (multiple providers with potential overrides)
+        if (is_array($providerSource)) {
+            foreach ($providerSource as $key => $value) {
+                // Determine provider name and overrides
+                if (is_int($key)) {
+                    // Numeric key: value is provider name, no overrides
+                    $providerName = $value;
+                    $overrides = [];
+                } else {
+                    // String key: key is provider name, value should be array of overrides
+                    $providerName = $key;
+                    if (is_array($value)) {
+                        $overrides = $value;
+                    } else {
+                        // Non-array overrides are a configuration error
+                        throw new \InvalidArgumentException(
+                            "LarAgent: Provider override for '{$providerName}' must be an array, got ".gettype($value).'. '
+                            ."Example: ['{$providerName}' => ['model' => 'model-name']]"
+                        );
+                    }
+                }
+
+                // Get base config from global config
+                $baseConfig = config("laragent.providers.{$providerName}");
+                if ($baseConfig === null) {
+                    continue;
+                }
+
+                // Merge overrides (agent array overrides take precedence)
+                $mergedConfig = array_merge($baseConfig, $overrides);
+                $providerList[] = ['name' => $providerName, 'config' => $mergedConfig];
+            }
+        }
+
+        if (empty($providerList)) {
+            throw new \RuntimeException(
+                'LarAgent: No valid providers found. Please configure at least one provider in "laragent.providers" or "laragent.default_providers".'
+            );
+        }
+
+        return $providerList;
+    }
+
+    /**
+     * Get the provider fallback sequence for debugging/observability.
+     *
+     * @return array Array of provider names in fallback order
+     */
+    public function getProviderSequence(): array
+    {
+        return array_map(fn ($p) => $p['name'], $this->providerList);
+    }
+
+    /**
+     * Get the currently active provider name.
+     */
+    public function getActiveProviderName(): string
+    {
+        return $this->getCurrentProviderName();
+    }
+
+    /**
+     * Check if there is a next provider available for fallback.
+     */
+    protected function hasNextProvider(): bool
+    {
+        return $this->currentProviderIndex < count($this->providerList) - 1;
+    }
+
+    /**
+     * Switch to the next provider in the fallback sequence.
+     *
+     * @return bool True if successfully switched, false if no more providers
+     */
+    protected function switchToNextProvider(): bool
+    {
+        if (! $this->hasNextProvider()) {
+            return false;
+        }
+
+        $this->currentProviderIndex++;
+        $this->applyCurrentProvider();
+
+        return true;
+    }
+
+    /**
+     * Reset provider index to primary (first) provider.
+     * Called at the start of respond()/respondStreamed() to ensure
+     * we always start from the first provider with correct configuration.
+     */
+    protected function resetToFirstProvider(): void
+    {
+        // If we were on a fallback provider, we need to re-apply the first provider's config
+        $wasOnFallback = $this->currentProviderIndex > 0;
+        $this->currentProviderIndex = 0;
+
+        if ($wasOnFallback) {
+            $this->applyCurrentProvider();
+        }
+    }
+
+    /**
+     * Apply the current provider configuration from providerList.
+     * Provider config values take precedence, then agent-defined defaults, then null.
+     */
+    protected function applyCurrentProvider(): void
+    {
+        if (empty($this->providerList) || ! isset($this->providerList[$this->currentProviderIndex])) {
+            return;
+        }
+
+        $current = $this->providerList[$this->currentProviderIndex];
+        $providerConfig = $current['config'];
+
+        // Apply provider configuration with fallback to agent-defined defaults.
+        // Priority: provider config > agent-defined property > global default
+        $this->driver = $providerConfig['driver'] ?? $this->originalAgentValues['driver'] ?? config('laragent.default_driver');
+        $this->providerName = $providerConfig['label'] ?? $current['name'] ?? '';
+        $this->apiKey = $providerConfig['api_key'] ?? $this->originalAgentValues['apiKey'] ?? null;
+        $this->apiUrl = $providerConfig['api_url'] ?? $this->originalAgentValues['apiUrl'] ?? null;
+        $this->model = $providerConfig['model'] ?? $this->originalAgentValues['model'] ?? null;
+        $this->maxCompletionTokens = $providerConfig['default_max_completion_tokens'] ?? $this->originalAgentValues['maxCompletionTokens'] ?? null;
+        $this->truncationThreshold = $providerConfig['default_truncation_threshold'] ?? $this->originalAgentValues['truncationThreshold'] ?? null;
+        $this->storeMeta = $providerConfig['store_meta'] ?? $this->originalAgentValues['storeMeta'] ?? null;
+        $this->temperature = $providerConfig['default_temperature'] ?? $this->originalAgentValues['temperature'] ?? null;
+        $this->n = $providerConfig['default_n'] ?? $this->originalAgentValues['n'] ?? null;
+        $this->topP = $providerConfig['default_top_p'] ?? $this->originalAgentValues['topP'] ?? null;
+        $this->frequencyPenalty = $providerConfig['default_frequency_penalty'] ?? $this->originalAgentValues['frequencyPenalty'] ?? null;
+        $this->presencePenalty = $providerConfig['default_presence_penalty'] ?? $this->originalAgentValues['presencePenalty'] ?? null;
+        $this->parallelToolCalls = $providerConfig['parallel_tool_calls'] ?? $this->originalAgentValues['parallelToolCalls'] ?? null;
+
+        // Re-initialize the driver with new config
+        $finalConfig = $this->buildConfigsFromAgent();
+        $this->initDriver($finalConfig);
+    }
+
+    /**
+     * Capture original agent-defined property values using reflection.
+     * This captures the true class defaults before any provider config is applied.
+     */
+    protected function captureOriginalAgentValues(): void
+    {
+        if (! empty($this->originalAgentValues)) {
+            return;
+        }
+
+        $reflection = new \ReflectionClass($this);
+        $defaults = $reflection->getDefaultProperties();
+
+        $this->originalAgentValues = [
+            'driver' => $defaults['driver'] ?? null,
+            'model' => $defaults['model'] ?? null,
+            'apiKey' => $defaults['apiKey'] ?? null,
+            'apiUrl' => $defaults['apiUrl'] ?? null,
+            'maxCompletionTokens' => $defaults['maxCompletionTokens'] ?? null,
+            'truncationThreshold' => $defaults['truncationThreshold'] ?? null,
+            'storeMeta' => $defaults['storeMeta'] ?? null,
+            'temperature' => $defaults['temperature'] ?? null,
+            'n' => $defaults['n'] ?? null,
+            'topP' => $defaults['topP'] ?? null,
+            'frequencyPenalty' => $defaults['frequencyPenalty'] ?? null,
+            'presencePenalty' => $defaults['presencePenalty'] ?? null,
+            'parallelToolCalls' => $defaults['parallelToolCalls'] ?? null,
+        ];
     }
 
     protected function setupDriverConfigs(array $providerData): void
@@ -1967,7 +2260,22 @@ class Agent
 
     protected function setupProviderData(): void
     {
+        // Capture original agent-defined values using reflection BEFORE any provider config is applied
+        // This ensures we get the true class defaults, not values modified by provider configs
+        $this->captureOriginalAgentValues();
+
+        // Build the provider list (with fallback sequence)
+        $this->providerList = $this->resolveProviderList();
+        $this->currentProviderIndex = 0;
+
+        // Get the primary provider config
         $provider = $this->getProviderData();
+
+        if ($provider === null) {
+            // If no provider found, use defaults
+            $provider = [];
+        }
+
         if (! isset($this->driver)) {
             $this->driver = $provider['driver'] ?? config('laragent.default_driver');
         }
@@ -1980,7 +2288,7 @@ class Agent
         if (! isset($this->storage)) {
             $this->storage = $provider['storage'] ?? config('laragent.default_storage');
         }
-        $this->providerName = $provider['label'] ?? $this->provider ?? '';
+        $this->providerName = $provider['label'] ?? $this->getCurrentProviderName() ?? '';
 
         // Extract provider settings into agent properties
         $this->setupDriverConfigs($provider);

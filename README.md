@@ -161,6 +161,20 @@ protected $parallelToolCalls = false;
 // ...
 ```
 
+Or configure multi-provider fallback for automatic failover:
+
+```php
+// Simple array of providers (first is primary, others are fallbacks in order)
+protected $provider = ['default', 'gemini', 'claude'];
+
+// With per-provider config overrides
+protected $provider = [
+    'default',
+    'gemini' => ['model' => 'gemini-2.0-flash'],
+    'claude',
+];
+```
+
 Oh, and add a new tool as well:
 
 ```php
@@ -210,6 +224,7 @@ Let's find out more in [documentation](https://docs.laragent.ai/) 👍
     - Parallel tool execution capability (can be disabled)
 - Extensive Event system for agent interactions (Nearly everything is hookable)
 - Multiple provider support (Can be set per model)
+- Multi-provider fallback with automatic failover
 - Support for both Laravel and standalone usage
 
 ## Getting Started
