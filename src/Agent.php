@@ -1238,6 +1238,34 @@ class Agent
     }
 
     /**
+     * Create the identity to use for the chat history storage.
+     *
+     * Override this method in a subclass to customize the identity used for chat history.
+     * This allows for advanced scenarios such as:
+     * - Grouping chat sessions across different users
+     * - Using custom identity composition for history isolation
+     * - Sharing history between agents with custom scoping
+     *
+     * Example:
+     * ```php
+     * protected function createHistoryIdentity(): SessionIdentity
+     * {
+     *     // Share chat history across all users in the same group
+     *     return new SessionIdentity(
+     *         agentName: $this->name(),
+     *         chatName: $this->getGroupId(), // Custom group-based identity
+     *     );
+     * }
+     * ```
+     *
+     * @return \LarAgent\Context\Contracts\SessionIdentity The identity for the chat history storage
+     */
+    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    {
+        return $this->context()->getIdentity();
+    }
+
+    /**
      * Create a new chat history instance
      *
      * @return ChatHistoryInterface The created chat history instance
@@ -1247,7 +1275,7 @@ class Agent
         $historyStorageDrivers = $this->historyStorageDrivers();
 
         $ChatHistoryStorage = new ChatHistoryStorage(
-            $this->context()->getIdentity(),
+            $this->createHistoryIdentity(),
             $historyStorageDrivers,
             $this->storeMeta ?? false
         );
@@ -1358,6 +1386,34 @@ class Agent
     }
 
     /**
+     * Create the identity to use for the usage storage.
+     *
+     * Override this method in a subclass to customize the identity used for usage tracking.
+     * This allows for advanced scenarios such as:
+     * - Cross-user usage tracking for billing purposes
+     * - Grouping usage statistics by tenant or organization
+     * - Custom identity composition for usage isolation
+     *
+     * Example:
+     * ```php
+     * protected function createUsageIdentity(): SessionIdentity
+     * {
+     *     // Track usage per organization rather than per user
+     *     return new SessionIdentity(
+     *         agentName: $this->name(),
+     *         chatName: $this->getOrganizationId(),
+     *     );
+     * }
+     * ```
+     *
+     * @return \LarAgent\Context\Contracts\SessionIdentity The identity for the usage storage
+     */
+    protected function createUsageIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    {
+        return $this->context()->getIdentity();
+    }
+
+    /**
      * Create a new usage storage instance.
      * Can be overridden in child classes for custom behavior.
      */
@@ -1366,7 +1422,7 @@ class Agent
         $usageStorageDrivers = $this->usageStorageDrivers();
 
         return new \LarAgent\Usage\UsageStorage(
-            $this->context()->getIdentity(),
+            $this->createUsageIdentity(),
             $usageStorageDrivers,
             $this->model(),
             $this->providerName
