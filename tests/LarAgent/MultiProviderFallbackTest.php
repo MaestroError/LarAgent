@@ -85,6 +85,7 @@ class SingleStringProviderAgent extends Agent
 
 /**
  * Agent that uses default_providers from config.
+ * Sets $provider explicitly to 'default' to test that 'default' provider works.
  */
 class DefaultProvidersAgent extends Agent
 {
@@ -92,12 +93,30 @@ class DefaultProvidersAgent extends Agent
 
     protected $history = 'in_memory';
 
-    // Not setting $provider to test default_providers config
+    // Using 'default' provider explicitly
     protected $provider = 'default';
 
     public function instructions()
     {
         return 'Default providers test agent.';
+    }
+}
+
+/**
+ * Agent that doesn't set $provider to test default_providers config.
+ */
+class UnsetProviderAgent extends Agent
+{
+    protected $model = 'gpt-test';
+
+    protected $history = 'in_memory';
+
+    // Provider intentionally not set - will use default_providers config or fall back to 'default'
+    protected $provider = null;
+
+    public function instructions()
+    {
+        return 'Unset provider test agent.';
     }
 }
 
@@ -248,11 +267,11 @@ it('maintains backward compatibility with deprecated fallback_provider config', 
 
 // ==================== default_providers Config Tests ====================
 
-it('uses default_providers from config when agent provider is default', function () {
+it('uses default_providers from config when agent provider is not set', function () {
     // Configure default_providers
     config()->set('laragent.default_providers', ['fail', 'success']);
 
-    $agent = new DefaultProvidersAgent('test_key');
+    $agent = new UnsetProviderAgent('test_key');
 
     // Provider sequence should come from config
     $sequence = $agent->getProviderSequence();
@@ -270,13 +289,24 @@ it('supports per-provider overrides in default_providers config', function () {
         'success' => ['model' => 'config-override-model'],
     ]);
 
-    $agent = new DefaultProvidersAgent('test_key');
+    $agent = new UnsetProviderAgent('test_key');
 
     // Should fall back to success provider with override
     $response = $agent->respond('Hello');
 
     expect($response)->toBe('fallback response');
     expect($agent->model())->toBe('config-override-model');
+});
+
+it('uses default provider when agent explicitly sets provider to default', function () {
+    // Configure default_providers - should NOT be used when agent explicitly sets 'default'
+    config()->set('laragent.default_providers', ['fail', 'success']);
+
+    $agent = new DefaultProvidersAgent('test_key');
+
+    // Provider sequence should be just 'default', not the default_providers array
+    $sequence = $agent->getProviderSequence();
+    expect($sequence)->toEqual(['default']);
 });
 
 // ==================== Provider Name Tests ====================

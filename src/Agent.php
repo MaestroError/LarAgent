@@ -530,6 +530,7 @@ class Agent
 
         $generator = (function () use ($instance, $message, $callback) {
             $lastException = null;
+            $hasYieldedChunks = false;
 
             do {
                 try {
@@ -552,6 +553,7 @@ class Agent
                     });
 
                     foreach ($stream as $chunk) {
+                        $hasYieldedChunks = true;
                         yield $chunk;
                     }
 
@@ -561,8 +563,9 @@ class Agent
                     $instance->callEvent('onEngineError', [$th]);
                     $lastException = $th;
 
-                    // Try to switch to next provider
-                    if ($instance->switchToNextProvider()) {
+                    // Only attempt fallback if no chunks have been yielded yet
+                    // Once streaming starts, fallback would corrupt the response
+                    if (! $hasYieldedChunks && $instance->switchToNextProvider()) {
                         // Re-setup agent with new provider
                         $instance->setupBeforeRespond();
                         $instance->prepareAgent($message);
@@ -570,7 +573,7 @@ class Agent
                         continue;
                     }
 
-                    // No more providers to try, throw the last exception
+                    // No more providers to try or streaming already started, throw the exception
                     throw $lastException;
                 }
             } while (true);
@@ -1984,6 +1987,8 @@ class Agent
      * - Array with overrides: ['default', 'gemini' => ['model' => 'custom-model'], 'claude']
      *
      * @return array Array of ['name' => string, 'config' => array]
+     *
+     * @throws \RuntimeException If no valid providers are found
      */
     protected function resolveProviderList(): array
     {
@@ -1992,11 +1997,15 @@ class Agent
         // Determine the provider source
         $providerSource = $this->provider;
 
-        // If provider is not set or empty, check for default_providers config
-        if (empty($providerSource) || $providerSource === 'default') {
+        // Only use default_providers config if provider is truly not set (null or empty string)
+        // This preserves explicit 'default' provider selection
+        if ($providerSource === null || $providerSource === '') {
             $defaultProviders = config('laragent.default_providers');
             if (! empty($defaultProviders) && is_array($defaultProviders)) {
                 $providerSource = $defaultProviders;
+            } else {
+                // Fall back to 'default' provider if nothing configured
+                $providerSource = 'default';
             }
         }
 
@@ -2016,6 +2025,12 @@ class Agent
                 }
             }
 
+            if (empty($providerList)) {
+                throw new \RuntimeException(
+                    "LarAgent: Provider '{$providerSource}' not found. Please configure it in 'laragent.providers'."
+                );
+            }
+
             return $providerList;
         }
 
@@ -2028,9 +2043,18 @@ class Agent
                     $providerName = $value;
                     $overrides = [];
                 } else {
-                    // String key: key is provider name, value is array of overrides
+                    // String key: key is provider name, value should be array of overrides
                     $providerName = $key;
-                    $overrides = is_array($value) ? $value : [];
+                    if (is_array($value)) {
+                        $overrides = $value;
+                    } else {
+                        // Non-array overrides are likely a configuration error
+                        $this->logWarning(
+                            "LarAgent: Non-array provider override ignored for '{$providerName}'. Expected array, got ".gettype($value).'.',
+                            ['provider' => $providerName, 'value' => $value]
+                        );
+                        $overrides = [];
+                    }
                 }
 
                 // Get base config from global config
@@ -2109,26 +2133,8 @@ class Agent
     }
 
     /**
-     * Provider-specific properties that can be overridden per provider.
-     * These properties are reset to null when switching providers.
-     */
-    protected const PROVIDER_SPECIFIC_PROPERTIES = [
-        'apiKey',
-        'apiUrl',
-        'model',
-        'maxCompletionTokens',
-        'truncationThreshold',
-        'storeMeta',
-        'temperature',
-        'n',
-        'topP',
-        'frequencyPenalty',
-        'presencePenalty',
-        'parallelToolCalls',
-    ];
-
-    /**
      * Apply the current provider configuration from providerList.
+     * Directly overwrites driver-related properties from provider config.
      */
     protected function applyCurrentProvider(): void
     {
@@ -2139,30 +2145,26 @@ class Agent
         $current = $this->providerList[$this->currentProviderIndex];
         $providerConfig = $current['config'];
 
-        // Update driver-related properties
+        // Directly apply provider configuration - these properties are always
+        // overwritten when switching providers (matching original changeProvider behavior)
         $this->driver = $providerConfig['driver'] ?? config('laragent.default_driver');
         $this->providerName = $providerConfig['label'] ?? $current['name'] ?? '';
-
-        // Reset provider-specific settings to null so they get re-applied from new provider
-        $this->resetProviderSpecificProperties();
-
-        // Re-apply driver configs from new provider
-        $this->setupDriverConfigs($providerConfig);
+        $this->apiKey = $providerConfig['api_key'] ?? null;
+        $this->apiUrl = $providerConfig['api_url'] ?? null;
+        $this->model = $providerConfig['model'] ?? null;
+        $this->maxCompletionTokens = $providerConfig['default_max_completion_tokens'] ?? null;
+        $this->truncationThreshold = $providerConfig['default_truncation_threshold'] ?? null;
+        $this->storeMeta = $providerConfig['store_meta'] ?? null;
+        $this->temperature = $providerConfig['default_temperature'] ?? null;
+        $this->n = $providerConfig['default_n'] ?? null;
+        $this->topP = $providerConfig['default_top_p'] ?? null;
+        $this->frequencyPenalty = $providerConfig['default_frequency_penalty'] ?? null;
+        $this->presencePenalty = $providerConfig['default_presence_penalty'] ?? null;
+        $this->parallelToolCalls = $providerConfig['parallel_tool_calls'] ?? null;
 
         // Re-initialize the driver with new config
         $finalConfig = $this->buildConfigsFromAgent();
         $this->initDriver($finalConfig);
-    }
-
-    /**
-     * Reset all provider-specific properties to null.
-     * This allows them to be re-applied from the new provider config.
-     */
-    protected function resetProviderSpecificProperties(): void
-    {
-        foreach (self::PROVIDER_SPECIFIC_PROPERTIES as $property) {
-            $this->{$property} = null;
-        }
     }
 
     protected function setupDriverConfigs(array $providerData): void

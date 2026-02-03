@@ -142,9 +142,9 @@ return [
     'default_providers' => null,
 
     /**
-     * @deprecated Use 'default_providers' or array-based $provider property instead.
+     * @deprecated since v1.x. Will be removed in v2.0.
+     * Use 'default_providers' or array-based $provider property instead.
      * Fallback provider to use when any provider fails.
-     * This setting is deprecated and will be removed in a future version.
      * Instead, use the 'default_providers' config array or define multiple providers
      * in your agent's $provider property as an array.
      */
