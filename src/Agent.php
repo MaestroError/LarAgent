@@ -2051,7 +2051,7 @@ class Agent
                         // Non-array overrides are likely a configuration error
                         $this->logWarning(
                             "LarAgent: Non-array provider override ignored for '{$providerName}'. Expected array, got ".gettype($value).'.',
-                            ['provider' => $providerName, 'value' => $value]
+                            ['provider' => $providerName, 'value_type' => gettype($value)]
                         );
                         $overrides = [];
                     }
@@ -2145,8 +2145,8 @@ class Agent
         $current = $this->providerList[$this->currentProviderIndex];
         $providerConfig = $current['config'];
 
-        // Directly apply provider configuration - these properties are always
-        // overwritten when switching providers (matching original changeProvider behavior)
+        // Directly apply provider configuration. These properties are always
+        // overwritten when switching providers (matching original changeProvider behavior).
         $this->driver = $providerConfig['driver'] ?? config('laragent.default_driver');
         $this->providerName = $providerConfig['label'] ?? $current['name'] ?? '';
         $this->apiKey = $providerConfig['api_key'] ?? null;
