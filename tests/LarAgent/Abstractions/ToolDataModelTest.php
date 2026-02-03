@@ -333,9 +333,10 @@ describe('dataModelClass property', function () {
 
             public function execute(array $input): mixed
             {
-                // This execute() overrides the parent, so the automatic DataModel conversion
-                // from the parent class won't apply. When using callbacks, the parent's
-                // execute() method handles the conversion automatically.
+                // This execute() overrides the parent Tool::execute(), so its automatic
+                // DataModel conversion logic for callback-based tools is not used here.
+                // Class-based tools that override execute() must call convertInputToDataModel()
+                // themselves when they need a DataModel instance.
                 return $input;
             }
         };
