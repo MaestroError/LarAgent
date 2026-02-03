@@ -387,21 +387,14 @@ describe('properties array with DataModel class names', function () {
     it('registers DataModel for automatic conversion when using class name in properties', function () {
         $receivedAddress = null;
 
-        // Use Tool::create with setProperties instead of class extension for callback-based testing
+        // Use Tool::create with setProperties - no reflection needed, setProperties handles DataModel expansion
         $tool = Tool::create('create_with_address', 'Create something with an address');
 
-        // Manually set properties with DataModel class name
+        // setProperties now automatically processes DataModel class names
         $tool->setProperties([
             'name' => ['type' => 'string'],
             'address' => AddressDataModel::class,
         ]);
-
-        // Trigger the initialization that would normally happen in constructor
-        // We need to call this to process the DataModel class names
-        $reflection = new \ReflectionClass($tool);
-        $method = $reflection->getMethod('processPropertiesWithDataModels');
-        $method->setAccessible(true);
-        $method->invoke($tool);
 
         $tool->setRequired('name');
         $tool->setRequired('address');
@@ -531,12 +524,9 @@ describe('attribute-based tool integration', function () {
         });
 
         // Method 3: Using $properties with DataModel class name
+        // setProperties now automatically processes DataModel class names
         $tool3 = Tool::create('create_task', 'Create a task');
         $tool3->setProperties(['task' => TaskDataModel::class]);
-        $reflection = new \ReflectionClass($tool3);
-        $method = $reflection->getMethod('processPropertiesWithDataModels');
-        $method->setAccessible(true);
-        $method->invoke($tool3);
         $tool3->setRequired('task');
         $tool3->setCallback(function (TaskDataModel $task) use (&$propertiesResult) {
             $propertiesResult = $task;
@@ -594,5 +584,157 @@ describe('attribute-based tool integration', function () {
 
         expect($methodTool->getRootDataModelClass())
             ->toBe($propertyTool->getRootDataModelClass());
+    });
+});
+
+// Tests for edge cases and error handling
+describe('error handling and edge cases', function () {
+
+    it('throws InvalidDataModelException for invalid dataModelClass property', function () {
+        new class extends Tool
+        {
+            protected string $name = 'invalid_tool';
+
+            protected string $description = 'Tool with invalid dataModelClass';
+
+            protected ?string $dataModelClass = 'NonExistentClass';
+
+            public function execute(array $input): mixed
+            {
+                return $input;
+            }
+        };
+    })->throws(\LarAgent\Exceptions\InvalidDataModelException::class);
+
+    it('throws InvalidDataModelException for dataModelClass that does not implement DataModel', function () {
+        new class extends Tool
+        {
+            protected string $name = 'invalid_tool';
+
+            protected string $description = 'Tool with class that is not a DataModel';
+
+            protected ?string $dataModelClass = 'stdClass';
+
+            public function execute(array $input): mixed
+            {
+                return $input;
+            }
+        };
+    })->throws(\LarAgent\Exceptions\InvalidDataModelException::class);
+
+    it('clears rootDataModelClass when addProperty is called after addDataModelAsProperties', function () {
+        $tool = Tool::create('task_tool', 'Task tool')
+            ->addDataModelAsProperties(TaskDataModel::class);
+
+        expect($tool->getRootDataModelClass())->toBe(TaskDataModel::class);
+
+        $tool->addProperty('extra', 'string', 'Extra property');
+
+        expect($tool->getRootDataModelClass())->toBeNull();
+    });
+
+    it('clears rootDataModelClass when addDataModelProperty is called after addDataModelAsProperties', function () {
+        $tool = Tool::create('task_tool', 'Task tool')
+            ->addDataModelAsProperties(TaskDataModel::class);
+
+        expect($tool->getRootDataModelClass())->toBe(TaskDataModel::class);
+
+        $tool->addDataModelProperty('address', AddressDataModel::class);
+
+        expect($tool->getRootDataModelClass())->toBeNull();
+    });
+
+    it('clears rootDataModelClass when setProperties is called after addDataModelAsProperties', function () {
+        $tool = Tool::create('task_tool', 'Task tool')
+            ->addDataModelAsProperties(TaskDataModel::class);
+
+        expect($tool->getRootDataModelClass())->toBe(TaskDataModel::class);
+
+        $tool->setProperties(['name' => ['type' => 'string']]);
+
+        expect($tool->getRootDataModelClass())->toBeNull();
+    });
+
+    it('clears previous properties when addDataModelAsProperties is called multiple times', function () {
+        $tool = Tool::create('task_tool', 'Task tool')
+            ->addDataModelAsProperties(TaskDataModel::class);
+
+        expect($tool->getProperties())->toHaveKeys(['title', 'estimatedHours', 'description']);
+
+        $tool->addDataModelAsProperties(AddressDataModel::class);
+
+        expect($tool->getProperties())->toHaveKeys(['street', 'city', 'zipCode'])
+            ->and($tool->getProperties())->not->toHaveKey('title');
+        expect($tool->getRootDataModelClass())->toBe(AddressDataModel::class);
+    });
+
+    it('setProperties processes DataModel class names automatically', function () {
+        $tool = Tool::create('mixed_tool', 'Tool with mixed properties');
+
+        $tool->setProperties([
+            'name' => ['type' => 'string'],
+            'address' => AddressDataModel::class,
+        ]);
+
+        $properties = $tool->getProperties();
+
+        expect($properties['name']['type'])->toBe('string')
+            ->and($properties['address']['type'])->toBe('object')
+            ->and($properties['address']['properties'])->toHaveKeys(['street', 'city', 'zipCode']);
+    });
+});
+
+// Tests for class-based tools with convertInputToDataModel
+describe('class-based tools with convertInputToDataModel', function () {
+
+    it('provides convertInputToDataModel method for class-based tools', function () {
+        $toolClass = new class extends Tool
+        {
+            protected string $name = 'create_task';
+
+            protected string $description = 'Create a task';
+
+            protected ?string $dataModelClass = TaskDataModel::class;
+
+            public function execute(array $input): mixed
+            {
+                // Use convertInputToDataModel to get the DataModel instance
+                $task = $this->convertInputToDataModel($input);
+
+                return $task;
+            }
+        };
+
+        $result = $toolClass->execute([
+            'title' => 'Test Task',
+            'estimatedHours' => 5,
+        ]);
+
+        expect($result)->toBeInstanceOf(TaskDataModel::class)
+            ->and($result->title)->toBe('Test Task')
+            ->and($result->estimatedHours)->toBe(5);
+    });
+
+    it('convertInputToDataModel returns array when rootDataModelClass is not set', function () {
+        $toolClass = new class extends Tool
+        {
+            protected string $name = 'simple_tool';
+
+            protected string $description = 'Simple tool without DataModel';
+
+            protected array $properties = [
+                'name' => ['type' => 'string'],
+            ];
+
+            public function execute(array $input): mixed
+            {
+                return $this->convertInputToDataModel($input);
+            }
+        };
+
+        $result = $toolClass->execute(['name' => 'Test']);
+
+        expect($result)->toBeArray()
+            ->and($result['name'])->toBe('Test');
     });
 });

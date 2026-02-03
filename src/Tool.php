@@ -7,6 +7,7 @@ use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 use LarAgent\Core\Helpers\SchemaGenerator;
 use LarAgent\Core\Helpers\UnionTypeResolver;
+use LarAgent\Exceptions\InvalidDataModelException;
 
 class Tool extends AbstractTool implements ToolInterface
 {
@@ -18,7 +19,9 @@ class Tool extends AbstractTool implements ToolInterface
 
     /**
      * When set, the entire tool input is treated as a DataModel.
-     * The execute() method will receive a DataModel instance instead of an array.
+     * For callback-based tools, the callback will receive a DataModel instance.
+     * For class-based tools that override execute(), call convertInputToDataModel()
+     * to get the DataModel instance from the input array.
      */
     protected ?string $rootDataModelClass = null;
 
@@ -46,11 +49,16 @@ class Tool extends AbstractTool implements ToolInterface
      *
      * This method processes the $dataModelClass property and also checks
      * for any DataModel class names in the $properties array.
+     *
+     * @throws InvalidDataModelException if $dataModelClass is set to an invalid class
      */
     protected function initializeDataModelProperties(): void
     {
-        // If dataModelClass is set, use it to populate all properties
-        if ($this->dataModelClass !== null && is_subclass_of($this->dataModelClass, DataModelContract::class)) {
+        // If dataModelClass is set, validate and use it to populate all properties
+        if ($this->dataModelClass !== null) {
+            if (! class_exists($this->dataModelClass) || ! is_subclass_of($this->dataModelClass, DataModelContract::class)) {
+                throw InvalidDataModelException::invalidDataModelClassProperty($this->dataModelClass);
+            }
             $this->addDataModelAsProperties($this->dataModelClass);
 
             return;
@@ -58,6 +66,42 @@ class Tool extends AbstractTool implements ToolInterface
 
         // Check for DataModel class names in properties array
         $this->processPropertiesWithDataModels();
+    }
+
+    /**
+     * Override setProperties to automatically process DataModel class names.
+     *
+     * Note: If rootDataModelClass was previously set, this will clear it.
+     *
+     * @param  array  $props  Properties array, which may contain DataModel class names
+     * @return $this
+     */
+    public function setProperties(array $props): self
+    {
+        // Clear rootDataModelClass as we're replacing all properties
+        $this->rootDataModelClass = null;
+
+        parent::setProperties($props);
+        $this->processPropertiesWithDataModels();
+
+        return $this;
+    }
+
+    /**
+     * Override addProperty to clear rootDataModelClass when adding individual properties.
+     *
+     * @param  string  $name  Property name
+     * @param  string|array  $type  Property type or schema
+     * @param  string  $description  Optional description
+     * @param  array  $enum  Optional enum values
+     * @return $this
+     */
+    public function addProperty(string $name, string|array $type, string $description = '', array $enum = []): self
+    {
+        // Clear rootDataModelClass as we're adding individual properties
+        $this->rootDataModelClass = null;
+
+        return parent::addProperty($name, $type, $description, $enum);
     }
 
     /**
@@ -72,8 +116,12 @@ class Tool extends AbstractTool implements ToolInterface
         $newProperties = [];
 
         foreach ($this->properties as $key => $value) {
-            // If the value is a string and is a DataModel class name
-            if (is_string($value) && is_subclass_of($value, DataModelContract::class)) {
+            // If the value is a string, check if it's a valid DataModel class name
+            if (
+                is_string($value)
+                && class_exists($value)
+                && is_subclass_of($value, DataModelContract::class)
+            ) {
                 // Get the schema from the DataModel
                 $schema = SchemaGenerator::forDataModel($value);
                 $newProperties[$key] = $schema;
@@ -107,17 +155,27 @@ class Tool extends AbstractTool implements ToolInterface
      *
      * When using this method, the tool's input will be treated as the entire DataModel,
      * and the callback will receive a DataModel instance instead of individual parameters.
+     * For class-based tools, use convertInputToDataModel() to get the DataModel instance.
+     *
+     * Note: Calling this method clears any previously defined properties and required fields.
      *
      * @param  string|DataModelContract  $dataModelOrClass  DataModel class name or instance
      * @return $this
+     *
+     * @throws InvalidDataModelException if the class doesn't implement DataModel contract
      */
     public function addDataModelAsProperties(string|DataModelContract $dataModelOrClass): self
     {
         $className = is_object($dataModelOrClass) ? get_class($dataModelOrClass) : $dataModelOrClass;
 
-        if (! is_subclass_of($className, DataModelContract::class)) {
-            throw new \InvalidArgumentException("Class {$className} must implement DataModel contract.");
+        if (! class_exists($className) || ! is_subclass_of($className, DataModelContract::class)) {
+            throw InvalidDataModelException::notADataModel($className);
         }
+
+        // Clear any previously defined properties and required fields
+        $this->properties = [];
+        $this->required = [];
+        $this->dataModelTypes = [];
 
         // Get the schema from the DataModel
         $schema = SchemaGenerator::forDataModel($className);
@@ -131,7 +189,7 @@ class Tool extends AbstractTool implements ToolInterface
 
         // Extract required fields
         if (isset($schema['required']) && is_array($schema['required'])) {
-            $this->required = array_unique(array_merge($this->required, $schema['required']));
+            $this->required = $schema['required'];
         }
 
         // Mark this tool as using a root DataModel for input/output conversion
@@ -146,18 +204,26 @@ class Tool extends AbstractTool implements ToolInterface
      * This extracts the schema from the DataModel and registers it for automatic
      * conversion during tool execution.
      *
+     * Note: If rootDataModelClass was previously set via addDataModelAsProperties(),
+     * calling this method will clear it as it indicates mixed property usage.
+     *
      * @param  string  $key  The property name
      * @param  string|DataModelContract  $dataModelOrClass  DataModel class name or instance
      * @param  string  $description  Optional description for the property
      * @return $this
+     *
+     * @throws InvalidDataModelException if the class doesn't implement DataModel contract
      */
     public function addDataModelProperty(string $key, string|DataModelContract $dataModelOrClass, string $description = ''): self
     {
         $className = is_object($dataModelOrClass) ? get_class($dataModelOrClass) : $dataModelOrClass;
 
-        if (! is_subclass_of($className, DataModelContract::class)) {
-            throw new \InvalidArgumentException("Class {$className} must implement DataModel contract.");
+        if (! class_exists($className) || ! is_subclass_of($className, DataModelContract::class)) {
+            throw InvalidDataModelException::notADataModel($className);
         }
+
+        // Clear rootDataModelClass as we're adding individual properties
+        $this->rootDataModelClass = null;
 
         // Get the schema from the DataModel
         $schema = SchemaGenerator::forDataModel($className);
@@ -182,6 +248,24 @@ class Tool extends AbstractTool implements ToolInterface
     public function getRootDataModelClass(): ?string
     {
         return $this->rootDataModelClass;
+    }
+
+    /**
+     * Convert input array to DataModel instance if rootDataModelClass is set.
+     *
+     * This method is useful for class-based tools that override execute().
+     * Call this method to convert the raw input array to a DataModel instance.
+     *
+     * @param  array  $input  The raw input array
+     * @return DataModelContract|array Returns DataModel instance if rootDataModelClass is set, otherwise the original array
+     */
+    protected function convertInputToDataModel(array $input): DataModelContract|array
+    {
+        if ($this->rootDataModelClass !== null) {
+            return $this->rootDataModelClass::fromArray($input);
+        }
+
+        return $input;
     }
 
     public function setCallback(?callable $callback): Tool
