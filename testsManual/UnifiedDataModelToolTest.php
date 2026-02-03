@@ -340,7 +340,7 @@ function runTest(string $name, callable $test): void
         $passed++;
     } catch (Exception $e) {
         echo "  ✗ FAILED: {$e->getMessage()}\n";
-        echo "  Trace: ".str_replace("\n", "\n  ", $e->getTraceAsString())."\n\n";
+        echo '  Trace: '.str_replace("\n", "\n  ", $e->getTraceAsString())."\n\n";
         $failed++;
     }
 }

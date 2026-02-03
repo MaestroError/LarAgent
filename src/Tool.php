@@ -290,7 +290,7 @@ class Tool extends AbstractTool implements ToolInterface
      * automatically converted DataModel and Enum instances.
      *
      * @param  array  $input  Raw input array from the LLM
-     * @return mixed  Tool execution result
+     * @return mixed Tool execution result
      */
     public function execute(array $input): mixed
     {
@@ -329,7 +329,7 @@ class Tool extends AbstractTool implements ToolInterface
      * - $input is an array with individual properties converted to DataModel instances
      *
      * @param  array|DataModelContract  $input  Prepared input (DataModel instance or array with converted types)
-     * @return mixed  Tool execution result
+     * @return mixed Tool execution result
      */
     protected function handle(array|DataModelContract $input): mixed
     {
