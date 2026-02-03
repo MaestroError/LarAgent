@@ -2133,17 +2133,18 @@ class Agent
 
     /**
      * Reset provider index to primary (first) provider.
-     */
-    /**
-     * Reset provider index to primary (first) provider.
-     * Only resets the index - does not re-apply provider config since
-     * it was already applied during construction.
+     * Called at the start of respond()/respondStreamed() to ensure
+     * we always start from the first provider with correct configuration.
      */
     protected function resetToFirstProvider(): void
     {
+        // If we were on a fallback provider, we need to re-apply the first provider's config
+        $wasOnFallback = $this->currentProviderIndex > 0;
         $this->currentProviderIndex = 0;
-        // Re-apply the first provider's configuration to ensure driver is properly configured
-        $this->applyCurrentProvider();
+
+        if ($wasOnFallback) {
+            $this->applyCurrentProvider();
+        }
     }
 
     /**
@@ -2160,8 +2161,8 @@ class Agent
         $providerConfig = $current['config'];
 
         // Apply provider configuration with fallback to agent-defined defaults.
-        // Priority: provider config > agent-defined property > null
-        $this->driver = $providerConfig['driver'] ?? config('laragent.default_driver');
+        // Priority: provider config > agent-defined property > global default
+        $this->driver = $providerConfig['driver'] ?? $this->originalAgentValues['driver'] ?? config('laragent.default_driver');
         $this->providerName = $providerConfig['label'] ?? $current['name'] ?? '';
         $this->apiKey = $providerConfig['api_key'] ?? $this->originalAgentValues['apiKey'] ?? null;
         $this->apiUrl = $providerConfig['api_url'] ?? $this->originalAgentValues['apiUrl'] ?? null;
@@ -2195,6 +2196,7 @@ class Agent
         $defaults = $reflection->getDefaultProperties();
 
         $this->originalAgentValues = [
+            'driver' => $defaults['driver'] ?? null,
             'model' => $defaults['model'] ?? null,
             'apiKey' => $defaults['apiKey'] ?? null,
             'apiUrl' => $defaults['apiUrl'] ?? null,
