@@ -88,9 +88,11 @@ class Agent
      * Per-provider overrides are supported via associative entries:
      * ['default', 'gemini' => ['model' => 'gemini-2.0'], 'claude']
      *
-     * @var string|array
+     * When null, uses 'default_providers' config or falls back to 'default' provider.
+     *
+     * @var string|array|null
      */
-    protected $provider = 'default';
+    protected $provider = null;
 
     /**
      * Resolved list of provider configurations for fallback sequence.
@@ -102,6 +104,12 @@ class Agent
      * Index of the current provider in the provider list.
      */
     protected int $currentProviderIndex = 0;
+
+    /**
+     * Original agent-defined property values stored during initialization.
+     * Used as fallback when provider config doesn't specify a value.
+     */
+    protected array $originalAgentValues = [];
 
     /** @var string */
     protected $providerName = '';
@@ -530,7 +538,6 @@ class Agent
 
         $generator = (function () use ($instance, $message, $callback) {
             $lastException = null;
-            $hasYieldedChunks = false;
 
             do {
                 try {
@@ -553,7 +560,6 @@ class Agent
                     });
 
                     foreach ($stream as $chunk) {
-                        $hasYieldedChunks = true;
                         yield $chunk;
                     }
 
@@ -563,9 +569,8 @@ class Agent
                     $instance->callEvent('onEngineError', [$th]);
                     $lastException = $th;
 
-                    // Only attempt fallback if no chunks have been yielded yet
-                    // Once streaming starts, fallback would corrupt the response
-                    if (! $hasYieldedChunks && $instance->switchToNextProvider()) {
+                    // Try to switch to next provider
+                    if ($instance->switchToNextProvider()) {
                         // Re-setup agent with new provider
                         $instance->setupBeforeRespond();
                         $instance->prepareAgent($message);
@@ -573,7 +578,7 @@ class Agent
                         continue;
                     }
 
-                    // No more providers to try or streaming already started, throw the exception
+                    // No more providers to try, throw the last exception
                     throw $lastException;
                 }
             } while (true);
@@ -2048,12 +2053,11 @@ class Agent
                     if (is_array($value)) {
                         $overrides = $value;
                     } else {
-                        // Non-array overrides are likely a configuration error
-                        $this->logWarning(
-                            "LarAgent: Non-array provider override ignored for '{$providerName}'. Expected array, got ".gettype($value).'.',
-                            ['provider' => $providerName, 'value_type' => gettype($value)]
+                        // Non-array overrides are a configuration error
+                        throw new \InvalidArgumentException(
+                            "LarAgent: Provider override for '{$providerName}' must be an array, got ".gettype($value).'. '
+                            ."Example: ['{$providerName}' => ['model' => 'model-name']]"
                         );
-                        $overrides = [];
                     }
                 }
 
@@ -2134,7 +2138,7 @@ class Agent
 
     /**
      * Apply the current provider configuration from providerList.
-     * Directly overwrites driver-related properties from provider config.
+     * Provider config values take precedence, then agent-defined defaults, then null.
      */
     protected function applyCurrentProvider(): void
     {
@@ -2142,25 +2146,43 @@ class Agent
             return;
         }
 
+        // Store original agent-defined values on first call (before any provider config is applied)
+        if (empty($this->originalAgentValues)) {
+            $this->originalAgentValues = [
+                'model' => $this->model,
+                'apiKey' => $this->apiKey,
+                'apiUrl' => $this->apiUrl,
+                'maxCompletionTokens' => $this->maxCompletionTokens,
+                'truncationThreshold' => $this->truncationThreshold,
+                'storeMeta' => $this->storeMeta,
+                'temperature' => $this->temperature,
+                'n' => $this->n,
+                'topP' => $this->topP,
+                'frequencyPenalty' => $this->frequencyPenalty,
+                'presencePenalty' => $this->presencePenalty,
+                'parallelToolCalls' => $this->parallelToolCalls,
+            ];
+        }
+
         $current = $this->providerList[$this->currentProviderIndex];
         $providerConfig = $current['config'];
 
-        // Directly apply provider configuration. These properties are always
-        // overwritten when switching providers (matching original changeProvider behavior).
+        // Apply provider configuration with fallback to agent-defined defaults.
+        // Priority: provider config > agent-defined property > null
         $this->driver = $providerConfig['driver'] ?? config('laragent.default_driver');
         $this->providerName = $providerConfig['label'] ?? $current['name'] ?? '';
-        $this->apiKey = $providerConfig['api_key'] ?? null;
-        $this->apiUrl = $providerConfig['api_url'] ?? null;
-        $this->model = $providerConfig['model'] ?? null;
-        $this->maxCompletionTokens = $providerConfig['default_max_completion_tokens'] ?? null;
-        $this->truncationThreshold = $providerConfig['default_truncation_threshold'] ?? null;
-        $this->storeMeta = $providerConfig['store_meta'] ?? null;
-        $this->temperature = $providerConfig['default_temperature'] ?? null;
-        $this->n = $providerConfig['default_n'] ?? null;
-        $this->topP = $providerConfig['default_top_p'] ?? null;
-        $this->frequencyPenalty = $providerConfig['default_frequency_penalty'] ?? null;
-        $this->presencePenalty = $providerConfig['default_presence_penalty'] ?? null;
-        $this->parallelToolCalls = $providerConfig['parallel_tool_calls'] ?? null;
+        $this->apiKey = $providerConfig['api_key'] ?? $this->originalAgentValues['apiKey'] ?? null;
+        $this->apiUrl = $providerConfig['api_url'] ?? $this->originalAgentValues['apiUrl'] ?? null;
+        $this->model = $providerConfig['model'] ?? $this->originalAgentValues['model'] ?? null;
+        $this->maxCompletionTokens = $providerConfig['default_max_completion_tokens'] ?? $this->originalAgentValues['maxCompletionTokens'] ?? null;
+        $this->truncationThreshold = $providerConfig['default_truncation_threshold'] ?? $this->originalAgentValues['truncationThreshold'] ?? null;
+        $this->storeMeta = $providerConfig['store_meta'] ?? $this->originalAgentValues['storeMeta'] ?? null;
+        $this->temperature = $providerConfig['default_temperature'] ?? $this->originalAgentValues['temperature'] ?? null;
+        $this->n = $providerConfig['default_n'] ?? $this->originalAgentValues['n'] ?? null;
+        $this->topP = $providerConfig['default_top_p'] ?? $this->originalAgentValues['topP'] ?? null;
+        $this->frequencyPenalty = $providerConfig['default_frequency_penalty'] ?? $this->originalAgentValues['frequencyPenalty'] ?? null;
+        $this->presencePenalty = $providerConfig['default_presence_penalty'] ?? $this->originalAgentValues['presencePenalty'] ?? null;
+        $this->parallelToolCalls = $providerConfig['parallel_tool_calls'] ?? $this->originalAgentValues['parallelToolCalls'] ?? null;
 
         // Re-initialize the driver with new config
         $finalConfig = $this->buildConfigsFromAgent();

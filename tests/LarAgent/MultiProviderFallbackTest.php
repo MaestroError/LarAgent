@@ -47,6 +47,46 @@ class ProviderOverrideTestAgent extends Agent
 }
 
 /**
+ * Agent with agent-defined model that should be preserved when provider doesn't override.
+ */
+class AgentDefinedModelTestAgent extends Agent
+{
+    protected $model = 'agent-defined-model';
+
+    protected $history = 'in_memory';
+
+    protected $provider = [
+        'fail',
+        'success_no_model',  // This provider won't have a model defined
+    ];
+
+    public function instructions()
+    {
+        return 'Agent defined model test agent.';
+    }
+}
+
+/**
+ * Agent with invalid provider override (string instead of array).
+ */
+class InvalidOverrideTestAgent extends Agent
+{
+    protected $model = 'gpt-test';
+
+    protected $history = 'in_memory';
+
+    protected $provider = [
+        'default',
+        'success' => 'invalid-string-override',  // Invalid: should be array
+    ];
+
+    public function instructions()
+    {
+        return 'Invalid override test agent.';
+    }
+}
+
+/**
  * Agent with all failing providers.
  */
 class AllFailingProvidersAgent extends Agent
@@ -154,6 +194,15 @@ beforeEach(function () {
             'driver' => PreloadedFakeLlmDriver::class,
             'model' => 'gpt-success',
             'api_key' => 'success',
+            'default_truncation_threshold' => 10,
+            'default_max_completion_tokens' => 10,
+            'default_temperature' => 1,
+        ],
+        'success_no_model' => [
+            'label' => 'success_no_model',
+            'driver' => PreloadedFakeLlmDriver::class,
+            // Note: no 'model' defined - agent default should be used
+            'api_key' => 'success-no-model',
             'default_truncation_threshold' => 10,
             'default_max_completion_tokens' => 10,
             'default_temperature' => 1,
@@ -327,3 +376,22 @@ it('returns correct provider name after fallback', function () {
     expect($agent->getActiveProviderName())->toBe('success');
     expect($agent->getProviderName())->toBe('success');
 });
+
+// ==================== Agent Defaults Preservation Tests ====================
+
+it('preserves agent-defined model when provider does not override', function () {
+    $agent = new AgentDefinedModelTestAgent('test_key');
+
+    // After fallback to success_no_model provider (which doesn't define model),
+    // agent's default model should be preserved
+    $response = $agent->respond('Hello');
+
+    expect($response)->toBe('fallback response');
+    expect($agent->model())->toBe('agent-defined-model');
+});
+
+// ==================== Invalid Configuration Tests ====================
+
+it('throws exception for non-array provider override', function () {
+    new InvalidOverrideTestAgent('test_key');
+})->throws(\InvalidArgumentException::class, "Provider override for 'success' must be an array");
