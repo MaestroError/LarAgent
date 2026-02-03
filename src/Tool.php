@@ -172,7 +172,7 @@ class Tool extends AbstractTool implements ToolInterface
             throw InvalidDataModelException::notADataModel($className);
         }
 
-        // Clear any previously defined properties and required fields
+        // Clear any previously defined properties, required fields, and dataModel types
         $this->properties = [];
         $this->required = [];
         $this->dataModelTypes = [];
