@@ -476,3 +476,117 @@ describe('properties array with DataModel class names', function () {
             ->and($properties['address']['properties'])->toHaveKeys(['street', 'city', 'zipCode']);
     });
 });
+
+// Tests for attribute-based tool integration
+describe('attribute-based tool integration', function () {
+
+    it('attribute-based and manual tool creation produce equivalent schema for DataModel', function () {
+        // Create tool manually using addDataModelProperty
+        $manualTool = Tool::create('create_task', 'Create a task')
+            ->addDataModelProperty('task', TaskDataModel::class, 'The task data')
+            ->setRequired('task');
+
+        // Simulate what attribute-based tool building does
+        $attributeTool = Tool::create('create_task', 'Create a task');
+        $schema = \LarAgent\Core\Helpers\SchemaGenerator::forDataModel(TaskDataModel::class);
+        $attributeTool->addProperty('task', $schema, 'The task data');
+        $attributeTool->addDataModelType('task', TaskDataModel::class);
+        $attributeTool->setRequired('task');
+
+        // Both should produce equivalent schemas
+        expect($manualTool->getProperties()['task'])
+            ->toEqual($attributeTool->getProperties()['task']);
+    });
+
+    it('different tool creation methods produce same execution result', function () {
+        $manualResult = null;
+        $attributeResult = null;
+        $propertiesResult = null;
+
+        // Method 1: Using addDataModelProperty
+        $manualTool = Tool::create('create_task', 'Create a task')
+            ->addDataModelProperty('task', TaskDataModel::class)
+            ->setRequired('task')
+            ->setCallback(function (TaskDataModel $task) use (&$manualResult) {
+                $manualResult = $task;
+
+                return $task->title;
+            });
+
+        // Method 2: Simulating attribute-based tool building
+        $attributeTool = Tool::create('create_task', 'Create a task');
+        $schema = \LarAgent\Core\Helpers\SchemaGenerator::forDataModel(TaskDataModel::class);
+        $attributeTool->addProperty('task', $schema);
+        $attributeTool->addDataModelType('task', TaskDataModel::class);
+        $attributeTool->setRequired('task');
+        $attributeTool->setCallback(function (TaskDataModel $task) use (&$attributeResult) {
+            $attributeResult = $task;
+
+            return $task->title;
+        });
+
+        // Method 3: Using $properties with DataModel class name
+        $tool3 = Tool::create('create_task', 'Create a task');
+        $tool3->setProperties(['task' => TaskDataModel::class]);
+        $reflection = new \ReflectionClass($tool3);
+        $method = $reflection->getMethod('processPropertiesWithDataModels');
+        $method->setAccessible(true);
+        $method->invoke($tool3);
+        $tool3->setRequired('task');
+        $tool3->setCallback(function (TaskDataModel $task) use (&$propertiesResult) {
+            $propertiesResult = $task;
+
+            return $task->title;
+        });
+
+        $input = ['task' => ['title' => 'Test Task', 'estimatedHours' => 5]];
+
+        $result1 = $manualTool->execute($input);
+        $result2 = $attributeTool->execute($input);
+        $result3 = $tool3->execute($input);
+
+        // All should return the same result
+        expect($result1)->toBe('Test Task')
+            ->and($result2)->toBe('Test Task')
+            ->and($result3)->toBe('Test Task');
+
+        // All should receive DataModel instances
+        expect($manualResult)->toBeInstanceOf(TaskDataModel::class)
+            ->and($attributeResult)->toBeInstanceOf(TaskDataModel::class)
+            ->and($propertiesResult)->toBeInstanceOf(TaskDataModel::class);
+
+        // All instances should have same data
+        expect($manualResult->title)->toBe('Test Task')
+            ->and($attributeResult->title)->toBe('Test Task')
+            ->and($propertiesResult->title)->toBe('Test Task');
+    });
+
+    it('addDataModelAsProperties produces same schema as dataModelClass property', function () {
+        // Method 1: Using addDataModelAsProperties
+        $methodTool = Tool::create('create_task', 'Create a task')
+            ->addDataModelAsProperties(TaskDataModel::class);
+
+        // Method 2: Using $dataModelClass property
+        $propertyTool = new class extends Tool {
+            protected string $name = 'create_task';
+
+            protected string $description = 'Create a task';
+
+            protected ?string $dataModelClass = TaskDataModel::class;
+
+            public function execute(array $input): mixed
+            {
+                return $input;
+            }
+        };
+
+        expect($methodTool->getProperties())
+            ->toEqual($propertyTool->getProperties());
+
+        expect($methodTool->getRequired())
+            ->toEqual($propertyTool->getRequired());
+
+        expect($methodTool->getRootDataModelClass())
+            ->toBe($propertyTool->getRootDataModelClass());
+    });
+});
