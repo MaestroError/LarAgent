@@ -95,15 +95,11 @@ class Agent
     /**
      * Resolved list of provider configurations for fallback sequence.
      * Each entry contains: ['name' => string, 'config' => array]
-     *
-     * @var array
      */
     protected array $providerList = [];
 
     /**
      * Index of the current provider in the provider list.
-     *
-     * @var int
      */
     protected int $currentProviderIndex = 0;
 
@@ -1969,8 +1965,6 @@ class Agent
 
     /**
      * Get the current provider name (string identifier).
-     *
-     * @return string
      */
     protected function getCurrentProviderName(): string
     {
@@ -2056,6 +2050,7 @@ class Agent
                 'LarAgent: No valid providers found. Please configure at least one provider in "laragent.providers" or "laragent.default_providers".'
             );
         }
+
         return $providerList;
     }
 
@@ -2071,8 +2066,6 @@ class Agent
 
     /**
      * Get the currently active provider name.
-     *
-     * @return string
      */
     public function getActiveProviderName(): string
     {
@@ -2081,8 +2074,6 @@ class Agent
 
     /**
      * Check if there is a next provider available for fallback.
-     *
-     * @return bool
      */
     protected function hasNextProvider(): bool
     {
