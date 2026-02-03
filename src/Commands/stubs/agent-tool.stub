@@ -2,6 +2,7 @@
 
 namespace App\AgentTools;
 
+use LarAgent\Core\Contracts\DataModel;
 use LarAgent\Tool;
 
 class {{ class }} extends Tool
@@ -21,7 +22,7 @@ class {{ class }} extends Tool
 
     protected array $metaData = [];
 
-    public function execute(array $input): mixed
+    protected function handle(array|DataModel $input): mixed
     {
         // Implement your tool logic here
         return 'Result';

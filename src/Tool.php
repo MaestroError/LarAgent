@@ -280,12 +280,20 @@ class Tool extends AbstractTool implements ToolInterface
         return $this->callback;
     }
 
+    /**
+     * Execute the tool with the given input.
+     *
+     * This method validates required parameters, converts special types (DataModel, Enum),
+     * and delegates to handle() for the actual tool logic.
+     *
+     * For class-based tools, override handle() instead of execute() to receive
+     * automatically converted DataModel and Enum instances.
+     *
+     * @param  array  $input  Raw input array from the LLM
+     * @return mixed  Tool execution result
+     */
     public function execute(array $input): mixed
     {
-        if ($this->callback === null) {
-            throw new \BadMethodCallException('No callback defined for execution.');
-        }
-
         // Validate required parameters
         foreach ($this->required as $param) {
             if (! array_key_exists($param, $input)) {
@@ -294,18 +302,48 @@ class Tool extends AbstractTool implements ToolInterface
             }
         }
 
-        // If this tool uses a root DataModel, convert the entire input to a DataModel instance
+        // If this tool uses a root DataModel, convert entire input to DataModel instance
         if ($this->rootDataModelClass !== null) {
             $dataModelInstance = $this->rootDataModelClass::fromArray($input);
 
-            return call_user_func($this->callback, $dataModelInstance);
+            return $this->handle($dataModelInstance);
         }
 
         // Convert enum string values to actual enum instances and DataModel arrays to instances
         $convertedInput = $this->convertSpecialTypes($input);
 
-        // Execute the callback with input
-        return call_user_func($this->callback, ...$convertedInput);
+        // Delegate to handle() for the actual tool logic
+        return $this->handle($convertedInput);
+    }
+
+    /**
+     * Handle the tool execution with prepared input.
+     *
+     * Override this method in class-based tools to receive automatically converted
+     * DataModel and Enum instances.
+     *
+     * When using $dataModelClass or addDataModelAsProperties():
+     * - $input is a DataModel instance (the entire input as one object)
+     *
+     * When using $properties with DataModel classes or addDataModelProperty():
+     * - $input is an array with individual properties converted to DataModel instances
+     *
+     * @param  array|DataModelContract  $input  Prepared input (DataModel instance or array with converted types)
+     * @return mixed  Tool execution result
+     */
+    protected function handle(array|DataModelContract $input): mixed
+    {
+        if ($this->callback === null) {
+            throw new \BadMethodCallException('No callback defined for execution. Override handle() method or set a callback.');
+        }
+
+        // If input is a DataModel instance (rootDataModelClass was set), pass it directly
+        if ($input instanceof DataModelContract) {
+            return call_user_func($this->callback, $input);
+        }
+
+        // Execute the callback with converted input array
+        return call_user_func($this->callback, ...$input);
     }
 
     public static function create(string $name, string $description): Tool

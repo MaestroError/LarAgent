@@ -21,6 +21,7 @@ require_once __DIR__.'/../vendor/autoload.php';
 use LarAgent\Agent;
 use LarAgent\Attributes\Desc;
 use LarAgent\Core\Abstractions\DataModel;
+use LarAgent\Core\Contracts\DataModel as DataModelContract;
 use LarAgent\Exceptions\InvalidDataModelException;
 use LarAgent\Tool;
 
@@ -113,22 +114,17 @@ class CreateTaskTool extends Tool
 
     protected ?string $dataModelClass = TaskDataModel::class;
 
-    public function execute(array $input): mixed
+    protected function handle(array|DataModelContract $input): mixed
     {
-        // Class-based tools should use convertInputToDataModel() to get the DataModel instance
-        $task = $this->convertInputToDataModel($input);
-
-        if ($task instanceof TaskDataModel) {
-            $result = "Task '{$task->title}' created with {$task->estimatedHours} hours estimate.";
-            if ($task->description) {
-                $result .= " Description: {$task->description}";
-            }
-
-            return $result;
+        // With $dataModelClass, the entire input is automatically converted to a DataModel instance
+        /** @var TaskDataModel $task */
+        $task = $input;
+        $result = "Task '{$task->title}' created with {$task->estimatedHours} hours estimate.";
+        if ($task->description) {
+            $result .= " Description: {$task->description}";
         }
 
-        // Fallback for array (backward compatibility)
-        return "Task '{$input['title']}' created.";
+        return $result;
     }
 }
 
@@ -150,17 +146,14 @@ class ScheduleMeetingTool extends Tool
 
     protected array $required = ['meetingTitle', 'attendee', 'location'];
 
-    public function execute(array $input): mixed
+    protected function handle(array|DataModelContract $input): mixed
     {
+        // DataModel properties are automatically converted!
         $title = $input['meetingTitle'];
-        $attendee = $input['attendee'];
-        $location = $input['location'];
+        $attendee = $input['attendee'];  // PersonDataModel instance
+        $location = $input['location'];  // AddressDataModel instance
 
-        // These should be automatically converted to DataModel instances
-        $attendeeName = $attendee instanceof PersonDataModel ? $attendee->name : $attendee['name'];
-        $locationCity = $location instanceof AddressDataModel ? $location->city : $location['city'];
-
-        return "Meeting '{$title}' scheduled with {$attendeeName} at {$locationCity}";
+        return "Meeting '{$title}' scheduled with {$attendee->name} at {$location->city}";
     }
 }
 
@@ -181,7 +174,7 @@ class TraditionalTool extends Tool
 
     protected array $required = ['location'];
 
-    public function execute(array $input): mixed
+    protected function handle(array|DataModelContract $input): mixed
     {
         $location = $input['location'];
         $unit = $input['unit'] ?? 'celsius';
@@ -541,6 +534,24 @@ runTest('7. Class-based tool with $properties array containing DataModel class e
     }
     if (! isset($properties['location']['properties']['city'])) {
         throw new Exception('location should have nested city property');
+    }
+});
+
+runTest('7b. Class-based tool with handle() auto-converts DataModel properties', function () {
+    $tool = new ScheduleMeetingTool;
+
+    $result = $tool->execute([
+        'meetingTitle' => 'Team Sync',
+        'attendee' => ['name' => 'John', 'age' => 30],
+        'location' => ['street' => '123 Main St', 'city' => 'Boston'],
+    ]);
+
+    // handle() receives automatically converted DataModel instances
+    if (strpos($result, 'John') === false) {
+        throw new Exception('Result should contain attendee name');
+    }
+    if (strpos($result, 'Boston') === false) {
+        throw new Exception('Result should contain location city');
     }
 });
 
