@@ -317,3 +317,162 @@ describe('backward compatibility', function () {
             ->and($receivedTask->title)->toBe('Test Task');
     });
 });
+
+// Tests for $dataModelClass property pattern
+describe('dataModelClass property', function () {
+
+    it('automatically populates properties from dataModelClass in class-based tool', function () {
+        // Create an anonymous class that extends Tool with $dataModelClass set
+        $toolClass = new class extends Tool {
+            protected string $name = 'create_task';
+
+            protected string $description = 'Create a task';
+
+            protected ?string $dataModelClass = TaskDataModel::class;
+
+            public function execute(array $input): mixed
+            {
+                // When rootDataModelClass is set, we receive a DataModel instance
+                // but for class-based tools without callback, we just return the input
+                return $input;
+            }
+        };
+
+        expect($toolClass->getProperties())
+            ->toHaveKeys(['title', 'estimatedHours', 'description'])
+            ->and($toolClass->getProperties()['title']['type'])->toBe('string')
+            ->and($toolClass->getProperties()['estimatedHours']['type'])->toBe('integer');
+
+        expect($toolClass->getRequired())
+            ->toContain('title')
+            ->and($toolClass->getRequired())->toContain('estimatedHours');
+
+        expect($toolClass->getRootDataModelClass())->toBe(TaskDataModel::class);
+    });
+});
+
+// Tests for $properties with DataModel class names pattern
+describe('properties array with DataModel class names', function () {
+
+    it('expands DataModel class name in properties array', function () {
+        $toolClass = new class extends Tool {
+            protected string $name = 'create_with_address';
+
+            protected string $description = 'Create something with an address';
+
+            protected array $properties = [
+                'name' => ['type' => 'string', 'description' => 'The name'],
+                'address' => AddressDataModel::class,
+            ];
+
+            protected array $required = ['name', 'address'];
+
+            public function execute(array $input): mixed
+            {
+                return $input;
+            }
+        };
+
+        $properties = $toolClass->getProperties();
+
+        expect($properties)->toHaveKeys(['name', 'address'])
+            ->and($properties['name']['type'])->toBe('string')
+            ->and($properties['address']['type'])->toBe('object')
+            ->and($properties['address']['properties'])->toHaveKeys(['street', 'city', 'zipCode']);
+    });
+
+    it('registers DataModel for automatic conversion when using class name in properties', function () {
+        $receivedAddress = null;
+
+        // Use Tool::create with setProperties instead of class extension for callback-based testing
+        $tool = Tool::create('create_with_address', 'Create something with an address');
+
+        // Manually set properties with DataModel class name
+        $tool->setProperties([
+            'name' => ['type' => 'string'],
+            'address' => AddressDataModel::class,
+        ]);
+
+        // Trigger the initialization that would normally happen in constructor
+        // We need to call this to process the DataModel class names
+        $reflection = new \ReflectionClass($tool);
+        $method = $reflection->getMethod('processPropertiesWithDataModels');
+        $method->setAccessible(true);
+        $method->invoke($tool);
+
+        $tool->setRequired('name');
+        $tool->setRequired('address');
+
+        // Set up a callback to test conversion
+        $tool->setCallback(function (string $name, AddressDataModel $address) use (&$receivedAddress) {
+            $receivedAddress = $address;
+
+            return "Created {$name}";
+        });
+
+        $tool->execute([
+            'name' => 'Test',
+            'address' => [
+                'street' => '123 Main St',
+                'city' => 'Boston',
+            ],
+        ]);
+
+        expect($receivedAddress)->toBeInstanceOf(AddressDataModel::class)
+            ->and($receivedAddress->city)->toBe('Boston');
+    });
+
+    it('supports multiple DataModel class names in properties array', function () {
+        $toolClass = new class extends Tool {
+            protected string $name = 'create_meeting';
+
+            protected string $description = 'Create a meeting';
+
+            protected array $properties = [
+                'organizer' => PersonDataModel::class,
+                'location' => AddressDataModel::class,
+            ];
+
+            protected array $required = ['organizer', 'location'];
+
+            public function execute(array $input): mixed
+            {
+                return $input;
+            }
+        };
+
+        $properties = $toolClass->getProperties();
+
+        expect($properties['organizer']['type'])->toBe('object')
+            ->and($properties['organizer']['properties'])->toHaveKeys(['name', 'age'])
+            ->and($properties['location']['type'])->toBe('object')
+            ->and($properties['location']['properties'])->toHaveKeys(['street', 'city', 'zipCode']);
+    });
+
+    it('mixes DataModel class names with regular property definitions', function () {
+        $toolClass = new class extends Tool {
+            protected string $name = 'mixed_tool';
+
+            protected string $description = 'Tool with mixed property types';
+
+            protected array $properties = [
+                'title' => ['type' => 'string', 'description' => 'The title'],
+                'priority' => ['type' => 'string', 'enum' => ['low', 'medium', 'high']],
+                'address' => AddressDataModel::class,
+            ];
+
+            public function execute(array $input): mixed
+            {
+                return $input;
+            }
+        };
+
+        $properties = $toolClass->getProperties();
+
+        expect($properties['title']['type'])->toBe('string')
+            ->and($properties['title']['description'])->toBe('The title')
+            ->and($properties['priority']['enum'])->toEqual(['low', 'medium', 'high'])
+            ->and($properties['address']['type'])->toBe('object')
+            ->and($properties['address']['properties'])->toHaveKeys(['street', 'city', 'zipCode']);
+    });
+});

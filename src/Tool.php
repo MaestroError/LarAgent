@@ -22,11 +22,70 @@ class Tool extends AbstractTool implements ToolInterface
      */
     protected ?string $rootDataModelClass = null;
 
+    /**
+     * Optional DataModel class to use as the schema source for all properties.
+     * Set this in child classes to automatically populate properties from a DataModel.
+     *
+     * Example:
+     *   protected ?string $dataModelClass = TaskDataModel::class;
+     */
+    protected ?string $dataModelClass = null;
+
     public function __construct(?string $name = null, ?string $description = null)
     {
         $this->name = $name ?? $this->name;
         $this->description = $description ?? $this->description;
         parent::__construct($this->name, $this->description);
+
+        // Process dataModelClass if set on the child class
+        $this->initializeDataModelProperties();
+    }
+
+    /**
+     * Initialize properties from dataModelClass if set.
+     *
+     * This method processes the $dataModelClass property and also checks
+     * for any DataModel class names in the $properties array.
+     */
+    protected function initializeDataModelProperties(): void
+    {
+        // If dataModelClass is set, use it to populate all properties
+        if ($this->dataModelClass !== null && is_subclass_of($this->dataModelClass, DataModelContract::class)) {
+            $this->addDataModelAsProperties($this->dataModelClass);
+
+            return;
+        }
+
+        // Check for DataModel class names in properties array
+        $this->processPropertiesWithDataModels();
+    }
+
+    /**
+     * Process properties array to detect and expand DataModel class names.
+     *
+     * This allows patterns like:
+     *   $properties = ['task' => TaskDataModel::class]
+     *   $properties = ['task' => TaskDataModel::class, 'name' => ['type' => 'string']]
+     */
+    protected function processPropertiesWithDataModels(): void
+    {
+        $newProperties = [];
+
+        foreach ($this->properties as $key => $value) {
+            // If the value is a string and is a DataModel class name
+            if (is_string($value) && is_subclass_of($value, DataModelContract::class)) {
+                // Get the schema from the DataModel
+                $schema = SchemaGenerator::forDataModel($value);
+                $newProperties[$key] = $schema;
+
+                // Register for automatic conversion
+                $this->dataModelTypes[$key] = $value;
+            } else {
+                $newProperties[$key] = $value;
+            }
+        }
+
+        $this->properties = $newProperties;
     }
 
     public function addDataModelType(string $paramName, string|array $dataModelClass): self
