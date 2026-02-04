@@ -39,7 +39,7 @@ test('it can create an agent tool', function () {
         ->toContain('namespace App\AgentTools')
         ->toContain('class TestTool extends Tool')
         ->toContain('protected string $name = \'test_tool\'')
-        ->toContain('public function execute(array $input): mixed');
+        ->toContain('protected function handle(array|DataModel $input): mixed');
 });
 
 test('it creates the AgentTools directory if it doesn\'t exist', function () {
