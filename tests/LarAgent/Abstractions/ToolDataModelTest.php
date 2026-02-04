@@ -141,6 +141,70 @@ describe('addDataModelAsProperties', function () {
     });
 });
 
+// Tests for addProperty with DataModel class
+describe('addProperty with DataModel class', function () {
+
+    it('adds DataModel property via addProperty method', function () {
+        $tool = Tool::create('create_task', 'Create a task with address')
+            ->addProperty('name', 'string', 'Task name')
+            ->addProperty('address', AddressDataModel::class);
+
+        $properties = $tool->getProperties();
+
+        expect($properties)->toHaveKeys(['name', 'address'])
+            ->and($properties['name']['type'])->toBe('string')
+            ->and($properties['address']['type'])->toBe('object')
+            ->and($properties['address']['properties'])->toHaveKeys(['street', 'city', 'zipCode']);
+    });
+
+    it('adds DataModel property with description via addProperty', function () {
+        $tool = Tool::create('create_task', 'Create a task')
+            ->addProperty('address', AddressDataModel::class, 'The delivery address');
+
+        $properties = $tool->getProperties();
+
+        expect($properties['address']['description'])->toBe('The delivery address')
+            ->and($properties['address']['type'])->toBe('object')
+            ->and($properties['address']['properties'])->toHaveKeys(['street', 'city', 'zipCode']);
+    });
+
+    it('registers DataModel for automatic conversion via addProperty', function () {
+        $receivedAddress = null;
+
+        $tool = Tool::create('create_task', 'Create a task with address')
+            ->addProperty('name', 'string', 'Task name')
+            ->addProperty('address', AddressDataModel::class, 'The address')
+            ->setRequired('name')
+            ->setRequired('address')
+            ->setCallback(function (string $name, AddressDataModel $address) use (&$receivedAddress) {
+                $receivedAddress = $address;
+
+                return "Created: {$name} at {$address->city}";
+            });
+
+        $result = $tool->execute([
+            'name' => 'My Task',
+            'address' => [
+                'street' => '123 Main St',
+                'city' => 'New York',
+                'zipCode' => '10001',
+            ],
+        ]);
+
+        expect($receivedAddress)->toBeInstanceOf(AddressDataModel::class)
+            ->and($receivedAddress->street)->toBe('123 Main St')
+            ->and($receivedAddress->city)->toBe('New York')
+            ->and($result)->toBe('Created: My Task at New York');
+    });
+
+    it('does not set root DataModel class via addProperty', function () {
+        $tool = Tool::create('create_task', 'Create a task')
+            ->addProperty('address', AddressDataModel::class);
+
+        expect($tool->getRootDataModelClass())->toBeNull();
+    });
+});
+
 // Tests for addDataModelProperty
 describe('addDataModelProperty', function () {
 

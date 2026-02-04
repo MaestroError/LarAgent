@@ -88,10 +88,11 @@ class Tool extends AbstractTool implements ToolInterface
     }
 
     /**
-     * Override addProperty to clear rootDataModelClass when adding individual properties.
+     * Override addProperty to clear rootDataModelClass when adding individual properties
+     * and to detect DataModel class names.
      *
      * @param  string  $name  Property name
-     * @param  string|array  $type  Property type or schema
+     * @param  string|array  $type  Property type, schema, or DataModel class name
      * @param  string  $description  Optional description
      * @param  array  $enum  Optional enum values
      * @return $this
@@ -100,6 +101,11 @@ class Tool extends AbstractTool implements ToolInterface
     {
         // Clear rootDataModelClass as we're adding individual properties
         $this->rootDataModelClass = null;
+
+        // Check if type is a DataModel class name
+        if (is_string($type) && $this->isDataModelClass($type)) {
+            return $this->addDataModelProperty($name, $type, $description);
+        }
 
         return parent::addProperty($name, $type, $description, $enum);
     }
@@ -117,11 +123,7 @@ class Tool extends AbstractTool implements ToolInterface
 
         foreach ($this->properties as $key => $value) {
             // If the value is a string, check if it's a valid DataModel class name
-            if (
-                is_string($value)
-                && class_exists($value)
-                && is_subclass_of($value, DataModelContract::class)
-            ) {
+            if (is_string($value) && $this->isDataModelClass($value)) {
                 // Get the schema from the DataModel
                 $schema = SchemaGenerator::forDataModel($value);
                 $newProperties[$key] = $schema;
@@ -156,6 +158,17 @@ class Tool extends AbstractTool implements ToolInterface
         }
 
         return $className;
+    }
+
+    /**
+     * Check if a string is a valid DataModel class name.
+     *
+     * @param  string  $className  The class name to check
+     * @return bool True if the class exists and implements DataModel contract
+     */
+    protected function isDataModelClass(string $className): bool
+    {
+        return class_exists($className) && is_subclass_of($className, DataModelContract::class);
     }
 
     public function addDataModelType(string $paramName, string|array $dataModelClass): self
