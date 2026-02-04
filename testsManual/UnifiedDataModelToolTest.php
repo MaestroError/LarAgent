@@ -497,7 +497,7 @@ runTest('5. Class-based tool with $dataModelClass generates correct schema', fun
     }
 });
 
-runTest('6. Class-based tool with $dataModelClass converts input via convertInputToDataModel', function () {
+runTest('6. Class-based tool with $dataModelClass converts input', function () {
     $tool = new CreateTaskTool;
 
     $result = $tool->execute([
@@ -506,7 +506,7 @@ runTest('6. Class-based tool with $dataModelClass converts input via convertInpu
         'description' => 'Critical fix needed',
     ]);
 
-    // CreateTaskTool calls convertInputToDataModel() and uses the DataModel
+    // CreateTaskTool uses the DataModel
     if (strpos($result, 'Fix Bug') === false) {
         throw new Exception('Result should contain task title');
     }

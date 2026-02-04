@@ -20,8 +20,7 @@ class Tool extends AbstractTool implements ToolInterface
     /**
      * When set, the entire tool input is treated as a DataModel.
      * For callback-based tools, the callback will receive a DataModel instance.
-     * For class-based tools that override execute(), call convertInputToDataModel()
-     * to get the DataModel instance from the input array.
+     * For class-based tools that override handle(), will receive a DataModel instance.
      */
     protected ?string $rootDataModelClass = null;
 
@@ -56,9 +55,10 @@ class Tool extends AbstractTool implements ToolInterface
     {
         // If dataModelClass is set, validate and use it to populate all properties
         if ($this->dataModelClass !== null) {
-            if (! class_exists($this->dataModelClass) || ! is_subclass_of($this->dataModelClass, DataModelContract::class)) {
-                throw InvalidDataModelException::invalidDataModelClassProperty($this->dataModelClass);
-            }
+            $this->validateDataModelClass(
+                $this->dataModelClass,
+                fn ($class) => InvalidDataModelException::invalidDataModelClassProperty($class)
+            );
             $this->addDataModelAsProperties($this->dataModelClass);
 
             return;
@@ -136,6 +136,28 @@ class Tool extends AbstractTool implements ToolInterface
         $this->properties = $newProperties;
     }
 
+    /**
+     * Validate that a class implements the DataModel contract.
+     *
+     * @param  string|DataModelContract  $dataModelOrClass  DataModel class name or instance
+     * @param  callable|null  $exceptionFactory  Optional custom exception factory
+     * @return string The validated class name
+     *
+     * @throws InvalidDataModelException if the class doesn't implement DataModel contract
+     */
+    protected function validateDataModelClass(string|DataModelContract $dataModelOrClass, ?callable $exceptionFactory = null): string
+    {
+        $className = is_object($dataModelOrClass) ? get_class($dataModelOrClass) : $dataModelOrClass;
+
+        if (! class_exists($className) || ! is_subclass_of($className, DataModelContract::class)) {
+            throw $exceptionFactory
+                ? $exceptionFactory($className)
+                : InvalidDataModelException::notADataModel($className);
+        }
+
+        return $className;
+    }
+
     public function addDataModelType(string $paramName, string|array $dataModelClass): self
     {
         $this->dataModelTypes[$paramName] = $dataModelClass;
@@ -155,7 +177,7 @@ class Tool extends AbstractTool implements ToolInterface
      *
      * When using this method, the tool's input will be treated as the entire DataModel,
      * and the callback will receive a DataModel instance instead of individual parameters.
-     * For class-based tools, use convertInputToDataModel() to get the DataModel instance.
+     * For class-based tools, use handle() method to get the DataModel instance.
      *
      * Note: Calling this method clears any previously defined properties and required fields.
      *
@@ -166,11 +188,7 @@ class Tool extends AbstractTool implements ToolInterface
      */
     public function addDataModelAsProperties(string|DataModelContract $dataModelOrClass): self
     {
-        $className = is_object($dataModelOrClass) ? get_class($dataModelOrClass) : $dataModelOrClass;
-
-        if (! class_exists($className) || ! is_subclass_of($className, DataModelContract::class)) {
-            throw InvalidDataModelException::notADataModel($className);
-        }
+        $className = $this->validateDataModelClass($dataModelOrClass);
 
         // Clear any previously defined properties, required fields, and dataModel types
         $this->properties = [];
@@ -216,11 +234,7 @@ class Tool extends AbstractTool implements ToolInterface
      */
     public function addDataModelProperty(string $key, string|DataModelContract $dataModelOrClass, string $description = ''): self
     {
-        $className = is_object($dataModelOrClass) ? get_class($dataModelOrClass) : $dataModelOrClass;
-
-        if (! class_exists($className) || ! is_subclass_of($className, DataModelContract::class)) {
-            throw InvalidDataModelException::notADataModel($className);
-        }
+        $className = $this->validateDataModelClass($dataModelOrClass);
 
         // Clear rootDataModelClass as we're adding individual properties
         $this->rootDataModelClass = null;
