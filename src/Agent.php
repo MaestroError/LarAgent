@@ -1983,6 +1983,7 @@ class Agent
                 'driver' => $this->driver,
             ],
             driverConfig: $driverConfigs,
+            sessionId: $this->getSessionId(),
         );
     }
 
