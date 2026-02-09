@@ -149,6 +149,64 @@ it('includes agent DTO in all events', function () {
     }
 });
 
+it('includes sessionId in AgentDTO for all events', function () {
+    Event::fake();
+
+    $sessionKey = 'user-session-123';
+    $agent = EventTestAgent::for($sessionKey);
+    $agent->respond('test message');
+
+    $eventClasses = [
+        AgentInitialized::class,
+        ConversationStarted::class,
+        BeforeSend::class,
+        AfterSend::class,
+        BeforeResponse::class,
+        AfterResponse::class,
+        BeforeToolExecution::class,
+        ConversationEnded::class,
+    ];
+
+    // Go through each event class and verify sessionId is present
+    foreach ($eventClasses as $eventClass) {
+        $dispatchedEvents = Event::dispatched($eventClass);
+
+        foreach ($dispatchedEvents as $eventInstance) {
+            expect($eventInstance[0]->agentDto)->not->toBeNull()
+                ->and($eventInstance[0]->agentDto)->toHaveProperty('sessionId')
+                ->and($eventInstance[0]->agentDto->sessionId)->not->toBeNull()
+                ->and($eventInstance[0]->agentDto->sessionId)->toBeString()
+                ->and($eventInstance[0]->agentDto->sessionId)->toContain($sessionKey);
+        }
+    }
+});
+
+it('can correlate events using sessionId from AgentDTO', function () {
+    Event::fake();
+
+    // Create two agents with different session keys
+    $agent1 = EventTestAgent::for('session-alpha');
+    $agent2 = EventTestAgent::for('session-beta');
+
+    $agent1->respond('message for agent 1');
+    $agent2->respond('message for agent 2');
+
+    // Collect all ConversationStarted events
+    $conversationStartedEvents = Event::dispatched(ConversationStarted::class);
+
+    // We should have 2 events with different sessionIds
+    expect($conversationStartedEvents)->toHaveCount(2);
+
+    $sessionIds = $conversationStartedEvents->map(
+        fn ($event) => $event[0]->agentDto->sessionId
+    )->toArray();
+
+    // The session IDs should be unique and contain the respective session keys
+    expect($sessionIds[0])->not->toBe($sessionIds[1])
+        ->and($sessionIds[0])->toContain('session-alpha')
+        ->and($sessionIds[1])->toContain('session-beta');
+});
+
 it('dispatches ToolChanged event when tools are added or removed', function () {
     Event::fake();
 
