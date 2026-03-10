@@ -274,7 +274,8 @@ class GeminiDriver extends LlmDriver
             }
 
             // If we have tool calls, return a ToolCallMessage
-            if (! empty($toolCallsSummary) && ($finishReason !== 'stop' || $finishReason === null)) {
+            // Note: Gemini uses 'STOP' as finishReason even for tool calls, so detect by content only
+            if (! empty($toolCallsSummary)) {
                 $toolCallObjects = array_values($toolCallsSummary);
 
                 $toolCallMessage = new ToolCallMessage($toolCallObjects);
