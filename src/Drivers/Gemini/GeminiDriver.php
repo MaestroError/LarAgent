@@ -6,6 +6,7 @@ use Generator;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\RequestException;
 use LarAgent\Core\Abstractions\LlmDriver;
+use LarAgent\Core\Contracts\InterruptableDriver;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
@@ -14,7 +15,7 @@ use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Usage\DataModels\Usage;
 use RuntimeException;
 
-class GeminiDriver extends LlmDriver
+class GeminiDriver extends LlmDriver implements InterruptableDriver
 {
     protected Client $httpClient;
 
@@ -23,6 +24,8 @@ class GeminiDriver extends LlmDriver
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/';
 
     protected GeminiMessageFormatter $formatter;
+
+    protected bool $interrupted = false;
 
     public function __construct(DriverConfig|array $settings = [])
     {
@@ -49,6 +52,21 @@ class GeminiDriver extends LlmDriver
 
         $this->lastResponse = null;
         $this->formatter = $this->createFormatter();
+    }
+
+    public function interrupt(): void
+    {
+        $this->interrupted = true;
+    }
+
+    public function isInterrupted(): bool
+    {
+        return $this->interrupted;
+    }
+
+    public function resetInterrupt(): void
+    {
+        $this->interrupted = false;
     }
 
     /**
@@ -245,6 +263,10 @@ class GeminiDriver extends LlmDriver
 
                                 // Yield the streamed message
                                 yield $streamedMessage;
+
+                                if ($this->interrupted) {
+                                    return;
+                                }
                             }
                         }
                     } else {

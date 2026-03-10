@@ -3,6 +3,7 @@
 namespace LarAgent\Tests\LarAgent\Fakes;
 
 use LarAgent\Core\Abstractions\LlmDriver;
+use LarAgent\Core\Contracts\InterruptableDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
@@ -11,9 +12,26 @@ use LarAgent\Messages\ToolCallMessage;
 use LarAgent\ToolCall;
 use LarAgent\Usage\DataModels\Usage;
 
-class FakeLlmDriver extends LlmDriver implements LlmDriverInterface
+class FakeLlmDriver extends LlmDriver implements InterruptableDriver, LlmDriverInterface
 {
     protected array $mockResponses = [];
+
+    protected bool $interrupted = false;
+
+    public function interrupt(): void
+    {
+        $this->interrupted = true;
+    }
+
+    public function isInterrupted(): bool
+    {
+        return $this->interrupted;
+    }
+
+    public function resetInterrupt(): void
+    {
+        $this->interrupted = false;
+    }
 
     /**
      * Stores the last override settings passed to sendMessage/sendMessageStreamed for testing verification.

@@ -35,7 +35,7 @@ Whether you're looking to automate internal operations or build conversational e
 - Pluggable memory & context management
 - Multi-agent workflows with queues, chainable tasks, and reasoning
 - Structured output for reliability and seamless integration
-- Multi-modal input and modular provider support
+- Multi-modal input and modular provider support (including optional Laravel AI SDK integration)
 - Extensive Event system for effortless customization and observability
 - Built-in API exposure via OpenAI-compatible schema
 
@@ -88,6 +88,7 @@ Any questions? Join our [Discord](https://discord.gg/NAczq2T9F8) server!
   - [Requirements](#requirements)
   - [Installation](#installation)
   - [Configuration](#configuration)
+  - [Laravel AI SDK Integration (Optional)](#laravel-ai-sdk-integration-optional)
 - [🤝 Contributing](#contributing)
 - [🤝 Getting Help](#getting-help)
 - [🧪 Testing](#testing)
@@ -225,6 +226,12 @@ Let's find out more in [documentation](https://docs.laragent.ai/) 👍
 - Extensive Event system for agent interactions (Nearly everything is hookable)
 - Multiple provider support (Can be set per model)
 - Multi-provider fallback with automatic failover
+- Laravel AI SDK integration (optional, via `laravel/ai`)
+    - Run agents through the SDK's Prism runtime with zero driver code
+    - Access any SDK-configured provider (OpenAI, Anthropic, Gemini, Groq, Ollama, Azure, xAI, DeepSeek, Mistral, Cohere, OpenRouter)
+    - Built-in SDK capability tools: embeddings, image generation, similarity search, web search
+    - Reverse compatibility — use LarAgent agents as SDK agents via `ImplementsSdkAgent` trait
+    - Full hook/event support preserved even when the SDK handles tool execution internally
 - Support for both Laravel and standalone usage
 
 ## Getting Started
@@ -233,6 +240,7 @@ Let's find out more in [documentation](https://docs.laragent.ai/) 👍
 
 *   Laravel 10.x or higher
 *   PHP 8.3 or higher
+*   (Optional) `laravel/ai` for Laravel AI SDK driver — requires PHP 8.4+ and Laravel 12+
 
 ### Installation
 
@@ -248,11 +256,11 @@ You can publish the config file with:
 php artisan vendor:publish --tag="laragent-config"
 ```
 
-These are the contents of the published config file:
+These are the contents of the published config file (abbreviated — the full file includes all providers):
 
 ```php
 return [
-    'default_driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
+    'default_driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
     'default_chat_history' => \LarAgent\History\InMemoryChatHistory::class,
 
     'providers' => [
@@ -260,9 +268,54 @@ return [
         'default' => [
             'label' => 'openai',
             'api_key' => env('OPENAI_API_KEY'),
+            'driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
             'default_truncation_threshold' => 50000,
-            'default_max_completion_tokens' => 100,
+            'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
+        ],
+
+        'gemini' => [
+            'label' => 'gemini',
+            'api_key' => env('GEMINI_API_KEY'),
+            'driver' => \LarAgent\Drivers\OpenAi\GeminiDriver::class,
+            'model' => 'gemini-2.0-flash-latest',
+            // ...
+        ],
+
+        'claude' => [
+            'label' => 'claude',
+            'api_key' => env('ANTHROPIC_API_KEY'),
+            'model' => 'claude-3-7-sonnet-latest',
+            'driver' => \LarAgent\Drivers\Anthropic\ClaudeDriver::class,
+            // ...
+        ],
+
+        'groq' => [
+            'label' => 'groq',
+            'api_key' => env('GROQ_API_KEY'),
+            'driver' => \LarAgent\Drivers\Groq\GroqDriver::class,
+            // ...
+        ],
+
+        'openrouter' => [
+            'label' => 'openrouter',
+            'api_key' => env('OPENROUTER_API_KEY'),
+            'driver' => \LarAgent\Drivers\OpenAi\OpenRouter::class,
+            // ...
+        ],
+
+        'ollama' => [
+            'label' => 'ollama',
+            'driver' => \LarAgent\Drivers\OpenAi\OllamaDriver::class,
+            // ...
+        ],
+
+        // Optional — requires laravel/ai, PHP 8.4+, Laravel 12+
+        'laravel-ai' => [
+            'label' => 'openai',
+            'driver' => \LarAgent\Drivers\LaravelAi\LaravelAiDriver::class,
+            'sdk_provider' => 'openai',
+            // ...
         ],
     ],
 ];
@@ -283,9 +336,9 @@ You can configure the package by editing the `config/laragent.php` file. Here is
         'api_url' => env('CUSTOM_API_URL'),
         // Default driver and chat history
         'driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
-        'chat_history' => \LarAgent\History\InMemoryChatHistory::class,
+        'history' => \LarAgent\History\InMemoryChatHistory::class,
         'default_truncation_threshold' => 15000,
-        'default_max_completion_tokens' => 100,
+        'default_max_completion_tokens' => 10000,
         'default_temperature' => 1,
         // Enable/disable parallel tool calls
         'parallel_tool_calls' => true,
@@ -297,6 +350,85 @@ You can configure the package by editing the `config/laragent.php` file. Here is
 ```
 
 Provider just gives you the defaults. Every config can be overridden per agent in agent class.
+
+### Laravel AI SDK Integration (Optional)
+
+If you have the [Laravel AI SDK](https://github.com/laravel/ai) installed (`composer require laravel/ai`), you can run your LarAgent agents through the SDK's Prism runtime. This gives you access to any provider configured in `config/ai.php` without writing additional driver code.
+
+> **Requirements:** PHP 8.4+ and Laravel 12+
+
+**1. Configure the provider** in `config/laragent.php` (included by default):
+
+```php
+    'laravel-ai' => [
+        'label' => 'openai',
+        'driver' => \LarAgent\Drivers\LaravelAi\LaravelAiDriver::class,
+        'sdk_provider' => 'openai', // Any provider configured in config/ai.php
+        'default_truncation_threshold' => 50000,
+        'default_max_completion_tokens' => 10000,
+        'default_temperature' => 1,
+    ],
+```
+
+**2. Point your agent at the SDK provider:**
+
+```php
+class MyAgent extends Agent
+{
+    protected $provider = 'laravel-ai';
+    protected $model = 'gpt-4o';
+
+    // Everything else works exactly the same — tools, events, hooks, history
+}
+```
+
+**3. Use SDK capability tools** to give agents access to embeddings, image generation, similarity search, and web search:
+
+```php
+use LarAgent\Tools\LaravelAi\WebSearchTool;
+use LarAgent\Tools\LaravelAi\EmbeddingTool;
+use LarAgent\Tools\LaravelAi\ImageGenerationTool;
+use LarAgent\Tools\LaravelAi\SimilaritySearchTool;
+
+class ResearchAgent extends Agent
+{
+    protected $provider = 'laravel-ai';
+
+    protected $tools = [
+        WebSearchTool::class,
+        EmbeddingTool::class,
+        ImageGenerationTool::class,
+    ];
+
+    // SimilaritySearchTool requires constructor args — register in boot():
+    public static function boot()
+    {
+        parent::boot();
+        static::registerTool(
+            SimilaritySearchTool::usingModel(Document::class, 'embedding', minSimilarity: 0.7)
+        );
+    }
+}
+```
+
+**4. Reverse compatibility** — make your LarAgent agents usable anywhere the SDK expects an Agent:
+
+```php
+use LarAgent\Concerns\ImplementsSdkAgent;
+
+class MyAgent extends Agent implements \Laravel\Ai\Contracts\Agent
+{
+    use ImplementsSdkAgent;
+    // ...
+}
+
+// Now usable in SDK contexts:
+// $response = (new MyAgent)->prompt('Hello!');
+```
+
+All LarAgent features — hooks, events, chat history, structured output, multi-provider fallback — work normally with the SDK driver. The SDK handles the tool execution loop internally while LarAgent's `beforeToolExecution`/`afterToolExecution` hooks and events are still fired via the `HookableDriver` interface.
+
+**Unified storage**: The SDK driver shares LarAgent's storage system — truncation, usage tracking, session identity, and events all work identically to native drivers. No separate persistence layer is needed.
 
 
 ## Contributing

@@ -18,7 +18,13 @@ This document provides a comprehensive guide for migrating your LarAgent project
 3. [Driver and Configuration Changes](#driver-and-configuration-changes)
    - [DriverConfig DTO](#8-driverconfig-dto-for-custom-drivers)
    - [Custom ChatHistory Migration](#9-custom-chathistory-implementations)
+   - [Config File Updates](#10-config-file-updates)
 4. [New Features (Non-Breaking)](#new-features-non-breaking)
+5. [Laravel AI SDK Integration (New)](#laravel-ai-sdk-integration-new)
+   - [Getting Started with the SDK Driver](#getting-started-with-the-sdk-driver)
+   - [SDK Capability Tools](#sdk-capability-tools)
+   - [Reverse SDK Compatibility](#reverse-sdk-compatibility)
+   - [HookableDriver for Custom Drivers](#hookabledriver-for-custom-drivers)
 
 ---
 
@@ -594,6 +600,67 @@ class MyStorageDriver implements StorageDriver
 
 ---
 
+### 10. Config File Updates
+
+**Priority: MEDIUM** — Affects anyone who previously published `config/laragent.php`
+
+#### What Changed
+
+Several values and keys in the default config have changed since v0.8. If you published the config and haven't updated it, your file may have stale defaults.
+
+| Item | v0.8 Value | v1.0 Value |
+|------|-----------|-----------|
+| `default_driver` | `\LarAgent\Drivers\OpenAi\OpenAiDriver::class` | `\LarAgent\Drivers\OpenAi\OpenAiCompatible::class` |
+| `default.default_max_completion_tokens` | `100` | `10000` |
+| Provider-level `chat_history` key | `chat_history` | `history` |
+| Provider-level `default_context_window` key | `default_context_window` | `default_truncation_threshold` |
+
+**New provider entries** added to the default config (you may want to add these):
+- `gemini` — Gemini via OpenAI-compatible driver
+- `gemini_native` — Gemini via native driver
+- `groq` — Groq
+- `claude` — Anthropic Claude
+- `openrouter` — OpenRouter
+- `ollama` — Ollama (local)
+- `laravel-ai` — Laravel AI SDK driver (optional, PHP 8.4+/Laravel 12+)
+
+**New top-level config keys:**
+- `default_history_storage`, `default_storage` — default storage drivers
+- `namespaces` — autodiscovery namespaces for `agent:chat`
+- `default_providers` — global multi-provider fallback config
+- `track_usage`, `default_usage_storage` — usage tracking
+- `enable_truncation`, `truncation_provider`, `default_truncation_strategy`, `default_truncation_config`, `truncation_buffer` — truncation system
+- `mcp_tool_caching`, `mcp_servers` — MCP server configuration
+
+#### Migration Steps
+
+**Option A:** Re-publish the config (back up customizations first):
+```bash
+cp config/laragent.php config/laragent.php.bak
+php artisan vendor:publish --tag=laragent-config --force
+```
+Then manually re-apply your customizations from the backup.
+
+**Option B:** Manually update your existing config:
+```php
+// 1. Update default_driver
+'default_driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
+
+// 2. Update default provider tokens
+'default' => [
+    // ...
+    'default_max_completion_tokens' => 10000, // was 100
+],
+
+// 3. Rename keys in all provider entries
+// 'chat_history' => ...    becomes    'history' => ...
+// 'default_context_window' => ...    becomes    'default_truncation_threshold' => ...
+
+// 4. (Optional) Add new provider entries — see config/laragent.php in the package source
+```
+
+---
+
 ## New Features (Non-Breaking)
 
 These features are new in v1.0 and don't require migration, but you may want to use them:
@@ -730,8 +797,231 @@ $response->confidence; // 95
 
 ---
 
+## Laravel AI SDK Integration (New)
+
+LarAgent v1.0 introduces optional integration with the [Laravel AI SDK](https://github.com/laravel/ai) (`laravel/ai`). This is entirely additive — no existing code is affected. But it's a significant new capability worth understanding during your upgrade.
+
+**Requirements:** PHP 8.4+, Laravel 12+, `composer require laravel/ai`
+
+### Getting Started with the SDK Driver
+
+The SDK integration lets you run your existing LarAgent agents through the SDK's Prism runtime, accessing any provider configured in `config/ai.php` without writing additional driver code.
+
+**Step 1:** Install the SDK:
+```bash
+composer require laravel/ai
+```
+
+**Step 2:** The `laravel-ai` provider is already in the default config. If you published the config before this feature existed, add it:
+```php
+// config/laragent.php → providers array
+'laravel-ai' => [
+    'label' => 'openai',
+    'driver' => \LarAgent\Drivers\LaravelAi\LaravelAiDriver::class,
+    'sdk_provider' => 'openai', // Any provider configured in config/ai.php
+    'default_truncation_threshold' => 50000,
+    'default_max_completion_tokens' => 10000,
+    'default_temperature' => 1,
+],
+```
+
+**Step 3:** Point your agent at the SDK driver:
+```php
+class MyAgent extends Agent
+{
+    protected $provider = 'laravel-ai';
+    protected $model = 'gpt-4o';
+
+    // Everything else works unchanged — tools, events, hooks, chat history,
+    // structured output, multi-provider fallback, streaming
+}
+```
+
+**How it works:**
+
+```
+Agent::for('key')->respond('message')
+  → Agent::respond()
+    → LarAgent engine
+      → LaravelAiDriver::sendMessage()
+        → ConfigBridge maps provider labels to SDK names
+        → MessageConverter converts LarAgent messages to SDK format
+        → SdkToolBridge wraps LarAgent tools for the SDK
+        → SDK agent() with bridged tools
+          → Prism → provider API
+          → SDK internal tool loop (LarAgent hooks fire via SdkToolBridge)
+        ← SDK response
+      ← MessageConverter extracts:
+         - Final assistant response
+         - Intermediate tool call/result messages for chat history
+         - Usage data
+    ← Chat history updated with all messages
+```
+
+**Key components:**
+
+| Class | Location | Purpose |
+|-------|----------|---------|
+| `LaravelAiDriver` | `Drivers\LaravelAi\` | Orchestrates SDK calls (sync + streaming), delegates tool loop to SDK |
+| `ConfigBridge` | `Drivers\LaravelAi\` | Maps LarAgent provider labels to SDK provider names (11 providers: OpenAI, Anthropic, Gemini, Groq, Ollama, Azure, xAI, DeepSeek, Mistral, Cohere, OpenRouter) |
+| `MessageConverter` | `Drivers\LaravelAi\` | Bidirectional message conversion; extracts system instructions, reconstructs intermediate tool messages for chat history, maps usage data |
+| `SdkToolBridge` | `Drivers\LaravelAi\` | Wraps LarAgent `Tool` objects as SDK `\Laravel\Ai\Contracts\Tool` implementations, firing `beforeToolExecution`/`afterToolExecution` hooks around each execution |
+
+### SDK Capability Tools
+
+Four ready-made tools expose SDK-specific capabilities to any LarAgent agent. These work with any driver but require `laravel/ai` to be installed:
+
+```php
+use LarAgent\Tools\LaravelAi\WebSearchTool;
+use LarAgent\Tools\LaravelAi\EmbeddingTool;
+use LarAgent\Tools\LaravelAi\ImageGenerationTool;
+use LarAgent\Tools\LaravelAi\SimilaritySearchTool;
+
+class ResearchAgent extends Agent
+{
+    protected $tools = [
+        WebSearchTool::class,
+        EmbeddingTool::class,
+        ImageGenerationTool::class,
+    ];
+
+    // SimilaritySearchTool needs constructor args — register in boot()
+    public static function boot()
+    {
+        parent::boot();
+        static::registerTool(
+            SimilaritySearchTool::usingModel(
+                Document::class,
+                'embedding',
+                minSimilarity: 0.7,
+                limit: 10
+            )
+        );
+    }
+}
+```
+
+| Tool | What it does | Configuration |
+|------|-------------|---------------|
+| `EmbeddingTool` | Generates vector embeddings via `Laravel\Ai\embed()` | `usingProvider($provider)`, `usingModel($model)` |
+| `ImageGenerationTool` | Generates images via `Laravel\Ai\image()` | `usingProvider($provider)`, `usingModel($model)` |
+| `SimilaritySearchTool` | Vector similarity search via SDK's `SimilaritySearch` | Constructor: model class, column, min similarity, limit, query callback. Factory: `usingModel(...)` |
+| `WebSearchTool` | Web search via SDK's `WebSearch` provider tool | `max($count)`, `allow($domains)`, `block($domains)` |
+
+### Reverse SDK Compatibility
+
+The `ImplementsSdkAgent` trait makes your LarAgent agents usable anywhere the Laravel AI SDK expects an Agent:
+
+```php
+use LarAgent\Concerns\ImplementsSdkAgent;
+
+class MyAgent extends Agent implements \Laravel\Ai\Contracts\Agent
+{
+    use ImplementsSdkAgent;
+
+    // Your existing agent code — no changes needed
+}
+
+// Now usable in SDK contexts:
+$response = (new MyAgent)->prompt('Hello!');
+```
+
+The trait bridges three SDK contract methods:
+- `instructions()` — returns the agent's system instructions
+- `tools()` — wraps registered tools via `SdkToolBridge`
+- `messages()` — converts chat history via `MessageConverter`
+
+### Unified Storage & Context Integration (New in v1.0)
+
+The SDK driver now shares LarAgent's storage, truncation, usage tracking, session identity, and event system. If you were previously using the SDK driver, the following new config keys are available under the `laravel-ai` provider in `config/laragent.php`:
+
+```php
+'laravel-ai' => [
+    // ... existing config ...
+
+    // Unified conversation storage (new)
+    // null = auto-register LarAgentConversationStore (recommended)
+    // false = disabled (SDK uses its own storage)
+    // class = custom ConversationStore implementation
+    'conversation_store' => null,
+
+    // Bridge SDK events to LarAgent events (new)
+    // true = SDK PromptingAgent/AgentPrompted events fire LarAgent BeforeSend/AfterResponse
+    // false = disabled
+    'bridge_events' => true,
+],
+```
+
+**What this means for you:**
+
+- **Truncation works**: SDK intermediate messages (tool call/result pairs) now carry accurate per-step usage data. The truncation engine sees cumulative token costs and triggers correctly.
+- **Single storage**: The SDK's `RememberConversation` middleware writes through `LarAgentConversationStore` into LarAgent's storage drivers (Cache, Eloquent, File, etc.) instead of maintaining a separate persistence layer.
+- **Session identity flows**: LarAgent's `SessionIdentity` is automatically passed to the SDK driver, ensuring consistent storage keys across both systems.
+- **Unified events**: SDK events bridge to LarAgent events, so your existing event listeners and observers work regardless of which driver is active.
+
+**No migration required** — these features activate automatically. The new config keys have sensible defaults (`conversation_store: null`, `bridge_events: true`).
+
+---
+
+### HookableDriver for Custom Drivers
+
+If you maintain a custom driver that handles tool execution internally (like `LaravelAiDriver` does), you can implement the new `HookableDriver` interface so LarAgent's hook/event system still fires during the driver's internal tool loop:
+
+```php
+use Closure;
+use LarAgent\Core\Contracts\HookableDriver;
+
+class MyCustomSdkDriver extends LlmDriver implements HookableDriver
+{
+    protected ?Closure $beforeToolHook = null;
+    protected ?Closure $afterToolHook = null;
+
+    public function setHookCallbacks(?Closure $before, ?Closure $after): static
+    {
+        $this->beforeToolHook = $before;
+        $this->afterToolHook = $after;
+        return $this;
+    }
+
+    // In your internal tool execution loop:
+    protected function executeTool($tool, $args)
+    {
+        // Fire the before hook — return false to cancel
+        if ($this->beforeToolHook && ($this->beforeToolHook)($tool, $args) === false) {
+            return json_encode(['error' => 'Tool execution cancelled by hook.']);
+        }
+
+        $result = $tool->execute($args);
+
+        // Fire the after hook
+        if ($this->afterToolHook) {
+            ($this->afterToolHook)($tool, $args, $result);
+        }
+
+        return $result;
+    }
+}
+```
+
+This is **optional** — only needed when your driver manages its own tool loop. Standard drivers where the `LarAgent` engine manages the loop do not need this.
+
+The `Agent` class automatically detects `HookableDriver` implementations and passes the hook callbacks:
+
+```php
+// From Agent.php — happens automatically
+if ($this->llmDriver instanceof HookableDriver) {
+    $this->llmDriver->setHookCallbacks(
+        before: fn ($tool, $args) => $this->callEvent('beforeToolExecution', [$tool, $args]),
+        after: fn ($tool, $args, $result) => $this->callEvent('afterToolExecution', [$tool, $args, $result]),
+    );
+}
+```
+
+---
+
 ## Quick Migration Checklist
 
+**Breaking changes:**
 - [ ] Replace all `Message::create()` with typed factory methods
 - [ ] Replace all `Message::fromArray()` with specific message class `fromArray()`
 - [ ] Update `ToolResultMessage` constructor calls to include `$toolName`
@@ -739,10 +1029,30 @@ $response->confidence; // 95
 - [ ] Replace `$contextWindowSize` with `$truncationThreshold`
 - [ ] Remove `$saveChatKeys` (now automatic via Context system)
 - [ ] Remove `$includeModelInChatSessionId` and related method calls
-- [ ] Update provider config `default_context_window` → `default_truncation_threshold`
-- [ ] Update provider config `chat_history` → `history`
-- [ ] If custom drivers: update constructor to call `parent::__construct($settings)`
-- [ ] If custom chat history: refactor to use `ChatHistoryStorage` with custom driver
+
+**Config updates:**
+- [ ] Update `default_driver` to `OpenAiCompatible::class` (if published)
+- [ ] Update `default_max_completion_tokens` from `100` to `10000` (if published)
+- [ ] Rename provider config key `default_context_window` → `default_truncation_threshold`
+- [ ] Rename provider config key `chat_history` → `history`
+- [ ] Add new provider entries (gemini, claude, groq, openrouter, ollama, laravel-ai) or re-publish
+
+**Custom drivers (if applicable):**
+- [ ] Update constructor to accept `DriverConfig|array` and call `parent::__construct($settings)`
+- [ ] Implement `MessageFormatter` (deprecated driver methods still work for now)
+- [ ] (Optional) Implement `HookableDriver` if your driver manages its own tool loop
+
+**Custom chat history (if applicable):**
+- [ ] Refactor to use `ChatHistoryStorage` with custom `StorageDriver`
+
+**Verification:**
+- [ ] Run `composer test` to confirm everything passes
+- [ ] Run `grep -r "Message::create\|Message::fromArray\|chat_history" app/` to catch stragglers
+
+**Optional new features:**
+- [ ] Install `laravel/ai` for SDK integration (PHP 8.4+, Laravel 12+)
+- [ ] Try SDK capability tools (EmbeddingTool, ImageGenerationTool, etc.)
+- [ ] Add `ImplementsSdkAgent` trait for reverse SDK compatibility
 
 ---
 

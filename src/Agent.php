@@ -517,6 +517,25 @@ class Agent
     }
 
     /**
+     * Interrupt the current streaming response.
+     * Stops text generation, saves partial response, and fires events.
+     */
+    public function interrupt(): void
+    {
+        if (isset($this->agent)) {
+            $this->agent->interrupt();
+        }
+    }
+
+    /**
+     * Check whether the agent has been interrupted.
+     */
+    public function isInterrupted(): bool
+    {
+        return isset($this->agent) && $this->agent->isInterrupted();
+    }
+
+    /**
      * Process a message and get the agent's response as a stream
      *
      * @param  string|null  $message  Optional message to process
@@ -559,9 +578,12 @@ class Agent
                             }
                         }
 
-                        // Run callback if defined
+                        // Run callback if defined; returning false triggers interrupt
                         if ($callback) {
-                            $callback($streamedMessage);
+                            $result = $callback($streamedMessage);
+                            if ($result === false) {
+                                $instance->interrupt();
+                            }
                         }
                     });
 
@@ -2350,6 +2372,20 @@ class Agent
         // Extract provider settings into agent properties
         $this->setupDriverConfigs($provider);
 
+        // Forward non-standard provider config keys as extras so drivers like
+        // LaravelAiDriver can read sdk_provider, bridge_events, conversation_store, etc.
+        $knownProviderKeys = [
+            'driver', 'history', 'storage', 'usage_storage', 'label',
+            'api_key', 'api_url', 'model', 'default_max_completion_tokens',
+            'default_truncation_threshold', 'store_meta', 'default_temperature',
+            'default_n', 'default_top_p', 'default_frequency_penalty',
+            'default_presence_penalty', 'parallel_tool_calls', 'save_chat_keys',
+        ];
+        $providerExtras = array_diff_key($provider, array_flip($knownProviderKeys));
+        foreach ($providerExtras as $key => $value) {
+            $this->setConfig($key, $value);
+        }
+
         // Build final config from agent properties (which now include provider defaults)
         $finalConfig = $this->buildConfigsFromAgent();
 
@@ -2464,6 +2500,10 @@ class Agent
             // Explicitly check for false
             return $returnValue === false ? false : true;
         });
+
+        $this->agent->onStreamInterrupted(function ($agent, $partialMessage) use ($instance) {
+            $instance->callEvent('onStreamInterrupted', [$partialMessage]);
+        });
     }
 
     protected function setupBeforeRespond(): void
@@ -2512,6 +2552,53 @@ class Agent
 
         if ($this->structuredOutput()) {
             $this->agent->structured($this->structuredOutput());
+        }
+
+        // Pass hook callbacks to drivers that handle tool execution internally
+        if ($this->llmDriver instanceof \LarAgent\Core\Contracts\HookableDriver) {
+            $self = $this;
+            $this->llmDriver->setHookCallbacks(
+                before: function ($tool, $args) use ($self) {
+                    // Wrap raw args array in a synthetic ToolCall so event constructors
+                    // receive the expected ToolCallInterface instead of a raw array.
+                    $syntheticToolCall = new \LarAgent\ToolCall(
+                        'sdk_hook_'.bin2hex(random_bytes(4)),
+                        $tool->getName(),
+                        is_string($args) ? $args : json_encode($args)
+                    );
+
+                    return $self->callEvent('beforeToolExecution', [$tool, $syntheticToolCall]);
+                },
+                after: function ($tool, $args, $result) use ($self) {
+                    $syntheticToolCall = new \LarAgent\ToolCall(
+                        'sdk_hook_'.bin2hex(random_bytes(4)),
+                        $tool->getName(),
+                        is_string($args) ? $args : json_encode($args)
+                    );
+
+                    return $self->callEvent('afterToolExecution', [$tool, $syntheticToolCall, &$result]);
+                },
+            );
+        }
+
+        // Pass session identity to drivers that need session context
+        if ($this->llmDriver instanceof \LarAgent\Core\Contracts\SessionAwareDriver) {
+            $this->llmDriver->setSessionIdentity($this->sessionIdentity);
+        }
+
+        // Pass AgentDTO for SDK event bridging context and wire conversation store
+        if ($this->llmDriver instanceof \LarAgent\Drivers\LaravelAi\LaravelAiDriver) {
+            $this->llmDriver->setAgentDto($this->toDTO());
+
+            // Wire LarAgentConversationStore for unified SDK storage
+            $conversationStoreConfig = $this->llmDriver->getDriverConfig()->getExtra('conversation_store');
+            if ($conversationStoreConfig !== false && $this->llmDriver->getConversationStore() === null) {
+                $store = new \LarAgent\Drivers\LaravelAi\LarAgentConversationStore(
+                    $this->getAgentName(),
+                    $this->storage ?? [config('laragent.default_storage', \LarAgent\Context\Drivers\InMemoryStorage::class)]
+                );
+                $this->llmDriver->setConversationStore($store);
+            }
         }
     }
 
