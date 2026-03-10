@@ -59,6 +59,17 @@ describe('ClaudeMessageFormatter', function () {
             ->and($formatted['content'][0]['input'])->toBe(['city' => 'Paris']);
     });
 
+    it('formats tool call message with empty input as object', function () {
+        $toolCall = new ToolCall('call_456', 'get_time', '{}');
+        $message = Message::toolCall([$toolCall]);
+        $formatted = $this->formatter->formatMessage($message);
+
+        // Empty input must serialize as a JSON object {}, not array [].
+        // The Claude API requires input to be a dictionary.
+        expect($formatted['content'][0]['input'])->toBeObject()
+            ->and(json_encode($formatted['content'][0]['input']))->toBe('{}');
+    });
+
     it('formats tool result message with tool_result block', function () {
         $message = Message::toolResult('Sunny, 25°C', 'call_123', 'get_weather');
         $formatted = $this->formatter->formatMessage($message);

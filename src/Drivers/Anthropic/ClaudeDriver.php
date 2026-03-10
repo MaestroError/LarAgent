@@ -360,11 +360,15 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
         $content = [];
 
         foreach ($toolCalls as $toolCall) {
+            $input = json_decode($toolCall->getArguments(), true);
+
             $content[] = [
                 'type' => 'tool_use',
                 'id' => $toolCall->getId(),
                 'name' => $toolCall->getToolName(),
-                'input' => json_decode($toolCall->getArguments(), true),
+                // Cast empty arrays to object so json_encode produces "{}"
+                // instead of "[]". The Claude API requires input to be a dict.
+                'input' => empty($input) ? (object) $input : $input,
             ];
         }
 
