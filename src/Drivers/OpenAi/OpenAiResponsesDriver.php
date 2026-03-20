@@ -231,7 +231,8 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                     ];
                     $hasToolCalls = true;
                 } elseif ($itemType === 'reasoning') {
-                    $reasoningItems[] = $item;
+                    // Strip fields not accepted by the API on input (e.g. status)
+                    $reasoningItems[] = array_intersect_key($item, array_flip(['type', 'id', 'content', 'summary']));
                 }
 
                 continue;

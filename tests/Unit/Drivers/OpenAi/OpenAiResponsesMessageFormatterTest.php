@@ -235,6 +235,27 @@ describe('OpenAiResponsesMessageFormatter', function () {
             expect($items[0]['id'])->toBe('rs_abc123');
         });
 
+        it('strips status and other unknown fields from reasoning items', function () {
+            $response = [
+                'output' => [
+                    [
+                        'id' => 'rs_abc123',
+                        'type' => 'reasoning',
+                        'status' => 'completed',
+                        'content' => [],
+                        'summary' => [],
+                    ],
+                ],
+            ];
+
+            $items = $this->formatter->extractReasoningItems($response);
+
+            expect($items)->toHaveCount(1);
+            expect($items[0])->not->toHaveKey('status');
+            expect($items[0])->toHaveKey('type', 'reasoning');
+            expect($items[0])->toHaveKey('id', 'rs_abc123');
+        });
+
         it('returns empty array when no reasoning items', function () {
             $response = [
                 'output' => [

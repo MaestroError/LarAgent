@@ -71,7 +71,7 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
                     ? $message->getExtra('reasoning_items')
                     : [];
                 foreach ($reasoningItems as $reasoningItem) {
-                    $formatted[] = $reasoningItem;
+                    $formatted[] = $this->sanitizeReasoningItem($reasoningItem);
                 }
 
                 // Each tool call becomes a separate function_call input item
@@ -157,6 +157,7 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
      *
      * Reasoning models (GPT-5, o-series) return reasoning items that must
      * be passed back in subsequent requests when doing tool calling.
+     * Only keeps fields accepted by the API on input (strips status, etc.).
      */
     public function extractReasoningItems(array $response): array
     {
@@ -165,7 +166,18 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
 
         foreach ($output as $item) {
             if (($item['type'] ?? '') === 'reasoning') {
-                $items[] = $item;
+                // Only include fields the API accepts on input
+                $sanitized = [
+                    'type' => 'reasoning',
+                    'id' => $item['id'] ?? null,
+                ];
+                if (isset($item['content'])) {
+                    $sanitized['content'] = $item['content'];
+                }
+                if (isset($item['summary'])) {
+                    $sanitized['summary'] = $item['summary'];
+                }
+                $items[] = array_filter($sanitized, fn ($v) => $v !== null);
             }
         }
 
@@ -282,6 +294,15 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
             'call_id' => $message->getToolCallId(),
             'output' => $message->getContentAsString(),
         ];
+    }
+
+    /**
+     * Sanitize a reasoning item to only include fields accepted by the API on input.
+     * Strips status and other response-only fields.
+     */
+    protected function sanitizeReasoningItem(array $item): array
+    {
+        return array_intersect_key($item, array_flip(['type', 'id', 'content', 'summary']));
     }
 
     /**
