@@ -22,6 +22,11 @@ class TestableOpenAiResponsesDriver extends OpenAiResponsesDriver
         return $this->transformToolsForResponsesApi($tools);
     }
 
+    public function publicExtractInstructions(array $formattedInput, ?string &$instructions): array
+    {
+        return $this->extractInstructions($formattedInput, $instructions);
+    }
+
     public function getPublicFormatter(): \LarAgent\Core\Contracts\MessageFormatter
     {
         return $this->formatter;
@@ -104,6 +109,44 @@ describe('OpenAiResponsesDriver', function () {
             $payload = $this->driver->publicPreparePayload([]);
 
             expect($payload)->toHaveKey('store', true);
+        });
+
+        it('extracts system message into instructions parameter', function () {
+            $messages = [
+                new \LarAgent\Messages\SystemMessage('You are a helpful assistant.'),
+                new \LarAgent\Messages\UserMessage('Hello'),
+            ];
+
+            $payload = $this->driver->publicPreparePayload($messages);
+
+            expect($payload)->toHaveKey('instructions', 'You are a helpful assistant.');
+            // System message should be removed from input
+            foreach ($payload['input'] as $item) {
+                if (($item['type'] ?? '') === 'message') {
+                    expect($item['role'])->not->toBe('system');
+                }
+            }
+        });
+
+        it('extracts developer message into instructions parameter', function () {
+            $messages = [
+                new \LarAgent\Messages\DeveloperMessage('Be concise.'),
+                new \LarAgent\Messages\UserMessage('Hello'),
+            ];
+
+            $payload = $this->driver->publicPreparePayload($messages);
+
+            expect($payload)->toHaveKey('instructions', 'Be concise.');
+        });
+
+        it('does not set instructions when no system/developer message', function () {
+            $messages = [
+                new \LarAgent\Messages\UserMessage('Hello'),
+            ];
+
+            $payload = $this->driver->publicPreparePayload($messages);
+
+            expect($payload)->not->toHaveKey('instructions');
         });
     });
 

@@ -57,12 +57,23 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
      * Convert an array of LarAgent messages to Responses API input format.
      *
      * ToolCallMessages are flattened into separate function_call items.
+     * Reasoning items stored on ToolCallMessages are included before function_call items,
+     * as required by reasoning models (GPT-5, o-series).
      */
     public function formatMessages(array $messages): array
     {
         $formatted = [];
         foreach ($messages as $message) {
             if ($message instanceof ToolCallMessage) {
+                // Include reasoning items before function_call items if present
+                // Reasoning models require these to be passed back with tool call outputs
+                $reasoningItems = $message->hasExtra('reasoning_items')
+                    ? $message->getExtra('reasoning_items')
+                    : [];
+                foreach ($reasoningItems as $reasoningItem) {
+                    $formatted[] = $reasoningItem;
+                }
+
                 // Each tool call becomes a separate function_call input item
                 foreach ($message->getToolCalls() as $toolCall) {
                     $formatted[] = [
@@ -142,6 +153,26 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
     }
 
     /**
+     * Extract reasoning items from Responses API response output.
+     *
+     * Reasoning models (GPT-5, o-series) return reasoning items that must
+     * be passed back in subsequent requests when doing tool calling.
+     */
+    public function extractReasoningItems(array $response): array
+    {
+        $items = [];
+        $output = $response['output'] ?? [];
+
+        foreach ($output as $item) {
+            if (($item['type'] ?? '') === 'reasoning') {
+                $items[] = $item;
+            }
+        }
+
+        return $items;
+    }
+
+    /**
      * Extract and normalize finish reason from Responses API response.
      *
      * Detection: if output contains function_call items -> 'tool_calls',
@@ -203,8 +234,14 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
                 $parts[] = ['type' => 'input_text', 'text' => $part];
             } elseif (isset($part['type']) && $part['type'] === 'text') {
                 $parts[] = ['type' => 'input_text', 'text' => $part['text']];
+            } elseif (isset($part['type']) && $part['type'] === 'image_url') {
+                // Map Chat Completions image_url format to Responses API input_image format
+                $parts[] = [
+                    'type' => 'input_image',
+                    'image_url' => $part['image_url']['url'] ?? $part['image_url'] ?? '',
+                ];
             } else {
-                // Pass through other content types (images, etc.)
+                // Pass through other content types
                 $parts[] = $part;
             }
         }

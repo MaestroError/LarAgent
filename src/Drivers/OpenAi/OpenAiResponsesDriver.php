@@ -42,10 +42,20 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
         $overrideConfig = DriverConfig::wrap($overrideSettings);
         $config = $this->getDriverConfig()->merge($overrideConfig);
 
+        $formattedInput = $this->formatter->formatMessages($messages);
+
+        // Extract the first system/developer message as the instructions parameter
+        $instructions = null;
+        $formattedInput = $this->extractInstructions($formattedInput, $instructions);
+
         $payload = [
             'model' => $config->model ?? 'gpt-4o-mini',
-            'input' => $this->formatter->formatMessages($messages),
+            'input' => $formattedInput,
         ];
+
+        if ($instructions !== null) {
+            $payload['instructions'] = $instructions;
+        }
 
         if ($config->has('maxCompletionTokens')) {
             $payload['max_output_tokens'] = $config->maxCompletionTokens;
@@ -139,14 +149,20 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
         $usageData = $this->formatter->extractUsage($responseArray);
         $usage = ! empty($usageData) ? Usage::fromArray($usageData) : null;
 
+        $toolCalls = $this->formatter->extractToolCalls($responseArray);
+
         if (
             $finishReason === 'tool_calls'
-            || (isset($payload['tool_choice']) && is_array($payload['tool_choice']))
-                && ! empty($this->formatter->extractToolCalls($responseArray))
+            || (isset($payload['tool_choice']) && is_array($payload['tool_choice']) && ! empty($toolCalls))
         ) {
-            $toolCalls = $this->formatter->extractToolCalls($responseArray);
             $message = new ToolCallMessage($toolCalls);
             $message->setUsage($usage);
+
+            // Store reasoning items so they can be passed back with tool call outputs
+            $reasoningItems = $this->formatter->extractReasoningItems($responseArray);
+            if (! empty($reasoningItems)) {
+                $message->setExtra('reasoning_items', $reasoningItems);
+            }
 
             return $message;
         }
@@ -177,6 +193,7 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
         $streamedMessage = new StreamedAssistantMessage;
         $toolCalls = [];        // Keyed by item_id
+        $reasoningItems = [];   // Reasoning items to pass back
         $hasToolCalls = false;
 
         foreach ($stream as $response) {
@@ -198,10 +215,12 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                 continue;
             }
 
-            // New output item - track function calls
+            // New output item - track function calls and reasoning items
             if ($type === 'response.output_item.added') {
                 $item = $event['item'] ?? [];
-                if (($item['type'] ?? '') === 'function_call') {
+                $itemType = $item['type'] ?? '';
+
+                if ($itemType === 'function_call') {
                     $itemId = $item['id'] ?? '';
                     $callId = $item['call_id'] ?? '';
                     $name = $item['name'] ?? '';
@@ -211,6 +230,8 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                         'arguments' => '',
                     ];
                     $hasToolCalls = true;
+                } elseif ($itemType === 'reasoning') {
+                    $reasoningItems[] = $item;
                 }
 
                 continue;
@@ -227,7 +248,7 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                 continue;
             }
 
-            // Response completed - extract usage
+            // Response completed - extract usage and full reasoning items
             if ($type === 'response.completed') {
                 $responseData = $event['response'] ?? [];
                 $usageData = $responseData['usage'] ?? [];
@@ -238,6 +259,13 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                         $usageData['total_tokens'] ?? (($usageData['input_tokens'] ?? 0) + ($usageData['output_tokens'] ?? 0))
                     ));
                 }
+
+                // Extract full reasoning items from completed response
+                $completedReasoningItems = $this->formatter->extractReasoningItems($responseData);
+                if (! empty($completedReasoningItems)) {
+                    $reasoningItems = $completedReasoningItems;
+                }
+
                 $streamedMessage->setComplete(true);
 
                 if ($callback) {
@@ -262,6 +290,11 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
             $toolCallMessage = new ToolCallMessage($toolCallObjects);
 
+            // Store reasoning items so they can be passed back with tool call outputs
+            if (! empty($reasoningItems)) {
+                $toolCallMessage->setExtra('reasoning_items', $reasoningItems);
+            }
+
             if ($streamedMessage->getUsage() !== null) {
                 $toolCallMessage->setUsage($streamedMessage->getUsage());
             }
@@ -272,6 +305,37 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
             yield $toolCallMessage;
         }
+    }
+
+    /**
+     * Extract the first system or developer message from formatted input
+     * and return it as the instructions string.
+     *
+     * The Responses API has a dedicated `instructions` parameter that gives
+     * high-level instructions priority over input messages.
+     */
+    protected function extractInstructions(array $formattedInput, ?string &$instructions): array
+    {
+        foreach ($formattedInput as $index => $item) {
+            if (
+                ($item['type'] ?? '') === 'message'
+                && in_array($item['role'] ?? '', ['system', 'developer'])
+            ) {
+                // Extract text from the content array
+                $text = '';
+                foreach ($item['content'] ?? [] as $part) {
+                    if (isset($part['text'])) {
+                        $text .= $part['text'];
+                    }
+                }
+                $instructions = $text;
+                array_splice($formattedInput, $index, 1);
+
+                return $formattedInput;
+            }
+        }
+
+        return $formattedInput;
     }
 
     /**

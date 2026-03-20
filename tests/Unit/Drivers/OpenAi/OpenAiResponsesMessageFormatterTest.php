@@ -62,6 +62,25 @@ describe('OpenAiResponsesMessageFormatter', function () {
         });
     });
 
+    describe('formatMessage() with images', function () {
+        it('maps image_url content type to input_image for user messages', function () {
+            // Create a user message with multimodal content via fromArray
+            $message = UserMessage::fromArray([
+                'role' => 'user',
+                'content' => [
+                    ['type' => 'text', 'text' => 'What is in this image?'],
+                    ['type' => 'image_url', 'image_url' => ['url' => 'https://example.com/img.png']],
+                ],
+            ]);
+            $result = $this->formatter->formatMessage($message);
+
+            expect($result['content'])->toHaveCount(2);
+            expect($result['content'][0])->toBe(['type' => 'input_text', 'text' => 'What is in this image?']);
+            expect($result['content'][1]['type'])->toBe('input_image');
+            expect($result['content'][1]['image_url'])->toBe('https://example.com/img.png');
+        });
+    });
+
     describe('formatMessages()', function () {
         it('flattens ToolCallMessage into separate function_call items', function () {
             $toolCalls = [
@@ -187,6 +206,78 @@ describe('OpenAiResponsesMessageFormatter', function () {
             ];
 
             expect($this->formatter->extractFinishReason($response))->toBe('length');
+        });
+    });
+
+    describe('extractReasoningItems()', function () {
+        it('extracts reasoning items from output', function () {
+            $response = [
+                'output' => [
+                    [
+                        'id' => 'rs_abc123',
+                        'type' => 'reasoning',
+                        'content' => [],
+                        'summary' => [],
+                    ],
+                    [
+                        'type' => 'function_call',
+                        'call_id' => 'call_abc',
+                        'name' => 'get_weather',
+                        'arguments' => '{"city": "London"}',
+                    ],
+                ],
+            ];
+
+            $items = $this->formatter->extractReasoningItems($response);
+
+            expect($items)->toHaveCount(1);
+            expect($items[0]['type'])->toBe('reasoning');
+            expect($items[0]['id'])->toBe('rs_abc123');
+        });
+
+        it('returns empty array when no reasoning items', function () {
+            $response = [
+                'output' => [
+                    ['type' => 'message', 'role' => 'assistant', 'content' => []],
+                ],
+            ];
+
+            expect($this->formatter->extractReasoningItems($response))->toBeEmpty();
+        });
+    });
+
+    describe('formatMessages() with reasoning items', function () {
+        it('includes reasoning items before function_call items for ToolCallMessage', function () {
+            $toolCalls = [
+                new ToolCall('call_1', 'get_weather', '{"city": "NYC"}'),
+            ];
+            $toolCallMessage = new ToolCallMessage($toolCalls);
+            $toolCallMessage->setExtra('reasoning_items', [
+                [
+                    'id' => 'rs_abc',
+                    'type' => 'reasoning',
+                    'content' => [],
+                    'summary' => [],
+                ],
+            ]);
+
+            $result = $this->formatter->formatMessages([$toolCallMessage]);
+
+            expect($result)->toHaveCount(2);
+            expect($result[0]['type'])->toBe('reasoning');
+            expect($result[1]['type'])->toBe('function_call');
+        });
+
+        it('works without reasoning items on ToolCallMessage', function () {
+            $toolCalls = [
+                new ToolCall('call_1', 'get_weather', '{"city": "NYC"}'),
+            ];
+            $toolCallMessage = new ToolCallMessage($toolCalls);
+
+            $result = $this->formatter->formatMessages([$toolCallMessage]);
+
+            expect($result)->toHaveCount(1);
+            expect($result[0]['type'])->toBe('function_call');
         });
     });
 
