@@ -264,6 +264,12 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $streamedMessage->setUsage(Usage::fromArray($merged));
                     break;
                 }
+
+                if ($stopReason === 'refusal') {
+                    $content = $streamedMessage->getContentAsString();
+
+                    throw new \Exception('Claude refused the request: '.($content ?: 'No reason provided.'));
+                }
             }
 
             if ($type === 'message_stop') {
