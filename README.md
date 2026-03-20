@@ -298,6 +298,34 @@ You can configure the package by editing the `config/laragent.php` file. Here is
 
 Provider just gives you the defaults. Every config can be overridden per agent in agent class.
 
+#### OpenAI Responses API
+
+For newer OpenAI models that require the Responses API (e.g. models using `reasoning_effort`), use the `OpenAiResponsesDriver`:
+
+```php
+    'openai_responses' => [
+        'label' => 'openai_responses',
+        'api_key' => env('OPENAI_API_KEY'),
+        'driver' => \LarAgent\Drivers\OpenAi\OpenAiResponsesDriver::class,
+        'default_truncation_threshold' => 50000,
+        'default_max_completion_tokens' => 10000,
+        'default_temperature' => 1,
+    ],
+```
+
+You can then use `reasoning_effort` via the agent's `$extras` property:
+
+```php
+class MyReasoningAgent extends Agent
+{
+    protected $provider = 'openai_responses';
+    protected $model = 'gpt-5.4-mini';
+    protected $extras = ['reasoning_effort' => 'high'];
+}
+```
+
+For third-party providers offering a Responses-API-compatible endpoint, use `OpenAiResponsesCompatible` with an `api_url`.
+
 
 ## Contributing
 

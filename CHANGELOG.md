@@ -206,6 +206,10 @@ The following methods are deprecated in all drivers:
 
 ### Added
 
+-   `OpenAiResponsesDriver` for the OpenAI Responses API (`/v1/responses`), required for newer models (e.g. `gpt-5.4-mini`) with `reasoning_effort` support
+-   `OpenAiResponsesMessageFormatter` for Responses API input/output format conversion
+-   `OpenAiResponsesCompatible` driver for third-party providers offering a Responses-API-compatible endpoint
+-   `openai_responses` provider entry in default config
 -   `DriverConfig` DTO for type-safe driver configuration
 -   `DriverConfig::fromArray()`, `::wrap()`, `::merge()`, `::withExtra()` methods
 -   `DriverConfig::set()`, `::get()`, `::has()`, `::getExtra()`, `::getExtras()` methods
