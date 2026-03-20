@@ -371,12 +371,11 @@ class ClaudeMessageFormatter implements MessageFormatter
         ];
 
         if (! empty($tool->getProperties())) {
-            $toolSchema['input_schema'] = [
+            $toolSchema['input_schema'] = $this->ensureAdditionalPropertiesFalse([
                 'type' => 'object',
                 'properties' => $tool->getProperties(),
                 'required' => $tool->getRequired(),
-                'additionalProperties' => false,
-            ];
+            ]);
         } else {
             // Claude requires input_schema even if empty
             $toolSchema['input_schema'] = [
@@ -388,5 +387,60 @@ class ClaudeMessageFormatter implements MessageFormatter
         }
 
         return $toolSchema;
+    }
+
+    /**
+     * Recursively ensure 'additionalProperties: false' is set on all object types.
+     * Claude's API requires this for structured output and strict tool schemas.
+     *
+     * @param  array  $schema  The schema to process
+     * @return array The schema with additionalProperties set
+     */
+    private function ensureAdditionalPropertiesFalse(array $schema): array
+    {
+        // If this is an object type, ensure additionalProperties is false
+        if (isset($schema['type']) && $schema['type'] === 'object') {
+            if (! array_key_exists('additionalProperties', $schema)) {
+                $schema['additionalProperties'] = false;
+            }
+        }
+
+        // Recursively process nested properties
+        if (isset($schema['properties']) && is_array($schema['properties'])) {
+            foreach ($schema['properties'] as $key => $property) {
+                if (is_array($property)) {
+                    $schema['properties'][$key] = $this->ensureAdditionalPropertiesFalse($property);
+                }
+            }
+        }
+
+        // Handle array items
+        if (isset($schema['items']) && is_array($schema['items'])) {
+            $schema['items'] = $this->ensureAdditionalPropertiesFalse($schema['items']);
+        }
+
+        // Handle anyOf, oneOf, allOf
+        foreach (['anyOf', 'oneOf', 'allOf'] as $keyword) {
+            if (isset($schema[$keyword]) && is_array($schema[$keyword])) {
+                foreach ($schema[$keyword] as $i => $subSchema) {
+                    if (is_array($subSchema)) {
+                        $schema[$keyword][$i] = $this->ensureAdditionalPropertiesFalse($subSchema);
+                    }
+                }
+            }
+        }
+
+        // Handle $defs and definitions (JSON Schema reference definitions)
+        foreach (['$defs', 'definitions'] as $defsKeyword) {
+            if (isset($schema[$defsKeyword]) && is_array($schema[$defsKeyword])) {
+                foreach ($schema[$defsKeyword] as $defName => $defSchema) {
+                    if (is_array($defSchema)) {
+                        $schema[$defsKeyword][$defName] = $this->ensureAdditionalPropertiesFalse($defSchema);
+                    }
+                }
+            }
+        }
+
+        return $schema;
     }
 }

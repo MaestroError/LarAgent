@@ -128,6 +128,34 @@ describe('ClaudeMessageFormatter', function () {
             ->and($formatted[0]['input_schema']['additionalProperties'])->toBe(false);
     });
 
+    it('adds additionalProperties false to nested objects in tool input schemas', function () {
+        $tool = Tool::create('update_profile', 'Update a user profile')
+            ->setProperties([
+                'name' => ['type' => 'string', 'description' => 'User name'],
+                'address' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'city' => ['type' => 'string'],
+                        'geo' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'lat' => ['type' => 'number'],
+                                'lng' => ['type' => 'number'],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->setRequired('name');
+
+        $formatted = $this->formatter->formatTools([$tool]);
+        $schema = $formatted[0]['input_schema'];
+
+        expect($schema['additionalProperties'])->toBe(false)
+            ->and($schema['properties']['address']['additionalProperties'])->toBe(false)
+            ->and($schema['properties']['address']['properties']['geo']['additionalProperties'])->toBe(false);
+    });
+
     // ========== extractSystemInstruction Tests ==========
 
     it('extracts system instruction from messages', function () {
