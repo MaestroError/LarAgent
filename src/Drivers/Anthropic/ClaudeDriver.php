@@ -203,7 +203,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $id = $block->id ?? ($currentToolBlockIds[$chunk->index] ?? null);
                     if ($id !== null) {
                         $name = $pendingToolNames[$id] ?? '';
-                        $args = $pendingToolInputs[$id] ?? '{}';
+                        $args = $pendingToolInputs[$id] ?: '{}';
 
                         $toolCalls[] = new ToolCall($id, $name, $args);
 
@@ -236,7 +236,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     if (! empty($pendingToolInputs)) {
                         foreach ($pendingToolInputs as $id => $args) {
                             $name = $pendingToolNames[$id] ?? '';
-                            $args = $args ?? '{}';
+                            $args = $args ?: '{}';
                             $toolCalls[] = new ToolCall($id, $name, $args);
                         }
                         $pendingToolInputs = [];
