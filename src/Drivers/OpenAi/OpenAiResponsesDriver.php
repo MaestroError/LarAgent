@@ -79,11 +79,15 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
         }
 
         // Structured output uses text.format instead of response_format
+        // Responses API expects name, strict, and schema at the format level (not nested under json_schema)
         if ($this->structuredOutputEnabled()) {
+            $wrapped = $this->wrapResponseSchema($this->getResponseSchema());
             $payload['text'] = [
                 'format' => [
                     'type' => 'json_schema',
-                    'json_schema' => $this->wrapResponseSchema($this->getResponseSchema()),
+                    'name' => $wrapped['name'],
+                    'schema' => $wrapped['schema'],
+                    'strict' => $wrapped['strict'] ?? true,
                 ],
             ];
         }
