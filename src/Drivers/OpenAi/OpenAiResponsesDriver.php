@@ -177,7 +177,6 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
         $streamedMessage = new StreamedAssistantMessage;
         $toolCalls = [];        // Keyed by item_id
-        $itemIdToCallId = [];   // Maps item_id -> call_id for argument deltas
         $hasToolCalls = false;
 
         foreach ($stream as $response) {
@@ -211,7 +210,6 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                         'name' => $name,
                         'arguments' => '',
                     ];
-                    $itemIdToCallId[$itemId] = $callId;
                     $hasToolCalls = true;
                 }
 

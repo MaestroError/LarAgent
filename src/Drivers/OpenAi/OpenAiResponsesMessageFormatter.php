@@ -217,7 +217,7 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
     }
 
     /**
-     * Format a ToolCallMessage. Returns array of function_call items.
+     * Format a ToolCallMessage into a single function_call item.
      * Note: This is only used when formatting a single message; formatMessages() handles flattening.
      */
     protected function formatToolCallMessage(ToolCallMessage $message): array
