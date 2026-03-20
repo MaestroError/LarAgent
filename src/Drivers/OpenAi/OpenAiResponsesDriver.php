@@ -176,7 +176,8 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
         $stream = $this->client->responses()->createStreamed($payload);
 
         $streamedMessage = new StreamedAssistantMessage;
-        $toolCalls = [];
+        $toolCalls = [];        // Keyed by item_id
+        $itemIdToCallId = [];   // Maps item_id -> call_id for argument deltas
         $hasToolCalls = false;
 
         foreach ($stream as $response) {
@@ -202,25 +203,27 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
             if ($type === 'response.output_item.added') {
                 $item = $event['item'] ?? [];
                 if (($item['type'] ?? '') === 'function_call') {
+                    $itemId = $item['id'] ?? '';
                     $callId = $item['call_id'] ?? '';
                     $name = $item['name'] ?? '';
-                    $toolCalls[$callId] = [
+                    $toolCalls[$itemId] = [
                         'call_id' => $callId,
                         'name' => $name,
                         'arguments' => '',
                     ];
+                    $itemIdToCallId[$itemId] = $callId;
                     $hasToolCalls = true;
                 }
 
                 continue;
             }
 
-            // Function call arguments delta
+            // Function call arguments delta - uses item_id to identify the function call
             if ($type === 'response.function_call_arguments.delta') {
-                $callId = $event['call_id'] ?? '';
+                $itemId = $event['item_id'] ?? '';
                 $delta = $event['delta'] ?? '';
-                if (isset($toolCalls[$callId])) {
-                    $toolCalls[$callId]['arguments'] .= $delta;
+                if (isset($toolCalls[$itemId])) {
+                    $toolCalls[$itemId]['arguments'] .= $delta;
                 }
 
                 continue;
