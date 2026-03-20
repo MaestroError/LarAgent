@@ -177,6 +177,7 @@ class ClaudeMessageFormatter implements MessageFormatter
             'tool_use' => 'tool_calls',
             'max_tokens' => 'length',
             'stop_sequence' => 'stop',
+            'refusal' => 'refusal',
             default => $reason,
         };
     }
@@ -366,6 +367,7 @@ class ClaudeMessageFormatter implements MessageFormatter
         $toolSchema = [
             'name' => $tool->getName(),
             'description' => $tool->getDescription(),
+            'strict' => true,
         ];
 
         if (! empty($tool->getProperties())) {
@@ -373,6 +375,7 @@ class ClaudeMessageFormatter implements MessageFormatter
                 'type' => 'object',
                 'properties' => $tool->getProperties(),
                 'required' => $tool->getRequired(),
+                'additionalProperties' => false,
             ];
         } else {
             // Claude requires input_schema even if empty
@@ -380,6 +383,7 @@ class ClaudeMessageFormatter implements MessageFormatter
                 'type' => 'object',
                 'properties' => (object) [],
                 'required' => [],
+                'additionalProperties' => false,
             ];
         }
 

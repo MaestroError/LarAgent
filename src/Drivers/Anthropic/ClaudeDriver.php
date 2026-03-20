@@ -101,6 +101,12 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
             return $message;
         }
 
+        if ($finishReason === 'refusal') {
+            $content = $this->formatter->extractContent($responseArray);
+
+            throw new \Exception('Claude refused the request: '.($content ?: 'No reason provided.'));
+        }
+
         throw new \Exception('Unexpected stop reason: '.$response->stop_reason);
     }
 
@@ -468,6 +474,17 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                 foreach ($schema[$keyword] as $i => $subSchema) {
                     if (is_array($subSchema)) {
                         $schema[$keyword][$i] = $this->ensureAdditionalPropertiesFalse($subSchema);
+                    }
+                }
+            }
+        }
+
+        // Handle $defs and definitions (JSON Schema reference definitions)
+        foreach (['$defs', 'definitions'] as $defsKeyword) {
+            if (isset($schema[$defsKeyword]) && is_array($schema[$defsKeyword])) {
+                foreach ($schema[$defsKeyword] as $defName => $defSchema) {
+                    if (is_array($defSchema)) {
+                        $schema[$defsKeyword][$defName] = $this->ensureAdditionalPropertiesFalse($defSchema);
                     }
                 }
             }
