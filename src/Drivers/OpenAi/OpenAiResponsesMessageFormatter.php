@@ -65,23 +65,24 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
         $formatted = [];
         foreach ($messages as $message) {
             if ($message instanceof ToolCallMessage) {
-                // Include reasoning items before function_call items if present
-                // Reasoning models require these to be passed back with tool call outputs
-                $reasoningItems = $message->hasExtra('reasoning_items')
-                    ? $message->getExtra('reasoning_items')
-                    : [];
-                foreach ($reasoningItems as $reasoningItem) {
-                    $formatted[] = $this->sanitizeReasoningItem($reasoningItem);
-                }
-
-                // Each tool call becomes a separate function_call input item
-                foreach ($message->getToolCalls() as $toolCall) {
-                    $formatted[] = [
-                        'type' => 'function_call',
-                        'call_id' => $toolCall->getId(),
-                        'name' => $toolCall->getToolName(),
-                        'arguments' => $toolCall->getArguments(),
-                    ];
+                // If raw output items are available (from a Responses API response),
+                // replay them faithfully. This preserves item ids and reasoning items
+                // in the correct order, which reasoning models require.
+                if ($message->hasExtra('raw_output_items')) {
+                    foreach ($message->getExtra('raw_output_items') as $item) {
+                        $formatted[] = $item;
+                    }
+                } else {
+                    // Fallback: reconstruct function_call items from ToolCall objects
+                    // (used when messages are restored from storage without raw items)
+                    foreach ($message->getToolCalls() as $toolCall) {
+                        $formatted[] = [
+                            'type' => 'function_call',
+                            'call_id' => $toolCall->getId(),
+                            'name' => $toolCall->getToolName(),
+                            'arguments' => $toolCall->getArguments(),
+                        ];
+                    }
                 }
             } else {
                 $formatted[] = $this->formatMessage($message);
@@ -153,31 +154,24 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
     }
 
     /**
-     * Extract reasoning items from Responses API response output.
+     * Extract output items (reasoning + function_call) for faithful replay.
      *
-     * Reasoning models (GPT-5, o-series) return reasoning items that must
-     * be passed back in subsequent requests when doing tool calling.
-     * Only keeps fields accepted by the API on input (strips status, etc.).
+     * Reasoning models require the complete output items (with their id fields)
+     * to be passed back in subsequent requests. This preserves reasoning items
+     * alongside their associated function_call items in the correct order.
+     * Null values are filtered out since the API rejects null for optional
+     * enum fields like status.
      */
-    public function extractReasoningItems(array $response): array
+    public function extractOutputItemsForReplay(array $response): array
     {
         $items = [];
         $output = $response['output'] ?? [];
 
         foreach ($output as $item) {
-            if (($item['type'] ?? '') === 'reasoning') {
-                // Only include fields the API accepts on input
-                $sanitized = [
-                    'type' => 'reasoning',
-                    'id' => $item['id'] ?? null,
-                ];
-                if (isset($item['content'])) {
-                    $sanitized['content'] = $item['content'];
-                }
-                if (isset($item['summary'])) {
-                    $sanitized['summary'] = $item['summary'];
-                }
-                $items[] = array_filter($sanitized, fn ($v) => $v !== null);
+            $type = $item['type'] ?? '';
+
+            if ($type === 'reasoning' || $type === 'function_call') {
+                $items[] = array_filter($item, fn ($v) => $v !== null);
             }
         }
 
@@ -294,15 +288,6 @@ class OpenAiResponsesMessageFormatter implements MessageFormatter
             'call_id' => $message->getToolCallId(),
             'output' => $message->getContentAsString(),
         ];
-    }
-
-    /**
-     * Sanitize a reasoning item to only include fields accepted by the API on input.
-     * Strips status and other response-only fields.
-     */
-    protected function sanitizeReasoningItem(array $item): array
-    {
-        return array_intersect_key($item, array_flip(['type', 'id', 'content', 'summary']));
     }
 
     /**

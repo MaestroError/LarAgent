@@ -99,6 +99,19 @@ describe('OpenAiResponsesDriver', function () {
             expect($payload)->not->toHaveKey('reasoning_effort');
         });
 
+        it('includes reasoning.encrypted_content when reasoning is enabled', function () {
+            $config = DriverConfig::wrap([
+                'model' => 'o3',
+                'reasoning_effort' => 'medium',
+            ]);
+            $this->driver->setTestConfig($config);
+
+            $payload = $this->driver->publicPreparePayload([]);
+
+            expect($payload)->toHaveKey('include');
+            expect($payload['include'])->toContain('reasoning.encrypted_content');
+        });
+
         it('passes through other extras', function () {
             $config = DriverConfig::wrap([
                 'model' => 'gpt-4o-mini',

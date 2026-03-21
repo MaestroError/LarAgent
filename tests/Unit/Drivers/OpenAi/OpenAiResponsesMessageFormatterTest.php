@@ -209,76 +209,100 @@ describe('OpenAiResponsesMessageFormatter', function () {
         });
     });
 
-    describe('extractReasoningItems()', function () {
-        it('extracts reasoning items from output', function () {
-            $response = [
-                'output' => [
-                    [
-                        'id' => 'rs_abc123',
-                        'type' => 'reasoning',
-                        'content' => [],
-                        'summary' => [],
-                    ],
-                    [
-                        'type' => 'function_call',
-                        'call_id' => 'call_abc',
-                        'name' => 'get_weather',
-                        'arguments' => '{"city": "London"}',
-                    ],
-                ],
-            ];
-
-            $items = $this->formatter->extractReasoningItems($response);
-
-            expect($items)->toHaveCount(1);
-            expect($items[0]['type'])->toBe('reasoning');
-            expect($items[0]['id'])->toBe('rs_abc123');
-        });
-
-        it('strips status and other unknown fields from reasoning items', function () {
+    describe('extractOutputItemsForReplay()', function () {
+        it('extracts reasoning and function_call items from output', function () {
             $response = [
                 'output' => [
                     [
                         'id' => 'rs_abc123',
                         'type' => 'reasoning',
                         'status' => 'completed',
-                        'content' => [],
+                        'encrypted_content' => 'encrypted_data_here',
+                        'summary' => [['type' => 'summary_text', 'text' => 'thinking...']],
+                    ],
+                    [
+                        'id' => 'fc_def456',
+                        'type' => 'function_call',
+                        'status' => 'completed',
+                        'call_id' => 'call_abc',
+                        'name' => 'get_weather',
+                        'arguments' => '{"city": "London"}',
+                    ],
+                    [
+                        'type' => 'message',
+                        'role' => 'assistant',
+                        'content' => [['type' => 'output_text', 'text' => 'ignored']],
+                    ],
+                ],
+            ];
+
+            $items = $this->formatter->extractOutputItemsForReplay($response);
+
+            expect($items)->toHaveCount(2);
+            // Reasoning item - all non-null fields preserved
+            expect($items[0]['type'])->toBe('reasoning');
+            expect($items[0]['id'])->toBe('rs_abc123');
+            expect($items[0]['encrypted_content'])->toBe('encrypted_data_here');
+            expect($items[0]['status'])->toBe('completed');
+            // Function call item - all non-null fields preserved
+            expect($items[1]['type'])->toBe('function_call');
+            expect($items[1]['id'])->toBe('fc_def456');
+            expect($items[1]['call_id'])->toBe('call_abc');
+            expect($items[1]['status'])->toBe('completed');
+        });
+
+        it('filters out null values from output items', function () {
+            $response = [
+                'output' => [
+                    [
+                        'id' => 'rs_abc',
+                        'type' => 'reasoning',
+                        'encrypted_content' => null,
+                        'status' => null,
                         'summary' => [],
                     ],
                 ],
             ];
 
-            $items = $this->formatter->extractReasoningItems($response);
+            $items = $this->formatter->extractOutputItemsForReplay($response);
 
             expect($items)->toHaveCount(1);
+            expect($items[0])->not->toHaveKey('encrypted_content');
             expect($items[0])->not->toHaveKey('status');
+            expect($items[0])->toHaveKey('id', 'rs_abc');
             expect($items[0])->toHaveKey('type', 'reasoning');
-            expect($items[0])->toHaveKey('id', 'rs_abc123');
         });
 
-        it('returns empty array when no reasoning items', function () {
+        it('returns empty array when no reasoning or function_call items', function () {
             $response = [
                 'output' => [
                     ['type' => 'message', 'role' => 'assistant', 'content' => []],
                 ],
             ];
 
-            expect($this->formatter->extractReasoningItems($response))->toBeEmpty();
+            expect($this->formatter->extractOutputItemsForReplay($response))->toBeEmpty();
         });
     });
 
-    describe('formatMessages() with reasoning items', function () {
-        it('includes reasoning items before function_call items for ToolCallMessage', function () {
+    describe('formatMessages() with raw output items', function () {
+        it('replays raw output items when available on ToolCallMessage', function () {
             $toolCalls = [
                 new ToolCall('call_1', 'get_weather', '{"city": "NYC"}'),
             ];
             $toolCallMessage = new ToolCallMessage($toolCalls);
-            $toolCallMessage->setExtra('reasoning_items', [
+            $toolCallMessage->setExtra('raw_output_items', [
                 [
-                    'id' => 'rs_abc',
                     'type' => 'reasoning',
-                    'content' => [],
-                    'summary' => [],
+                    'id' => 'rs_abc',
+                    'encrypted_content' => 'encrypted_data',
+                    'summary' => [['type' => 'summary_text', 'text' => 'thinking']],
+                ],
+                [
+                    'type' => 'function_call',
+                    'id' => 'fc_def',
+                    'call_id' => 'call_1',
+                    'name' => 'get_weather',
+                    'arguments' => '{"city": "NYC"}',
                 ],
             ]);
 
@@ -286,10 +310,13 @@ describe('OpenAiResponsesMessageFormatter', function () {
 
             expect($result)->toHaveCount(2);
             expect($result[0]['type'])->toBe('reasoning');
+            expect($result[0]['id'])->toBe('rs_abc');
+            expect($result[0])->toHaveKey('encrypted_content');
             expect($result[1]['type'])->toBe('function_call');
+            expect($result[1]['id'])->toBe('fc_def');
         });
 
-        it('works without reasoning items on ToolCallMessage', function () {
+        it('falls back to reconstructed function_call items without raw output', function () {
             $toolCalls = [
                 new ToolCall('call_1', 'get_weather', '{"city": "NYC"}'),
             ];
@@ -299,6 +326,9 @@ describe('OpenAiResponsesMessageFormatter', function () {
 
             expect($result)->toHaveCount(1);
             expect($result[0]['type'])->toBe('function_call');
+            expect($result[0]['call_id'])->toBe('call_1');
+            // Reconstructed items don't have the response item id
+            expect($result[0])->not->toHaveKey('id');
         });
     });
 

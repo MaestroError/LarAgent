@@ -78,6 +78,13 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
         $reasoningEffort = $extras['reasoning_effort'] ?? null;
         if ($reasoningEffort) {
             $payload['reasoning'] = ['effort' => $reasoningEffort];
+
+            // Request encrypted reasoning content so reasoning items can be
+            // replayed in subsequent turns for stateless multi-turn conversations.
+            $payload['include'] = array_unique(array_merge(
+                $payload['include'] ?? [],
+                ['reasoning.encrypted_content']
+            ));
         }
 
         // Add remaining extras (excluding reasoning_effort which is handled above)
@@ -158,10 +165,12 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
             $message = new ToolCallMessage($toolCalls);
             $message->setUsage($usage);
 
-            // Store reasoning items so they can be passed back with tool call outputs
-            $reasoningItems = $this->formatter->extractReasoningItems($responseArray);
-            if (! empty($reasoningItems)) {
-                $message->setExtra('reasoning_items', $reasoningItems);
+            // Store raw output items (reasoning + function_call) so they can be replayed
+            // exactly as the API returned them. Reasoning models require the complete
+            // output items (with their id fields) to be passed back.
+            $rawOutputItems = $this->formatter->extractOutputItemsForReplay($responseArray);
+            if (! empty($rawOutputItems)) {
+                $message->setExtra('raw_output_items', $rawOutputItems);
             }
 
             return $message;
@@ -193,7 +202,7 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
         $streamedMessage = new StreamedAssistantMessage;
         $toolCalls = [];        // Keyed by item_id
-        $reasoningItems = [];   // Reasoning items to pass back
+        $rawOutputItems = null; // Complete output items from response.completed
         $hasToolCalls = false;
 
         foreach ($stream as $response) {
@@ -215,7 +224,7 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                 continue;
             }
 
-            // New output item - track function calls and reasoning items
+            // New output item - track function calls
             if ($type === 'response.output_item.added') {
                 $item = $event['item'] ?? [];
                 $itemType = $item['type'] ?? '';
@@ -230,9 +239,6 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                         'arguments' => '',
                     ];
                     $hasToolCalls = true;
-                } elseif ($itemType === 'reasoning') {
-                    // Strip fields not accepted by the API on input (e.g. status)
-                    $reasoningItems[] = array_intersect_key($item, array_flip(['type', 'id', 'content', 'summary']));
                 }
 
                 continue;
@@ -249,7 +255,7 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                 continue;
             }
 
-            // Response completed - extract usage and full reasoning items
+            // Response completed - extract usage and raw output items
             if ($type === 'response.completed') {
                 $responseData = $event['response'] ?? [];
                 $usageData = $responseData['usage'] ?? [];
@@ -261,11 +267,8 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                     ));
                 }
 
-                // Extract full reasoning items from completed response
-                $completedReasoningItems = $this->formatter->extractReasoningItems($responseData);
-                if (! empty($completedReasoningItems)) {
-                    $reasoningItems = $completedReasoningItems;
-                }
+                // Extract complete output items for faithful replay
+                $rawOutputItems = $this->formatter->extractOutputItemsForReplay($responseData);
 
                 $streamedMessage->setComplete(true);
 
@@ -291,9 +294,9 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
             $toolCallMessage = new ToolCallMessage($toolCallObjects);
 
-            // Store reasoning items so they can be passed back with tool call outputs
-            if (! empty($reasoningItems)) {
-                $toolCallMessage->setExtra('reasoning_items', $reasoningItems);
+            // Store raw output items for faithful replay on next request
+            if (! empty($rawOutputItems)) {
+                $toolCallMessage->setExtra('raw_output_items', $rawOutputItems);
             }
 
             if ($streamedMessage->getUsage() !== null) {
