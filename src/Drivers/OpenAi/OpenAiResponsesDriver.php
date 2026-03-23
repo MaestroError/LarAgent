@@ -207,8 +207,8 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
         foreach ($stream as $response) {
             $this->lastResponse = $response;
-            $event = $response->toArray();
-            $type = $event['type'] ?? '';
+            $type = $response->event;
+            $event = $response->response->toArray();
 
             // Text content delta
             if ($type === 'response.output_text.delta') {
