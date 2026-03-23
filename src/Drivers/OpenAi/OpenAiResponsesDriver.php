@@ -230,9 +230,9 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                 $itemType = $item['type'] ?? '';
 
                 if ($itemType === 'function_call') {
-                    $itemId = $item['id'] ?? '';
-                    $callId = $item['call_id'] ?? '';
-                    $name = $item['name'] ?? '';
+                    $itemId = $item['id'];
+                    $callId = $item['call_id'];
+                    $name = $item['name'];
                     $toolCalls[$itemId] = [
                         'call_id' => $callId,
                         'name' => $name,
@@ -246,7 +246,7 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
 
             // Function call arguments delta - uses item_id to identify the function call
             if ($type === 'response.function_call_arguments.delta') {
-                $itemId = $event['item_id'] ?? '';
+                $itemId = $event['item_id'];
                 $delta = $event['delta'] ?? '';
                 if (isset($toolCalls[$itemId])) {
                     $toolCalls[$itemId]['arguments'] .= $delta;
