@@ -4,6 +4,7 @@ namespace LarAgent\Drivers\Anthropic;
 
 use Anthropic;
 use LarAgent\Core\Abstractions\LlmDriver;
+use LarAgent\Core\Contracts\InterruptableDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
@@ -15,13 +16,15 @@ use LarAgent\Messages\ToolCallMessage;
 use LarAgent\ToolCall;
 use LarAgent\Usage\DataModels\Usage;
 
-class ClaudeDriver extends LlmDriver implements LlmDriverInterface
+class ClaudeDriver extends LlmDriver implements InterruptableDriver, LlmDriverInterface
 {
     protected mixed $client;
 
     protected string $default_url = 'api.anthropic.com/v1';
 
     protected MessageFormatter $formatter;
+
+    protected bool $interrupted = false;
 
     public function __construct(DriverConfig|array $settings = [])
     {
@@ -34,6 +37,21 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
             throw new \Exception('API key is required to use the Claude driver.');
         }
         $this->formatter = $this->createFormatter();
+    }
+
+    public function interrupt(): void
+    {
+        $this->interrupted = true;
+    }
+
+    public function isInterrupted(): bool
+    {
+        return $this->interrupted;
+    }
+
+    public function resetInterrupt(): void
+    {
+        $this->interrupted = false;
     }
 
     /**
@@ -180,6 +198,10 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                             $callback($streamedMessage);
                         }
                         yield $streamedMessage;
+
+                        if ($this->interrupted) {
+                            return;
+                        }
                     }
                 } elseif ($deltaType === 'input_json_delta') {
                     $id = $chunk->content_block->id ?? ($currentToolBlockIds[$chunk->index] ?? null);

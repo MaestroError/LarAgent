@@ -3,12 +3,14 @@
 namespace LarAgent;
 
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
+use LarAgent\Core\Contracts\InterruptableDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Core\Traits\Configs;
 use LarAgent\Core\Traits\Hooks;
+use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
 
@@ -44,6 +46,46 @@ class LarAgent
     protected $streamCallback = null;
 
     protected bool $returnMessage = false;
+
+    /** @var bool Whether the current run has been interrupted */
+    protected bool $interrupted = false;
+
+    /** @var StreamedAssistantMessage|null Partial streamed message at time of interrupt */
+    protected ?StreamedAssistantMessage $partialStreamedMessage = null;
+
+    /**
+     * Signal an interrupt to stop the current streaming run.
+     */
+    public function interrupt(): void
+    {
+        $this->interrupted = true;
+
+        // Propagate to the driver if it supports interruption
+        if ($this->driver instanceof InterruptableDriver) {
+            $this->driver->interrupt();
+        }
+    }
+
+    /**
+     * Check whether the current run has been interrupted.
+     */
+    public function isInterrupted(): bool
+    {
+        return $this->interrupted;
+    }
+
+    /**
+     * Reset the interrupt flag for a fresh run.
+     */
+    public function resetInterrupt(): void
+    {
+        $this->interrupted = false;
+        $this->partialStreamedMessage = null;
+
+        if ($this->driver instanceof InterruptableDriver) {
+            $this->driver->resetInterrupt();
+        }
+    }
 
     // Config methods
 
@@ -472,11 +514,16 @@ class LarAgent
      * @param  callable|null  $callback  Optional callback function to process each chunk
      * @return \Generator A generator that yields chunks of the response
      */
-    public function runStreamed(?callable $callback = null): \Generator
+    public function runStreamed(?callable $callback = null, bool $isToolRecurse = false): \Generator
     {
         // Enable streaming mode if not already enabled
         if (! $this->isStreaming()) {
             $this->streaming(true, $callback);
+        }
+
+        // Reset interrupt state at the start of a fresh run (not tool recursion)
+        if (! $isToolRecurse) {
+            $this->resetInterrupt();
         }
 
         // Prepare the agent for execution
@@ -532,6 +579,13 @@ class LarAgent
         foreach ($stream as $chunk) {
             $finalMessage = $chunk;
             yield $chunk;
+
+            // Check for interrupt after yielding
+            if ($this->interrupted) {
+                $this->handleStreamInterrupt($chunk instanceof StreamedAssistantMessage ? $chunk : null);
+
+                return;
+            }
         }
 
         // Add the final message to chat history if it exists
@@ -547,6 +601,13 @@ class LarAgent
             if ($processedResponse instanceof \Generator) {
                 foreach ($processedResponse as $chunk) {
                     yield $chunk;
+
+                    // Check for interrupt in nested generator
+                    if ($this->interrupted) {
+                        $this->handleStreamInterrupt($chunk instanceof StreamedAssistantMessage ? $chunk : null);
+
+                        return;
+                    }
                 }
             } else {
                 yield $processedResponse;
@@ -615,6 +676,15 @@ class LarAgent
         $response = $this->driver->sendMessage($this->chatHistory->getMessages()->all(), $this->buildConfig());
         // After response (After receiving message from LLM)
         $this->processAfterResponse($response);
+
+        // If the SDK driver handled tool calls internally, inject intermediate messages into history
+        if ($response->hasExtra('intermediate_messages')) {
+            foreach ($response->getExtra('intermediate_messages') as $intermediateMsg) {
+                $this->chatHistory->addMessage($intermediateMsg);
+            }
+            $response->removeExtra('intermediate_messages');
+        }
+
         $this->chatHistory->addMessage($response);
 
         // Process the response with common post-processing logic
@@ -639,6 +709,14 @@ class LarAgent
 
             $this->processTools($response);
 
+            // If interrupted during tool processing, stop recursion
+            if ($this->interrupted) {
+                $this->processBeforeSaveHistory($this->chatHistory);
+                $this->chatHistory->writeToMemory();
+
+                return null;
+            }
+
             // If tool choice is required or forced some tool
             // Switch to auto tool choice to avoid infinite loop
             if ($this->getToolChoice() !== 'none') {
@@ -652,7 +730,7 @@ class LarAgent
 
             // Continue the conversation with tool results
             if ($this->isStreaming()) {
-                return $this->runStreamed();
+                return $this->runStreamed(isToolRecurse: true);
             }
 
             // Reset message to null to skip adding it again in chat history
@@ -727,6 +805,11 @@ class LarAgent
     protected function processTools(ToolCallMessage $message): void
     {
         foreach ($message->getToolCalls() as $toolCall) {
+            // Check for interrupt before processing next tool
+            if ($this->interrupted) {
+                break;
+            }
+
             $result = $this->processToolCall($toolCall);
             if (! $result) {
                 continue;
@@ -760,6 +843,23 @@ class LarAgent
         $content = is_string($result) ? $result : json_encode($result);
 
         return new ToolResultMessage($content, $toolCall->getId(), $toolCall->getToolName());
+    }
+
+    /**
+     * Handle a stream interrupt by saving the partial message and firing hooks.
+     */
+    protected function handleStreamInterrupt(?StreamedAssistantMessage $partialMessage): void
+    {
+        if ($partialMessage !== null && $partialMessage->getContentAsString() !== '') {
+            $partialMessage->addMeta(['interrupted' => true]);
+            $this->chatHistory->addMessage($partialMessage);
+        }
+
+        $this->processOnStreamInterrupted($partialMessage);
+
+        // Save chat history
+        $this->processBeforeSaveHistory($this->chatHistory);
+        $this->chatHistory->writeToMemory();
     }
 
     /**

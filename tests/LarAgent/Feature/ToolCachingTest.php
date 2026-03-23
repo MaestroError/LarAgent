@@ -56,6 +56,7 @@ it('preserves tool properties when caching', function () {
 
 it('clears mcp tool cache with command for default store', function () {
     Config::set('laragent.mcp_tool_caching.store', null);
+    Config::set('cache.default', 'array');
 
     $agent = createTestAgent();
     $agent->test_build_tools_from_mcp_servers();

@@ -36,6 +36,9 @@ trait Hooks
     // Before structured output response
     protected array $beforeStructuredOutputCallbacks = [];
 
+    // On stream interrupted
+    protected array $onStreamInterruptedCallbacks = [];
+
     // Event methods
 
     // Before reinjecting instuctions
@@ -226,6 +229,26 @@ trait Hooks
             // ($agent, &$response)
             if ($callback($this, $response) === false) {
                 return false; // Return false if a callback returns false
+            }
+        }
+
+        return true;
+    }
+
+    // On stream interrupted
+    public function onStreamInterrupted(callable $callback): self
+    {
+        $this->onStreamInterruptedCallbacks[] = $callback;
+
+        return $this;
+    }
+
+    protected function processOnStreamInterrupted(?MessageInterface $partialMessage): ?bool
+    {
+        foreach ($this->onStreamInterruptedCallbacks as $callback) {
+            // ($agent, $partialMessage)
+            if ($callback($this, $partialMessage) === false) {
+                return false;
             }
         }
 

@@ -3,6 +3,7 @@
 namespace LarAgent\Drivers\OpenAi;
 
 use LarAgent\Core\Abstractions\LlmDriver;
+use LarAgent\Core\Contracts\InterruptableDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\Contracts\ToolCall as ToolCallInterface;
@@ -18,16 +19,33 @@ use LarAgent\Usage\DataModels\Usage;
  * Base class for OpenAI and OpenAI-compatible drivers
  * Contains shared functionality to avoid code duplication
  */
-abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
+abstract class BaseOpenAiDriver extends LlmDriver implements InterruptableDriver, LlmDriverInterface
 {
     protected mixed $client;
 
     protected MessageFormatter $formatter;
 
+    protected bool $interrupted = false;
+
     public function __construct(DriverConfig|array $settings = [])
     {
         parent::__construct($settings);
         $this->formatter = $this->createFormatter();
+    }
+
+    public function interrupt(): void
+    {
+        $this->interrupted = true;
+    }
+
+    public function isInterrupted(): bool
+    {
+        return $this->interrupted;
+    }
+
+    public function resetInterrupt(): void
+    {
+        $this->interrupted = false;
     }
 
     /**
@@ -189,6 +207,11 @@ abstract class BaseOpenAiDriver extends LlmDriver implements LlmDriverInterface
 
                 // Yield the message
                 yield $streamedMessage;
+
+                // Check for interrupt after yielding
+                if ($this->interrupted) {
+                    return;
+                }
             } elseif (! isset($delta->content)) {
                 $streamedMessage->resetLastChunk();
             }

@@ -21,6 +21,7 @@ use LarAgent\Events\BeforeToolExecution;
 use LarAgent\Events\ConversationEnded;
 use LarAgent\Events\ConversationStarted;
 use LarAgent\Events\EngineError;
+use LarAgent\Events\StreamInterrupted;
 use LarAgent\Events\ToolChanged;
 
 trait Events
@@ -47,6 +48,7 @@ trait Events
         'beforeToolExecution' => BeforeToolExecution::class,
         'afterToolExecution' => AfterToolExecution::class,
         'beforeStructuredOutput' => BeforeStructuredOutput::class,
+        'onStreamInterrupted' => StreamInterrupted::class,
     ];
 
     /**
@@ -288,5 +290,15 @@ trait Events
     protected function onEngineError(\Throwable $th)
     {
         // Triggered when an engine error occurs
+    }
+
+    /**
+     * Event triggered when a streaming response is interrupted.
+     *
+     * @param  MessageInterface|null  $partialMessage  The partial response at time of interruption
+     */
+    protected function onStreamInterrupted(?MessageInterface $partialMessage): void
+    {
+        // Triggered when a streaming response is interrupted
     }
 }

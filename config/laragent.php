@@ -120,6 +120,37 @@ return [
             'default_max_completion_tokens' => 131072,
             'default_temperature' => 0.8,
         ],
+
+        /**
+         * Laravel AI SDK driver (requires laravel/ai package)
+         * Uses the SDK's agent system with Prism under the hood.
+         * Supports any provider configured in config/ai.php.
+         * Only available on PHP 8.4+ with Laravel 12+.
+         */
+        'laravel-ai' => [
+            'label' => 'openai',
+            'driver' => \LarAgent\Drivers\LaravelAi\LaravelAiDriver::class,
+            'sdk_provider' => 'openai',
+            'default_truncation_threshold' => 50000,
+            'default_max_completion_tokens' => 10000,
+            'default_temperature' => 1,
+
+            /**
+             * Conversation store class for unified SDK ↔ LarAgent storage.
+             * Set to null to auto-register LarAgentConversationStore (default).
+             * Set to a class implementing ConversationStore to use a custom store.
+             * Set to false to disable unified storage entirely.
+             */
+            'conversation_store' => null,
+
+            /**
+             * Bridge SDK events to LarAgent events for unified observability.
+             * When true, SDK events (PromptingAgent, AgentPrompted, etc.) are
+             * automatically mapped to LarAgent events (BeforeSend, AfterResponse, etc.).
+             * Tool events already handled by SdkToolBridge are guarded from double-dispatch.
+             */
+            'bridge_events' => true,
+        ],
     ],
 
     /**
