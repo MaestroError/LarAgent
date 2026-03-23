@@ -229,8 +229,11 @@ class OpenAiResponsesDriver extends BaseOpenAiDriver
                 $item = $event['item'] ?? [];
                 $itemType = $item['type'] ?? '';
 
+                // call_id and name are required per the API spec, but id is
+                // optional (see openai/openai-python#2205), so we fall back
+                // to a unique key to avoid collisions in $toolCalls.
                 if ($itemType === 'function_call') {
-                    $itemId = $item['id'];
+                    $itemId = $item['id'] ?? uniqid('fc_');
                     $callId = $item['call_id'];
                     $name = $item['name'];
                     $toolCalls[$itemId] = [
