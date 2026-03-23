@@ -101,6 +101,12 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
             return $message;
         }
 
+        if ($finishReason === 'refusal') {
+            $content = $this->formatter->extractContent($responseArray);
+
+            throw new \Exception('Claude refused the request: '.($content ?: 'No reason provided.'));
+        }
+
         throw new \Exception('Unexpected stop reason: '.$response->stop_reason);
     }
 
@@ -197,7 +203,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $id = $block->id ?? ($currentToolBlockIds[$chunk->index] ?? null);
                     if ($id !== null) {
                         $name = $pendingToolNames[$id] ?? '';
-                        $args = $pendingToolInputs[$id] ?? '{}';
+                        $args = $pendingToolInputs[$id] ?: '{}';
 
                         $toolCalls[] = new ToolCall($id, $name, $args);
 
@@ -230,7 +236,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     if (! empty($pendingToolInputs)) {
                         foreach ($pendingToolInputs as $id => $args) {
                             $name = $pendingToolNames[$id] ?? '';
-                            $args = $args ?? '{}';
+                            $args = $args ?: '{}';
                             $toolCalls[] = new ToolCall($id, $name, $args);
                         }
                         $pendingToolInputs = [];
@@ -257,6 +263,12 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                     $merged = $this->mergeUsageSnapshots($firstUsage, $finalUsage);
                     $streamedMessage->setUsage(Usage::fromArray($merged));
                     break;
+                }
+
+                if ($stopReason === 'refusal') {
+                    $content = $streamedMessage->getContentAsString();
+
+                    throw new \Exception('Claude refused the request: '.($content ?: 'No reason provided.'));
                 }
             }
 
@@ -468,6 +480,17 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
                 foreach ($schema[$keyword] as $i => $subSchema) {
                     if (is_array($subSchema)) {
                         $schema[$keyword][$i] = $this->ensureAdditionalPropertiesFalse($subSchema);
+                    }
+                }
+            }
+        }
+
+        // Handle $defs and definitions (JSON Schema reference definitions)
+        foreach (['$defs', 'definitions'] as $defsKeyword) {
+            if (isset($schema[$defsKeyword]) && is_array($schema[$defsKeyword])) {
+                foreach ($schema[$defsKeyword] as $defName => $defSchema) {
+                    if (is_array($defSchema)) {
+                        $schema[$defsKeyword][$defName] = $this->ensureAdditionalPropertiesFalse($defSchema);
                     }
                 }
             }

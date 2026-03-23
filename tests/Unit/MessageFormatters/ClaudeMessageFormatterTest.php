@@ -100,7 +100,7 @@ describe('ClaudeMessageFormatter', function () {
 
     // ========== formatTools Tests ==========
 
-    it('formats tools with input_schema', function () {
+    it('formats tools with input_schema and strict mode', function () {
         $tool = Tool::create('search', 'Search for information')
             ->addProperty('query', 'string', 'Search query')
             ->setRequired('query');
@@ -110,18 +110,50 @@ describe('ClaudeMessageFormatter', function () {
         expect($formatted)->toHaveCount(1)
             ->and($formatted[0]['name'])->toBe('search')
             ->and($formatted[0]['description'])->toBe('Search for information')
+            ->and($formatted[0]['strict'])->toBe(true)
             ->and($formatted[0]['input_schema']['type'])->toBe('object')
             ->and($formatted[0]['input_schema']['properties'])->toHaveKey('query')
-            ->and($formatted[0]['input_schema']['required'])->toBe(['query']);
+            ->and($formatted[0]['input_schema']['required'])->toBe(['query'])
+            ->and($formatted[0]['input_schema']['additionalProperties'])->toBe(false);
     });
 
-    it('includes empty input_schema when tool has no properties', function () {
+    it('includes empty input_schema with strict mode when tool has no properties', function () {
         $tool = Tool::create('get_time', 'Get current time');
 
         $formatted = $this->formatter->formatTools([$tool]);
 
-        expect($formatted[0]['input_schema'])->toBeArray()
-            ->and($formatted[0]['input_schema']['type'])->toBe('object');
+        expect($formatted[0]['strict'])->toBe(true)
+            ->and($formatted[0]['input_schema'])->toBeArray()
+            ->and($formatted[0]['input_schema']['type'])->toBe('object')
+            ->and($formatted[0]['input_schema']['additionalProperties'])->toBe(false);
+    });
+
+    it('adds additionalProperties false to nested objects in tool input schemas', function () {
+        $tool = Tool::create('update_profile', 'Update a user profile')
+            ->setProperties([
+                'name' => ['type' => 'string', 'description' => 'User name'],
+                'address' => [
+                    'type' => 'object',
+                    'properties' => [
+                        'city' => ['type' => 'string'],
+                        'geo' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'lat' => ['type' => 'number'],
+                                'lng' => ['type' => 'number'],
+                            ],
+                        ],
+                    ],
+                ],
+            ])
+            ->setRequired('name');
+
+        $formatted = $this->formatter->formatTools([$tool]);
+        $schema = $formatted[0]['input_schema'];
+
+        expect($schema['additionalProperties'])->toBe(false)
+            ->and($schema['properties']['address']['additionalProperties'])->toBe(false)
+            ->and($schema['properties']['address']['properties']['geo']['additionalProperties'])->toBe(false);
     });
 
     // ========== extractSystemInstruction Tests ==========
@@ -274,6 +306,14 @@ describe('ClaudeMessageFormatter', function () {
         $reason = $this->formatter->extractFinishReason($response);
 
         expect($reason)->toBe('length');
+    });
+
+    it('normalizes refusal stop reason', function () {
+        $response = ['stop_reason' => 'refusal'];
+
+        $reason = $this->formatter->extractFinishReason($response);
+
+        expect($reason)->toBe('refusal');
     });
 
     // ========== hasToolCalls Tests ==========

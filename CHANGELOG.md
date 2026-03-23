@@ -4,6 +4,12 @@ All notable changes to `LarAgent` will be documented in this file.
 
 ## [v1.0] - Unreleased
 
+### Anthropic Driver: Structured Output Improvements
+
+-   **Strict tool use enabled by default**: All tool definitions now include `strict: true` and `additionalProperties: false` on `input_schema`, enabling guaranteed schema validation on tool names and inputs. This ensures Claude always returns correctly-typed tool parameters, eliminating the need for validation retries.
+-   **`$defs`/`definitions` support in schema processing**: The `ensureAdditionalPropertiesFalse` method now recursively processes `$defs` and `definitions` blocks in JSON schemas, ensuring schemas using `$ref` references are fully compliant with Claude's structured output requirements.
+-   **`refusal` stop reason handling**: The driver now handles Claude's `refusal` stop reason (returned when Claude declines a request for safety reasons). A descriptive exception is thrown instead of an "Unexpected stop reason" error.
+
 ### ⚠️ Breaking Changes (v0.8 → v1.0)
 
 #### Provider config key

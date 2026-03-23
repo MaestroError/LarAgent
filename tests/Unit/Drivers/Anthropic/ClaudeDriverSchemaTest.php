@@ -90,6 +90,37 @@ describe('ClaudeDriver Schema Support', function () {
                 ->and($result)->not->toHaveKey('strict');
         });
 
+        it('adds additionalProperties to $defs and definitions blocks', function () {
+            $schema = [
+                'type' => 'object',
+                'properties' => [
+                    'contact' => ['$ref' => '#/$defs/Contact'],
+                ],
+                'required' => ['contact'],
+                '$defs' => [
+                    'Contact' => [
+                        'type' => 'object',
+                        'properties' => [
+                            'name' => ['type' => 'string'],
+                            'address' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'city' => ['type' => 'string'],
+                                ],
+                            ],
+                        ],
+                        'required' => ['name'],
+                    ],
+                ],
+            ];
+
+            $result = $this->driver->publicUnwrapResponseSchema($schema);
+
+            expect($result['additionalProperties'])->toBe(false)
+                ->and($result['$defs']['Contact']['additionalProperties'])->toBe(false)
+                ->and($result['$defs']['Contact']['properties']['address']['additionalProperties'])->toBe(false);
+        });
+
         it('preserves existing additionalProperties: false', function () {
             $schema = [
                 'type' => 'object',
