@@ -97,6 +97,15 @@ return [
             'default_temperature' => 1,
         ],
 
+        'openai_responses' => [
+            'label' => 'openai_responses',
+            'api_key' => env('OPENAI_API_KEY'),
+            'driver' => \LarAgent\Drivers\OpenAi\OpenAiResponsesDriver::class,
+            'default_truncation_threshold' => 50000,
+            'default_max_completion_tokens' => 10000,
+            'default_temperature' => 1,
+        ],
+
         'openrouter' => [
             'label' => 'openrouter',
             'api_key' => env('OPENROUTER_API_KEY'),
