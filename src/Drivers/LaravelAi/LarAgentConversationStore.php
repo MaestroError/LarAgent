@@ -54,7 +54,10 @@ class LarAgentConversationStore
     public function latestConversationId(string|int $userId): ?string
     {
         $context = $this->resolveContextForUser((string) $userId);
-        $identities = $context->getIdentityStorage()->getIdentitiesByUser((string) $userId);
+
+        // storeConversation() stores the userId in the identity's group field
+        // (not userId), so we must filter by group to find matching conversations.
+        $identities = $context->getIdentityStorage()->getIdentitiesByGroup((string) $userId);
 
         if ($identities->isEmpty()) {
             return null;
@@ -100,6 +103,9 @@ class LarAgentConversationStore
         $context = new Context($identity, $this->driversConfig);
         $chatHistory = new ChatHistoryStorage($identity, $this->driversConfig);
         $context->register($chatHistory);
+
+        // Persist the identity so it can be found by latestConversationId()
+        $context->getIdentityStorage()->save();
 
         // Track the context for later use
         $conversationId = $identity->getKey();

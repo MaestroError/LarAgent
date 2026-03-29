@@ -2557,24 +2557,35 @@ class Agent
         // Pass hook callbacks to drivers that handle tool execution internally
         if ($this->llmDriver instanceof \LarAgent\Core\Contracts\HookableDriver) {
             $self = $this;
+            // Track synthetic ToolCall IDs per tool execution so before/after
+            // callbacks share the same ID and listeners can correlate them.
+            $syntheticToolCalls = [];
             $this->llmDriver->setHookCallbacks(
-                before: function ($tool, $args) use ($self) {
-                    // Wrap raw args array in a synthetic ToolCall so event constructors
-                    // receive the expected ToolCallInterface instead of a raw array.
+                before: function ($tool, $args) use ($self, &$syntheticToolCalls) {
+                    // Generate a single synthetic ID for this tool execution
+                    $syntheticId = 'sdk_hook_'.bin2hex(random_bytes(4));
+                    $encodedArgs = is_string($args) ? $args : json_encode($args);
+
                     $syntheticToolCall = new \LarAgent\ToolCall(
-                        'sdk_hook_'.bin2hex(random_bytes(4)),
+                        $syntheticId,
                         $tool->getName(),
-                        is_string($args) ? $args : json_encode($args)
+                        $encodedArgs
                     );
+
+                    // Store so the after callback can reuse the same ID
+                    $syntheticToolCalls[$tool->getName()] = $syntheticToolCall;
 
                     return $self->callEvent('beforeToolExecution', [$tool, $syntheticToolCall]);
                 },
-                after: function ($tool, $args, $result) use ($self) {
-                    $syntheticToolCall = new \LarAgent\ToolCall(
-                        'sdk_hook_'.bin2hex(random_bytes(4)),
-                        $tool->getName(),
-                        is_string($args) ? $args : json_encode($args)
-                    );
+                after: function ($tool, $args, $result) use ($self, &$syntheticToolCalls) {
+                    // Reuse the ToolCall from the before callback for correlation
+                    $syntheticToolCall = $syntheticToolCalls[$tool->getName()]
+                        ?? new \LarAgent\ToolCall(
+                            'sdk_hook_'.bin2hex(random_bytes(4)),
+                            $tool->getName(),
+                            is_string($args) ? $args : json_encode($args)
+                        );
+                    unset($syntheticToolCalls[$tool->getName()]);
 
                     return $self->callEvent('afterToolExecution', [$tool, $syntheticToolCall, &$result]);
                 },

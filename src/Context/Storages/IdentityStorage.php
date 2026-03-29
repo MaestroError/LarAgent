@@ -175,6 +175,18 @@ class IdentityStorage extends Storage
     }
 
     /**
+     * Get tracked identities filtered by group.
+     *
+     * @param  string  $group  The group to filter by
+     */
+    public function getIdentitiesByGroup(string $group): SessionIdentityArray
+    {
+        return $this->get()->filter(function (SessionIdentity $identity) use ($group) {
+            return $identity->getGroup() === $group;
+        });
+    }
+
+    /**
      * Get all tracked identities.
      */
     public function getIdentities(): SessionIdentityArray

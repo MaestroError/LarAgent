@@ -273,8 +273,9 @@ class LaravelAiDriver extends LlmDriver implements HookableDriver, Interruptable
 
     /**
      * Build the prompt arguments array for the SDK agent call.
-     * Forwards model parameters (provider, model, temperature, maxTokens, etc.)
-     * so the SDK call matches the agent's configuration.
+     * Forwards provider and model so the SDK call matches the agent's configuration.
+     * Additional model parameters (temperature, maxTokens, etc.) are not currently
+     * forwarded as SDK support for these varies by provider.
      *
      * @return array Named arguments for the SDK prompt()/stream() call
      */

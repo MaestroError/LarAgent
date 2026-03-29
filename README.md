@@ -277,7 +277,7 @@ return [
         'gemini' => [
             'label' => 'gemini',
             'api_key' => env('GEMINI_API_KEY'),
-            'driver' => \LarAgent\Drivers\OpenAi\GeminiDriver::class,
+            'driver' => \LarAgent\Drivers\Gemini\GeminiDriver::class,
             'model' => 'gemini-2.0-flash-latest',
             // ...
         ],

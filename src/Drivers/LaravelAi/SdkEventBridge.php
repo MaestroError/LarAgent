@@ -147,13 +147,16 @@ class SdkEventBridge
     }
 
     /**
-     * Reset all state. Called at the start of each sendMessage() call
+     * Reset per-run state. Called at the start of each sendMessage() call
      * to prevent stale state leaking across requests (Octane, queues)
      * or across multi-provider fallback attempts.
+     *
+     * Note: $registered is NOT reset because Event::listen() listeners
+     * persist and cannot be removed. Resetting $registered would cause
+     * register() to add duplicate listeners on subsequent calls.
      */
     public static function reset(): void
     {
-        static::$registered = false;
         static::$guardedTools = [];
         static::$agentDto = null;
         static::$enabled = true;
