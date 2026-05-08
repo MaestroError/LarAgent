@@ -4,6 +4,10 @@ All notable changes to `LarAgent` will be documented in this file.
 
 ## [v1.0] - Unreleased
 
+### Added
+
+-   Laravel 13 support in package constraints and CI coverage for PHP 8.3-8.5.
+
 ### Anthropic Driver: Structured Output Improvements
 
 -   **Strict tool use enabled by default**: All tool definitions now include `strict: true` and `additionalProperties: false` on `input_schema`, enabling guaranteed schema validation on tool names and inputs. This ensures Claude always returns correctly-typed tool parameters, eliminating the need for validation retries.
