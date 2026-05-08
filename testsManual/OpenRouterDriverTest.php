@@ -228,7 +228,7 @@ it('can stream responses using respondStreamed', function () {
     $stream = $agent->respondStreamed('Say anything and end your response with "This is a streaming response"');
 
     // Verify the stream is a Generator
-    expect($stream)->toBeInstanceOf(\Generator::class);
+    expect($stream)->toBeInstanceOf(Generator::class);
 
     // Collect all messages from the stream
     $messages = [];

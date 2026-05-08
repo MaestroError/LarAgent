@@ -3,6 +3,7 @@
 namespace LarAgent\Drivers\Anthropic;
 
 use Anthropic;
+use GuzzleHttp\Client;
 use LarAgent\Core\Abstractions\LlmDriver;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
 use LarAgent\Core\Contracts\MessageFormatter;
@@ -58,7 +59,7 @@ class ClaudeDriver extends LlmDriver implements LlmDriverInterface
             ->withApiKey($apiKey)
             ->withBaseUri($baseUrl)
             ->withHttpHeader('anthropic-version', '2023-06-01')
-            ->withHttpClient($httpClient = new \GuzzleHttp\Client([]))
+            ->withHttpClient($httpClient = new Client([]))
             ->make();
 
         return $client;

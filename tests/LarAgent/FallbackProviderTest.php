@@ -1,6 +1,7 @@
 <?php
 
 use LarAgent\Agent;
+use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Tests\LarAgent\Fakes\FailingLlmDriver;
 use LarAgent\Tests\LarAgent\Fakes\PreloadedFakeLlmDriver;
@@ -58,7 +59,7 @@ it('falls back to secondary provider on streamed failure', function () {
 
     $chunks = [];
     foreach ($stream as $message) {
-        if ($message instanceof StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
+        if ($message instanceof StreamedAssistantMessage || $message instanceof AssistantMessage) {
             $chunks[] = $message->getContentAsString();
         }
     }

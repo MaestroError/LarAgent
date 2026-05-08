@@ -3,6 +3,7 @@
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
 use LarAgent\Agent;
+use LarAgent\Commands\AgentChatCommand;
 
 beforeEach(function () {
     // Clear session and cache to ensure test isolation
@@ -166,7 +167,7 @@ PHP;
 });
 
 test('formatElapsedTime formats seconds correctly', function () {
-    $command = new \LarAgent\Commands\AgentChatCommand;
+    $command = new AgentChatCommand;
     $reflection = new ReflectionClass($command);
     $method = $reflection->getMethod('formatElapsedTime');
     $method->setAccessible(true);

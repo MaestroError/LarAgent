@@ -1,8 +1,12 @@
 <?php
 
+use LarAgent\Core\Contracts\MessageFormatter;
 use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Drivers\OpenAi\OpenAiResponsesDriver;
 use LarAgent\Drivers\OpenAi\OpenAiResponsesMessageFormatter;
+use LarAgent\Messages\DeveloperMessage;
+use LarAgent\Messages\SystemMessage;
+use LarAgent\Messages\UserMessage;
 
 // Testable subclass to expose protected methods
 class TestableOpenAiResponsesDriver extends OpenAiResponsesDriver
@@ -27,7 +31,7 @@ class TestableOpenAiResponsesDriver extends OpenAiResponsesDriver
         return $this->extractInstructions($formattedInput, $instructions);
     }
 
-    public function getPublicFormatter(): \LarAgent\Core\Contracts\MessageFormatter
+    public function getPublicFormatter(): MessageFormatter
     {
         return $this->formatter;
     }
@@ -126,8 +130,8 @@ describe('OpenAiResponsesDriver', function () {
 
         it('extracts system message into instructions parameter', function () {
             $messages = [
-                new \LarAgent\Messages\SystemMessage('You are a helpful assistant.'),
-                new \LarAgent\Messages\UserMessage('Hello'),
+                new SystemMessage('You are a helpful assistant.'),
+                new UserMessage('Hello'),
             ];
 
             $payload = $this->driver->publicPreparePayload($messages);
@@ -143,8 +147,8 @@ describe('OpenAiResponsesDriver', function () {
 
         it('extracts developer message into instructions parameter', function () {
             $messages = [
-                new \LarAgent\Messages\DeveloperMessage('Be concise.'),
-                new \LarAgent\Messages\UserMessage('Hello'),
+                new DeveloperMessage('Be concise.'),
+                new UserMessage('Hello'),
             ];
 
             $payload = $this->driver->publicPreparePayload($messages);
@@ -154,7 +158,7 @@ describe('OpenAiResponsesDriver', function () {
 
         it('does not set instructions when no system/developer message', function () {
             $messages = [
-                new \LarAgent\Messages\UserMessage('Hello'),
+                new UserMessage('Hello'),
             ];
 
             $payload = $this->driver->publicPreparePayload($messages);

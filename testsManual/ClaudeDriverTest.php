@@ -1,6 +1,7 @@
 <?php
 
 use LarAgent\Agent;
+use LarAgent\Core\Contracts\ToolCall;
 use LarAgent\Drivers\Anthropic\ClaudeDriver;
 use LarAgent\Tests\TestCase;
 use LarAgent\Tool;
@@ -174,7 +175,7 @@ class ToolTestAgent extends ClaudeTestAgent
         ];
     }
 
-    protected function afterToolExecution(\LarAgent\Core\Contracts\Tool $tool, \LarAgent\Core\Contracts\ToolCall $toolCall, &$result)
+    protected function afterToolExecution(LarAgent\Core\Contracts\Tool $tool, ToolCall $toolCall, &$result)
     {
         $this->saveToolResult = $result;
     }
@@ -212,7 +213,7 @@ class ParallelToolTestAgent extends ClaudeTestAgent
         ];
     }
 
-    protected function afterToolExecution(\LarAgent\Core\Contracts\Tool $tool, \LarAgent\Core\Contracts\ToolCall $toolCall, &$result)
+    protected function afterToolExecution(LarAgent\Core\Contracts\Tool $tool, ToolCall $toolCall, &$result)
     {
         $this->toolCalls[] = [
             'tool' => $tool->getName(),
@@ -316,7 +317,7 @@ it('supports streaming with structured output', function () {
 
     $stream = $agent->respondStreamed('Sony PlayStation 5 is priced at $499.');
 
-    expect($stream)->toBeInstanceOf(\Generator::class);
+    expect($stream)->toBeInstanceOf(Generator::class);
 
     // Collect all messages from the stream
     $messages = [];
@@ -347,7 +348,7 @@ it('can stream responses using respondStreamed', function () {
     $stream = $agent->respondStreamed('Say anything and end your response with "This is a streaming response"');
 
     // Verify the stream is a Generator
-    expect($stream)->toBeInstanceOf(\Generator::class);
+    expect($stream)->toBeInstanceOf(Generator::class);
 
     // Collect all messages from the stream
     $messages = [];

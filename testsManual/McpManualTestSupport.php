@@ -3,6 +3,8 @@
 require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Agent;
+use LarAgent\Context\Drivers\InMemoryStorage;
+use LarAgent\History\InMemoryChatHistory;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
 
@@ -22,9 +24,9 @@ function mcpManualBaseConfig(array $mcpServers): array
 {
     return [
         'laragent.default_driver' => FakeLlmDriver::class,
-        'laragent.default_chat_history' => LarAgent\History\InMemoryChatHistory::class,
+        'laragent.default_chat_history' => InMemoryChatHistory::class,
         'laragent.default_history_storage' => 'in_memory',
-        'laragent.default_storage' => [LarAgent\Context\Drivers\InMemoryStorage::class],
+        'laragent.default_storage' => [InMemoryStorage::class],
         'laragent.fallback_provider' => null,
         'laragent.providers.default' => [
             'label' => 'default',
@@ -164,6 +166,7 @@ function mcpManualBuildInput(Tool $tool, array $overrides = []): array
     foreach ($properties as $name => $schema) {
         if (array_key_exists($name, $overrides)) {
             $input[$name] = $overrides[$name];
+
             continue;
         }
 

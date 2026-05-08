@@ -18,9 +18,13 @@
  */
 
 use LarAgent\Agent;
+use LarAgent\Context\Contracts\TruncationStrategy;
+use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\Truncation\SimpleTruncationStrategy;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
+use LarAgent\Events\ChatHistory\ChatHistoryTruncated;
 use LarAgent\Message;
+use LarAgent\Messages\AssistantMessage;
 use LarAgent\Tests\TestCase;
 use LarAgent\Usage\DataModels\Usage;
 
@@ -63,12 +67,12 @@ class SimpleTruncationTestAgent extends Agent
     protected $truncationThreshold = 5000; // Small window to trigger truncation
 
     protected $storage = [
-        \LarAgent\Context\Drivers\InMemoryStorage::class,
+        InMemoryStorage::class,
     ];
 
     protected $history = 'in_memory';
 
-    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
+    protected function truncationStrategy(): ?TruncationStrategy
     {
         return new SimpleTruncationStrategy([
             'keep_messages' => 3,
@@ -86,7 +90,7 @@ class SimpleTruncationTestAgent extends Agent
  * Helper to create a fake assistant message with usage data.
  * The totalTokens should represent cumulative conversation tokens at that point.
  */
-function createAssistantMessage(string $content, int $totalTokens): \LarAgent\Messages\AssistantMessage
+function createAssistantMessage(string $content, int $totalTokens): AssistantMessage
 {
     $message = Message::assistant($content);
     // totalTokens represents the full prompt + completion for that API call
@@ -192,7 +196,7 @@ test('truncation event is dispatched', function () {
     $messagesInEvent = null;
 
     // Listen for truncation event (note the correct namespace)
-    Event::listen(\LarAgent\Events\ChatHistory\ChatHistoryTruncated::class, function ($event) use (&$eventDispatched, &$messagesInEvent) {
+    Event::listen(ChatHistoryTruncated::class, function ($event) use (&$eventDispatched, &$messagesInEvent) {
         $eventDispatched = true;
         $messagesInEvent = $event->messages;
         echo "📢 ChatHistoryTruncated event received!\n";

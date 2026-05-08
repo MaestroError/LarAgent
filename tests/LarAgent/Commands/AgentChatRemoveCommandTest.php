@@ -1,5 +1,6 @@
 <?php
 
+use App\AiAgents\TestAgent;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Session;
 use LarAgent\Agent;
@@ -75,7 +76,7 @@ test('it fails when agent does not exist', function () {
 
 test('it can remove chat history for existing agent', function () {
     // Create some chat history first
-    $agent = \App\AiAgents\TestAgent::for('test_key');
+    $agent = TestAgent::for('test_key');
     $agent->message('Hello')->respond();
 
     // Verify chat histories exist
@@ -93,7 +94,7 @@ test('it can remove chat history for existing agent', function () {
         ->expectsOutput('Successfully removed all chat histories for agent: TestAgent');
 
     // Verify all chat histories and keys are completely removed
-    $agent = \App\AiAgents\TestAgent::for('new_key');
+    $agent = TestAgent::for('new_key');
     expect($agent->chatHistory()->getMessages())->toBeEmpty()
         ->and($agent->getChatKeys())->toHaveCount(1)
         ->and($agent->getChatKeys())->toContain('chatHistory_TestAgent_new_key');

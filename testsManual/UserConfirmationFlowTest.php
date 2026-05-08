@@ -14,6 +14,8 @@
 require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Agent;
+use LarAgent\Drivers\OpenAi\OpenAiDriver;
+use LarAgent\History\InMemoryChatHistory;
 use LarAgent\Message;
 use LarAgent\PhantomTool;
 
@@ -23,8 +25,8 @@ function config(string $key): mixed
     $yourApiKey = include __DIR__.'/openai-api-key.php';
 
     $config = [
-        'laragent.default_driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
-        'laragent.default_chat_history' => \LarAgent\History\InMemoryChatHistory::class,
+        'laragent.default_driver' => OpenAiDriver::class,
+        'laragent.default_chat_history' => InMemoryChatHistory::class,
         'laragent.default_usage_storage' => null,
         'laragent.default_storage' => null,
         'laragent.default_history_storage' => null,

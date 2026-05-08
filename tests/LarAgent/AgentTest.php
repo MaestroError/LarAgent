@@ -7,6 +7,7 @@ use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\Messages\DataModels\MessageContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Tool;
+use Redberry\MCPClient\MCPClient;
 
 // Test agent
 class TestAgent extends Agent
@@ -713,7 +714,7 @@ it('can create mcp client', function () {
 
     $client = $createMethod->invoke($agent);
 
-    expect($client)->toBeInstanceOf(\Redberry\MCPClient\MCPClient::class);
+    expect($client)->toBeInstanceOf(MCPClient::class);
 });
 
 // Test buildToolsFromMcpConfig method

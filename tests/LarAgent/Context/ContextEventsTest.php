@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace Tests\LarAgent\Context;
 
+use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Support\Facades\Event;
 use LarAgent\Context\Context;
 use LarAgent\Context\DataModels\SessionIdentityArray;
@@ -605,42 +606,42 @@ describe('Event Classes Structure', function () {
 
         test('ContextCreated uses Dispatchable trait', function () {
             $traits = class_uses(ContextCreated::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('ContextSaving uses Dispatchable trait', function () {
             $traits = class_uses(ContextSaving::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('ContextSaved uses Dispatchable trait', function () {
             $traits = class_uses(ContextSaved::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('ContextReading uses Dispatchable trait', function () {
             $traits = class_uses(ContextReading::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('ContextRead uses Dispatchable trait', function () {
             $traits = class_uses(ContextRead::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('ContextClearing uses Dispatchable trait', function () {
             $traits = class_uses(ContextClearing::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('ContextCleared uses Dispatchable trait', function () {
             $traits = class_uses(ContextCleared::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('StorageRegistered uses Dispatchable trait', function () {
             $traits = class_uses(StorageRegistered::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
     });
@@ -649,27 +650,27 @@ describe('Event Classes Structure', function () {
 
         test('IdentityAdding uses Dispatchable trait', function () {
             $traits = class_uses(IdentityAdding::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('IdentityAdded uses Dispatchable trait', function () {
             $traits = class_uses(IdentityAdded::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('IdentityStorageSaving uses Dispatchable trait', function () {
             $traits = class_uses(IdentityStorageSaving::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('IdentityStorageSaved uses Dispatchable trait', function () {
             $traits = class_uses(IdentityStorageSaved::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
         test('IdentityStorageLoaded uses Dispatchable trait', function () {
             $traits = class_uses(IdentityStorageLoaded::class);
-            expect($traits)->toContain(\Illuminate\Foundation\Events\Dispatchable::class);
+            expect($traits)->toContain(Dispatchable::class);
         });
 
     });

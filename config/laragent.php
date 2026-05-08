@@ -1,5 +1,19 @@
 <?php
 
+use LarAgent\Context\Drivers\CacheStorage;
+use LarAgent\Context\Drivers\FileStorage;
+use LarAgent\Context\Truncation\SimpleTruncationStrategy;
+use LarAgent\Drivers\Anthropic\ClaudeDriver;
+use LarAgent\Drivers\Groq\GroqDriver;
+use LarAgent\Drivers\OpenAi\GeminiDriver;
+use LarAgent\Drivers\OpenAi\OllamaDriver;
+use LarAgent\Drivers\OpenAi\OpenAiCompatible;
+use LarAgent\Drivers\OpenAi\OpenAiDriver;
+use LarAgent\Drivers\OpenAi\OpenAiResponsesDriver;
+use LarAgent\Drivers\OpenAi\OpenRouter;
+use LarAgent\History\InMemoryChatHistory;
+use Redberry\MCPClient\Enums\Transporters;
+
 // config for Maestroerror/LarAgent
 return [
 
@@ -7,27 +21,27 @@ return [
      * Default driver to use, binded in service provider
      * with \LarAgent\Core\Contracts\LlmDriver interface
      */
-    'default_driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
+    'default_driver' => OpenAiCompatible::class,
 
     /**
      * Default chat history to use, binded in service provider
      * with \LarAgent\Core\Contracts\ChatHistory interface
      */
-    'default_chat_history' => \LarAgent\History\InMemoryChatHistory::class,
+    'default_chat_history' => InMemoryChatHistory::class,
 
     /**
      * Default chat history storage drivers to use in Agents
      */
     'default_history_storage' => [
-        \LarAgent\Context\Drivers\CacheStorage::class, // Primary
-        \LarAgent\Context\Drivers\FileStorage::class,
+        CacheStorage::class, // Primary
+        FileStorage::class,
     ],
 
     /**
      * Default storage drivers for context to use in Agents
      */
     'default_storage' => [
-        \LarAgent\Context\Drivers\CacheStorage::class, // Primary
+        CacheStorage::class, // Primary
     ],
 
     /**
@@ -52,7 +66,7 @@ return [
         'default' => [
             'label' => 'openai',
             'api_key' => env('OPENAI_API_KEY'),
-            'driver' => \LarAgent\Drivers\OpenAi\OpenAiDriver::class,
+            'driver' => OpenAiDriver::class,
             'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
@@ -61,7 +75,7 @@ return [
         'gemini' => [
             'label' => 'gemini',
             'api_key' => env('GEMINI_API_KEY'),
-            'driver' => \LarAgent\Drivers\OpenAi\GeminiDriver::class,
+            'driver' => GeminiDriver::class,
             'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
@@ -71,7 +85,7 @@ return [
         'gemini_native' => [
             'label' => 'gemini',
             'api_key' => env('GEMINI_API_KEY'),
-            'driver' => \LarAgent\Drivers\Gemini\GeminiDriver::class,
+            'driver' => LarAgent\Drivers\Gemini\GeminiDriver::class,
             'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
@@ -81,7 +95,7 @@ return [
         'groq' => [
             'label' => 'groq',
             'api_key' => env('GROQ_API_KEY'),
-            'driver' => \LarAgent\Drivers\Groq\GroqDriver::class,
+            'driver' => GroqDriver::class,
             'default_truncation_threshold' => 131072,
             'default_max_completion_tokens' => 131072,
             'default_temperature' => 1,
@@ -91,7 +105,7 @@ return [
             'label' => 'claude',
             'api_key' => env('ANTHROPIC_API_KEY'),
             'model' => 'claude-3-7-sonnet-latest',
-            'driver' => \LarAgent\Drivers\Anthropic\ClaudeDriver::class,
+            'driver' => ClaudeDriver::class,
             'default_truncation_threshold' => 200000,
             'default_max_completion_tokens' => 8192,
             'default_temperature' => 1,
@@ -100,7 +114,7 @@ return [
         'openai_responses' => [
             'label' => 'openai_responses',
             'api_key' => env('OPENAI_API_KEY'),
-            'driver' => \LarAgent\Drivers\OpenAi\OpenAiResponsesDriver::class,
+            'driver' => OpenAiResponsesDriver::class,
             'default_truncation_threshold' => 50000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
@@ -110,7 +124,7 @@ return [
             'label' => 'openrouter',
             'api_key' => env('OPENROUTER_API_KEY'),
             'model' => 'openai/gpt-oss-20b:free',
-            'driver' => \LarAgent\Drivers\OpenAi\OpenRouter::class,
+            'driver' => OpenRouter::class,
             'default_truncation_threshold' => 200000,
             'default_max_completion_tokens' => 8192,
             'default_temperature' => 1,
@@ -124,7 +138,7 @@ return [
          */
         'ollama' => [
             'label' => 'ollama',
-            'driver' => \LarAgent\Drivers\OpenAi\OllamaDriver::class,
+            'driver' => OllamaDriver::class,
             'default_truncation_threshold' => 131072,
             'default_max_completion_tokens' => 131072,
             'default_temperature' => 0.8,
@@ -167,7 +181,7 @@ return [
 
     'mcp_servers' => [
         'github' => [
-            'type' => \Redberry\MCPClient\Enums\Transporters::HTTP,
+            'type' => Transporters::HTTP,
             'base_url' => 'https://api.githubcopilot.com/mcp',
             'timeout' => 30,
             'token' => env('GITHUB_API_TOKEN', null),
@@ -178,7 +192,7 @@ return [
             'id_type' => 'int',
         ],
         'mcp_server_memory' => [
-            'type' => \Redberry\MCPClient\Enums\Transporters::STDIO,
+            'type' => Transporters::STDIO,
             'command' => [
                 'npx',
                 '-y',
@@ -278,7 +292,7 @@ return [
      * - \LarAgent\Context\Truncation\SummarizationStrategy (summarizes removed messages)
      * - \LarAgent\Context\Truncation\SymbolizationStrategy (creates brief symbols for removed messages)
      */
-    'default_truncation_strategy' => \LarAgent\Context\Truncation\SimpleTruncationStrategy::class,
+    'default_truncation_strategy' => SimpleTruncationStrategy::class,
 
     /**
      * Default configuration for truncation strategies.

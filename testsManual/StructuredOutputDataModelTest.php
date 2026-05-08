@@ -37,12 +37,12 @@ class TestAgentMock
         }
 
         // If it's a DataModel instance, call toSchema()
-        if ($this->responseSchema instanceof \LarAgent\Core\Contracts\DataModel) {
+        if ($this->responseSchema instanceof LarAgent\Core\Contracts\DataModel) {
             return $this->responseSchema->toSchema();
         }
 
         // If it's a DataModel class name, call generateSchema() statically
-        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, LarAgent\Core\Contracts\DataModel::class)) {
             return $this->responseSchema::generateSchema();
         }
 
@@ -149,7 +149,7 @@ function runTest(string $testName, callable $testFn): void
     try {
         $testFn();
         echo "✅ {$testName} PASSED\n";
-    } catch (\Throwable $e) {
+    } catch (Throwable $e) {
         echo "❌ {$testName} FAILED\n";
         echo "Error: {$e->getMessage()}\n";
         echo "Trace: {$e->getTraceAsString()}\n";
@@ -174,23 +174,23 @@ runTest('Test 1: DataModel Instance in responseSchema', function () {
     $schema = $agent->structuredOutput();
 
     if (! is_array($schema)) {
-        throw new \Exception('structuredOutput() should return an array schema');
+        throw new Exception('structuredOutput() should return an array schema');
     }
 
     if (! isset($schema['type']) || $schema['type'] !== 'object') {
-        throw new \Exception("Schema should have type 'object'");
+        throw new Exception("Schema should have type 'object'");
     }
 
     if (! isset($schema['properties']['city'])) {
-        throw new \Exception("Schema should have 'city' property");
+        throw new Exception("Schema should have 'city' property");
     }
 
     if (! isset($schema['properties']['temperature'])) {
-        throw new \Exception("Schema should have 'temperature' property");
+        throw new Exception("Schema should have 'temperature' property");
     }
 
     if (! isset($schema['properties']['condition'])) {
-        throw new \Exception("Schema should have 'condition' property");
+        throw new Exception("Schema should have 'condition' property");
     }
 
     echo "Schema validation passed:\n";
@@ -205,15 +205,15 @@ runTest('Test 2: DataModel Class Name in responseSchema', function () {
     $schema = $agent->structuredOutput();
 
     if (! is_array($schema)) {
-        throw new \Exception('structuredOutput() should return an array schema');
+        throw new Exception('structuredOutput() should return an array schema');
     }
 
     if (! isset($schema['type']) || $schema['type'] !== 'object') {
-        throw new \Exception("Schema should have type 'object'");
+        throw new Exception("Schema should have type 'object'");
     }
 
     if (! isset($schema['properties']['city'])) {
-        throw new \Exception("Schema should have 'city' property");
+        throw new Exception("Schema should have 'city' property");
     }
 
     echo "Schema validation passed:\n";
@@ -228,11 +228,11 @@ runTest('Test 3: Override structuredOutput Method with Instance', function () {
     $schema = $agent->structuredOutput();
 
     if (! is_array($schema)) {
-        throw new \Exception('structuredOutput() should return an array schema');
+        throw new Exception('structuredOutput() should return an array schema');
     }
 
     if (! isset($schema['type']) || $schema['type'] !== 'object') {
-        throw new \Exception("Schema should have type 'object'");
+        throw new Exception("Schema should have type 'object'");
     }
 
     echo "Schema validation passed:\n";
@@ -247,11 +247,11 @@ runTest('Test 4: Override structuredOutput Method with Class Name', function () 
     $schema = $agent->structuredOutput();
 
     if (! is_array($schema)) {
-        throw new \Exception('structuredOutput() should return an array schema');
+        throw new Exception('structuredOutput() should return an array schema');
     }
 
     if (! isset($schema['type']) || $schema['type'] !== 'object') {
-        throw new \Exception("Schema should have type 'object'");
+        throw new Exception("Schema should have type 'object'");
     }
 
     echo "Schema validation passed:\n";
@@ -266,15 +266,15 @@ runTest('Test 5: Complex DataModel with Nested Structures', function () {
     $schema = $agent->structuredOutput();
 
     if (! is_array($schema)) {
-        throw new \Exception('structuredOutput() should return an array schema');
+        throw new Exception('structuredOutput() should return an array schema');
     }
 
     if (! isset($schema['type']) || $schema['type'] !== 'object') {
-        throw new \Exception("Schema should have type 'object'");
+        throw new Exception("Schema should have type 'object'");
     }
 
     if (! isset($schema['properties']['locations'])) {
-        throw new \Exception("Schema should have 'locations' property");
+        throw new Exception("Schema should have 'locations' property");
     }
 
     echo "Schema validation passed:\n";
@@ -297,15 +297,15 @@ runTest('Test 6: Backward Compatibility with Array Schemas', function () {
     $schema = $agent->structuredOutput();
 
     if (! is_array($schema)) {
-        throw new \Exception('structuredOutput() should return an array schema');
+        throw new Exception('structuredOutput() should return an array schema');
     }
 
     if (! isset($schema['type']) || $schema['type'] !== 'object') {
-        throw new \Exception("Schema should have type 'object'");
+        throw new Exception("Schema should have type 'object'");
     }
 
     if (! isset($schema['properties']['answer'])) {
-        throw new \Exception("Schema should have 'answer' property");
+        throw new Exception("Schema should have 'answer' property");
     }
 
     echo "Array schema backward compatibility maintained\n";

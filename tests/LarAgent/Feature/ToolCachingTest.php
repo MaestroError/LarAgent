@@ -3,6 +3,9 @@
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Config;
 use LarAgent\Agent;
+use LarAgent\Core\DTO\AgentDTO;
+use Redberry\MCPClient\Collection;
+use Redberry\MCPClient\MCPClient;
 
 beforeEach(function () {
     Config::set('laragent.mcp_tool_caching.enabled', true);
@@ -88,7 +91,7 @@ it('does not cache tools when caching is disabled', function () {
     Config::set('laragent.mcp_tool_caching.enabled', false);
     Config::set('laragent.mcp_tool_caching.store', 'array');
 
-    $mockClient = Mockery::mock(\Redberry\MCPClient\MCPClient::class);
+    $mockClient = Mockery::mock(MCPClient::class);
     $mockClient->shouldReceive('connect')->andReturnSelf();
 
     $mockToolsData = [
@@ -102,8 +105,8 @@ it('does not cache tools when caching is disabled', function () {
         ],
     ];
 
-    $mockCollection = Mockery::mock(\Redberry\MCPClient\Collection::class);
-    $mockCollection->shouldReceive('getIterator')->andReturn(new \ArrayIterator($mockToolsData));
+    $mockCollection = Mockery::mock(Collection::class);
+    $mockCollection->shouldReceive('getIterator')->andReturn(new ArrayIterator($mockToolsData));
     $mockClient->shouldReceive('tools')->twice()->andReturn($mockCollection);
 
     $agent1 = createTestAgent();
@@ -125,16 +128,16 @@ function createTestAgent()
     {
         public $mockMcpClient;
 
-        protected function createMcpClient(): \Redberry\MCPClient\MCPClient
+        protected function createMcpClient(): MCPClient
         {
             return $this->mockMcpClient;
         }
 
         protected function initMcpClient() {}
 
-        public function toDTO(): \LarAgent\Core\DTO\AgentDTO
+        public function toDTO(): AgentDTO
         {
-            return new \LarAgent\Core\DTO\AgentDTO(
+            return new AgentDTO(
                 provider: 'test',
                 providerName: 'test',
                 message: null,
@@ -156,7 +159,7 @@ function createTestAgent()
         }
     };
 
-    $mockClient = Mockery::mock(\Redberry\MCPClient\MCPClient::class);
+    $mockClient = Mockery::mock(MCPClient::class);
     $mockClient->shouldReceive('connect')->andReturnSelf();
 
     $mockToolsData = [
@@ -170,8 +173,8 @@ function createTestAgent()
         ],
     ];
 
-    $mockCollection = Mockery::mock(\Redberry\MCPClient\Collection::class);
-    $mockCollection->shouldReceive('getIterator')->andReturn(new \ArrayIterator($mockToolsData));
+    $mockCollection = Mockery::mock(Collection::class);
+    $mockCollection->shouldReceive('getIterator')->andReturn(new ArrayIterator($mockToolsData));
     $mockClient->shouldReceive('tools')->andReturn($mockCollection);
 
     $agent->mockMcpClient = $mockClient;
@@ -192,16 +195,16 @@ function createTestAgentWithNeverCalledTools()
     {
         public $mockMcpClient;
 
-        protected function createMcpClient(): \Redberry\MCPClient\MCPClient
+        protected function createMcpClient(): MCPClient
         {
             return $this->mockMcpClient;
         }
 
         protected function initMcpClient() {}
 
-        public function toDTO(): \LarAgent\Core\DTO\AgentDTO
+        public function toDTO(): AgentDTO
         {
-            return new \LarAgent\Core\DTO\AgentDTO(
+            return new AgentDTO(
                 provider: 'test',
                 providerName: 'test',
                 message: null,
@@ -223,7 +226,7 @@ function createTestAgentWithNeverCalledTools()
         }
     };
 
-    $mockClient = Mockery::mock(\Redberry\MCPClient\MCPClient::class);
+    $mockClient = Mockery::mock(MCPClient::class);
     $mockClient->shouldReceive('connect')->andReturnSelf();
     // tools() should NOT be called - cache must be used
     $mockClient->shouldReceive('tools')->never();

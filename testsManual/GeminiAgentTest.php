@@ -15,6 +15,8 @@
 require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Agent;
+use LarAgent\Drivers\Gemini\GeminiDriver;
+use LarAgent\History\InMemoryChatHistory;
 use LarAgent\Tool;
 
 // Configuration function
@@ -23,13 +25,13 @@ function config(string $key): mixed
     $yourApiKey = include __DIR__.'/gemini-api-key.php';
 
     $config = [
-        'laragent.default_driver' => LarAgent\Drivers\Gemini\GeminiDriver::class,
-        'laragent.default_chat_history' => LarAgent\History\InMemoryChatHistory::class,
+        'laragent.default_driver' => GeminiDriver::class,
+        'laragent.default_chat_history' => InMemoryChatHistory::class,
         'laragent.fallback_provider' => null,
         'laragent.providers.gemini' => [
             'label' => 'gemini',
             'api_key' => $yourApiKey,
-            'driver' => LarAgent\Drivers\Gemini\GeminiDriver::class,
+            'driver' => GeminiDriver::class,
             'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,

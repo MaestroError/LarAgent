@@ -17,8 +17,8 @@ use LarAgent\Context\NamedContextManager;
  * @method static ContextManager agent(string $agentClass) Alias for of()
  * @method static NamedContextManager named(string $agentName) Create a named context manager (lightweight)
  *
- * @see \LarAgent\Context\ContextManager
- * @see \LarAgent\Context\NamedContextManager
+ * @see ContextManager
+ * @see NamedContextManager
  */
 class Context extends Facade
 {

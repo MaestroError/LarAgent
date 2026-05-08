@@ -2,6 +2,8 @@
 
 namespace LarAgent\Context\Models;
 
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use LarAgent\Context\Database\Factories\LaragentSessionIdentityFactory;
@@ -47,7 +49,7 @@ class LaragentSessionIdentity extends Model
     /**
      * Create a new factory instance for the model.
      *
-     * @return \Illuminate\Database\Eloquent\Factories\Factory<static>
+     * @return Factory<static>
      */
     protected static function newFactory()
     {
@@ -57,8 +59,8 @@ class LaragentSessionIdentity extends Model
     /**
      * Scope to get items for a specific session.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeForSession($query, string $sessionKey)
     {
@@ -68,8 +70,8 @@ class LaragentSessionIdentity extends Model
     /**
      * Scope to order by position.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeOrdered($query)
     {

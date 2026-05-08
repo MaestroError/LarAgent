@@ -4,6 +4,7 @@ use LarAgent\Context\SessionIdentity;
 use LarAgent\History\InMemoryChatHistory;
 use LarAgent\LarAgent;
 use LarAgent\Message;
+use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\DataModels\Content\TextContent;
 use LarAgent\Messages\DataModels\MessageContent;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
@@ -74,7 +75,7 @@ it('can run and get response', function () {
 
     $response = $agent->run();
 
-    expect($response)->toBeInstanceOf(\LarAgent\Messages\AssistantMessage::class);
+    expect($response)->toBeInstanceOf(AssistantMessage::class);
     expect((string) $response)->toBe('Hi there!');
     expect($response->getContentAsString())->toBe('Hi there!');
 });
@@ -254,7 +255,7 @@ it('can enable streaming mode and process streamed responses', function () {
     });
 
     // Verify the response is a Generator
-    expect($stream)->toBeInstanceOf(\Generator::class);
+    expect($stream)->toBeInstanceOf(Generator::class);
 
     // Collect all messages from the stream
     $messages = [];

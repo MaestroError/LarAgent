@@ -16,10 +16,12 @@
 
 require_once __DIR__.'/../vendor/autoload.php';
 
+use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Support\Facades\Facade;
 use LarAgent\Agent;
+use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Attributes\Desc;
 use LarAgent\Drivers\Anthropic\ClaudeDriver;
@@ -31,7 +33,7 @@ use LarAgent\Drivers\OpenAi\OpenAiDriver;
 $container = new Container;
 Container::setInstance($container);
 $container->singleton('events', fn () => new Dispatcher($container));
-$container->singleton('config', fn () => new \Illuminate\Config\Repository);
+$container->singleton('config', fn () => new Repository);
 Facade::setFacadeApplication($container);
 
 // Load API keys
@@ -77,10 +79,10 @@ config()->set('laragent.providers.claude', [
 ]);
 
 config()->set('laragent.storage.default_history_storage', [
-    \LarAgent\Context\Drivers\InMemoryStorage::class,
+    InMemoryStorage::class,
 ]);
 config()->set('laragent.storage.default_storage', [
-    \LarAgent\Context\Drivers\InMemoryStorage::class,
+    InMemoryStorage::class,
 ]);
 
 // DataModel for testing
@@ -143,7 +145,7 @@ class DataModelSchemaAgent extends Agent
 
     protected $responseSchema = PersonInfo::class;
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -160,7 +162,7 @@ class ManualSchemaAgent extends Agent
 
     protected $provider = 'openai';
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -177,7 +179,7 @@ class GeminiSchemaAgent extends Agent
 
     protected $provider = 'gemini';
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -196,7 +198,7 @@ class GeminiDataModelAgent extends Agent
 
     protected $responseSchema = PersonInfo::class;
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -213,7 +215,7 @@ class GroqSchemaAgent extends Agent
 
     protected $provider = 'groq';
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -232,7 +234,7 @@ class GroqDataModelAgent extends Agent
 
     protected $responseSchema = PersonInfo::class;
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -251,7 +253,7 @@ class ClaudeSchemaAgent extends Agent
 
     protected $responseSchema = PersonInfo::class;
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -270,7 +272,7 @@ class ClaudeDataModelAgent extends Agent
 
     protected $responseSchema = PersonInfo::class;
 
-    protected $storage = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+    protected $storage = [InMemoryStorage::class];
 
     protected $history = 'in_memory';
 
@@ -306,7 +308,7 @@ try {
     }
 
     echo "\n✅ TEST 1 PASSED\n\n";
-} catch (\Exception $e) {
+} catch (Exception $e) {
     echo '❌ TEST 1 FAILED: '.$e->getMessage()."\n\n";
 }
 
@@ -338,7 +340,7 @@ try {
     }
 
     echo "\n✅ TEST 2 PASSED\n\n";
-} catch (\Exception $e) {
+} catch (Exception $e) {
     echo '❌ TEST 2 FAILED: '.$e->getMessage()."\n\n";
 }
 
@@ -370,7 +372,7 @@ try {
     }
 
     echo "\n✅ TEST 3 PASSED\n\n";
-} catch (\Exception $e) {
+} catch (Exception $e) {
     echo '❌ TEST 3 FAILED: '.$e->getMessage()."\n\n";
 }
 
@@ -400,7 +402,7 @@ if ($geminiKey) {
         }
 
         echo "\n✅ TEST 4 PASSED\n\n";
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 4 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
@@ -435,7 +437,7 @@ if ($groqKey) {
         }
 
         echo "\n✅ TEST 5 PASSED\n\n";
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 5 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
@@ -473,7 +475,7 @@ if ($geminiKey) {
         }
 
         echo "\n✅ TEST 6 PASSED\n\n";
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 6 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
@@ -511,7 +513,7 @@ if ($groqKey) {
         }
 
         echo "\n✅ TEST 7 PASSED\n\n";
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 7 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
@@ -561,7 +563,7 @@ try {
     } else {
         echo "❌ TEST 8 FAILED: Expected array response\n\n";
     }
-} catch (\Exception $e) {
+} catch (Exception $e) {
     echo '❌ TEST 8 FAILED: '.$e->getMessage()."\n\n";
 }
 
@@ -611,7 +613,7 @@ if ($geminiKey) {
             echo 'Response: '.json_encode($response)."\n";
             echo "\n❌ TEST 9 FAILED: Expected array response\n\n";
         }
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 9 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
@@ -646,7 +648,7 @@ if ($claudeKey) {
         }
 
         echo "\n✅ TEST 10 PASSED\n\n";
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 10 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
@@ -684,7 +686,7 @@ if ($claudeKey) {
         }
 
         echo "\n✅ TEST 11 PASSED\n\n";
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 11 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {
@@ -722,7 +724,7 @@ if ($claudeKey) {
             echo 'Response: '.json_encode($response)."\n";
             echo "\n❌ TEST 12 FAILED: Expected array response\n\n";
         }
-    } catch (\Exception $e) {
+    } catch (Exception $e) {
         echo '❌ TEST 12 FAILED: '.$e->getMessage()."\n\n";
     }
 } else {

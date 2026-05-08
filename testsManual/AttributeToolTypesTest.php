@@ -16,7 +16,10 @@ require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Agent;
 use LarAgent\Attributes\Tool as ToolAttribute;
+use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Core\Abstractions\DataModel;
+use LarAgent\Drivers\OpenAi\OpenAiDriver;
+use LarAgent\History\InMemoryChatHistory;
 
 // ============================================================================
 // Test Fixtures: DataModel, Enum, and other types
@@ -77,17 +80,17 @@ function config(string $key): mixed
     $yourApiKey = include __DIR__.'/../openai-api-key.php';
 
     $config = [
-        'laragent.default_driver' => LarAgent\Drivers\OpenAi\OpenAiDriver::class,
-        'laragent.default_chat_history' => LarAgent\History\InMemoryChatHistory::class,
+        'laragent.default_driver' => OpenAiDriver::class,
+        'laragent.default_chat_history' => InMemoryChatHistory::class,
         'laragent.default_history_storage' => 'in_memory',
-        'laragent.default_storage' => [LarAgent\Context\Drivers\InMemoryStorage::class],
+        'laragent.default_storage' => [InMemoryStorage::class],
         'laragent.fallback_provider' => null,
         'laragent.mcp_servers' => [],
         'laragent.mcp_tool_caching' => ['enabled' => false],
         'laragent.providers.openai' => [
             'name' => 'OpenAI',
             'api_key' => $yourApiKey,
-            'driver' => LarAgent\Drivers\OpenAi\OpenAiDriver::class,
+            'driver' => OpenAiDriver::class,
             'default_truncation_threshold' => 128000,
             'default_max_completion_tokens' => 4096,
             'default_temperature' => 0.7,
@@ -228,7 +231,7 @@ INSTRUCTIONS;
             'instance' => $item,
             'type' => $type,
             'isDataModel' => $item instanceof DataModel,
-            'isEnum' => $item instanceof \UnitEnum,
+            'isEnum' => $item instanceof UnitEnum,
         ];
 
         if ($item instanceof TaskDetails) {

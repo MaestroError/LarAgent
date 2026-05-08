@@ -4,12 +4,14 @@ namespace LarAgent\Context\Storages;
 
 use LarAgent\Context\Abstract\Storage;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
+use LarAgent\Core\Abstractions\Message;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Traits\SafeEventDispatch;
 use LarAgent\Events\ChatHistory\ChatHistoryLoaded;
 use LarAgent\Events\ChatHistory\ChatHistorySaved;
 use LarAgent\Events\ChatHistory\ChatHistorySaving;
+use LarAgent\Events\ChatHistory\ChatHistoryTruncated;
 use LarAgent\Events\ChatHistory\MessageAdded;
 use LarAgent\Events\ChatHistory\MessageAdding;
 use LarAgent\Messages\DataModels\MessageArray;
@@ -105,7 +107,7 @@ class ChatHistoryStorage extends Storage implements ChatHistoryInterface
         $messages = [];
         foreach ($this->getMessages() as $message) {
             $messageArray = $message->toArray();
-            if ($message instanceof \LarAgent\Core\Abstractions\Message) {
+            if ($message instanceof Message) {
                 $messageArray['metadata'] = $message->getMetadata();
             }
             $messages[] = $messageArray;
@@ -214,6 +216,6 @@ class ChatHistoryStorage extends Storage implements ChatHistoryInterface
         $this->dirty = true;
 
         // Dispatch event
-        $this->dispatchEvent(new \LarAgent\Events\ChatHistory\ChatHistoryTruncated($this, $messages));
+        $this->dispatchEvent(new ChatHistoryTruncated($this, $messages));
     }
 }

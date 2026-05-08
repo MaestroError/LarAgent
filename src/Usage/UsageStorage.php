@@ -5,6 +5,7 @@ namespace LarAgent\Usage;
 use LarAgent\Context\Abstract\Storage;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Core\Traits\SafeEventDispatch;
+use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Usage\DataModels\UsageArray;
 use LarAgent\Usage\DataModels\UsageRecord;
 
@@ -65,7 +66,7 @@ class UsageStorage extends Storage
     /**
      * Add a usage record from a Usage DataModel.
      */
-    public function addUsage(\LarAgent\Usage\DataModels\Usage $usage): void
+    public function addUsage(Usage $usage): void
     {
         $record = UsageRecord::fromUsage(
             $usage,

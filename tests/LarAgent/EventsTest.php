@@ -2,8 +2,11 @@
 
 use Illuminate\Support\Facades\Event;
 use LarAgent\Agent;
+use LarAgent\Core\Contracts\ChatHistory;
+use LarAgent\Core\Contracts\ToolCall;
 use LarAgent\Events\AfterResponse;
 use LarAgent\Events\AfterSend;
+use LarAgent\Events\AfterToolExecution;
 use LarAgent\Events\AgentInitialized;
 use LarAgent\Events\BeforeResponse;
 use LarAgent\Events\BeforeSend;
@@ -258,7 +261,7 @@ it('can access event data in event listeners', function () {
         expect($event->agentDto->providerName)->toBeString();
         expect($event->agentDto->tools)->toBeArray();
         expect($event->agentDto->configuration)->toBeArray();
-        expect($event->history)->toBeInstanceOf(\LarAgent\Core\Contracts\ChatHistory::class);
+        expect($event->history)->toBeInstanceOf(ChatHistory::class);
 
         return true;
     });
@@ -272,10 +275,10 @@ it('dispatches BeforeToolExecution event with ToolCall object', function () {
 
     $agent->respond('Execute tool');
 
-    Event::assertDispatched(\LarAgent\Events\BeforeToolExecution::class, function ($event) {
+    Event::assertDispatched(BeforeToolExecution::class, function ($event) {
         // Verify ToolCall is present
         expect($event->toolCall)->not->toBeNull()
-            ->and($event->toolCall)->toBeInstanceOf(\LarAgent\Core\Contracts\ToolCall::class)
+            ->and($event->toolCall)->toBeInstanceOf(ToolCall::class)
             ->and($event->toolCall->getId())->toBeString()
             ->and($event->toolCall->getToolName())->toBe('test_tool')
             ->and($event->toolCall->getArguments())->toContain('test input');
@@ -292,10 +295,10 @@ it('dispatches AfterToolExecution event with ToolCall object', function () {
 
     $agent->respond('Execute tool');
 
-    Event::assertDispatched(\LarAgent\Events\AfterToolExecution::class, function ($event) {
+    Event::assertDispatched(AfterToolExecution::class, function ($event) {
         // Verify ToolCall is present
         expect($event->toolCall)->not->toBeNull()
-            ->and($event->toolCall)->toBeInstanceOf(\LarAgent\Core\Contracts\ToolCall::class)
+            ->and($event->toolCall)->toBeInstanceOf(ToolCall::class)
             ->and($event->toolCall->getId())->toBeString()
             ->and($event->toolCall->getToolName())->toBe('test_tool')
             ->and($event->toolCall->getArguments())->toContain('test input')

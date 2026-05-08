@@ -2,7 +2,9 @@
 
 namespace LarAgent\Usage\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Collection;
 
 /**
  * Eloquent model for storing usage records.
@@ -62,8 +64,8 @@ class LaragentUsage extends Model
     /**
      * Scope to get items for a specific session.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeForSession($query, string $sessionKey)
     {
@@ -73,8 +75,8 @@ class LaragentUsage extends Model
     /**
      * Scope to order by position.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeOrdered($query)
     {
@@ -84,8 +86,8 @@ class LaragentUsage extends Model
     /**
      * Scope to filter by agent name.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeForAgent($query, string $agentName)
     {
@@ -95,8 +97,8 @@ class LaragentUsage extends Model
     /**
      * Scope to filter by user ID.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeForUser($query, ?string $userId)
     {
@@ -106,8 +108,8 @@ class LaragentUsage extends Model
     /**
      * Scope to filter by model name.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeForModel($query, string $modelName)
     {
@@ -117,8 +119,8 @@ class LaragentUsage extends Model
     /**
      * Scope to filter by provider name.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeForProvider($query, string $providerName)
     {
@@ -128,8 +130,8 @@ class LaragentUsage extends Model
     /**
      * Scope to filter by group.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeForGroup($query, ?string $group)
     {
@@ -139,8 +141,8 @@ class LaragentUsage extends Model
     /**
      * Scope to filter by date range.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeBetweenDates($query, $from, $to = null)
     {
@@ -156,8 +158,8 @@ class LaragentUsage extends Model
     /**
      * Scope to filter by a specific date.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
-     * @return \Illuminate\Database\Eloquent\Builder
+     * @param  Builder  $query
+     * @return Builder
      */
     public function scopeOnDate($query, $date)
     {
@@ -167,7 +169,7 @@ class LaragentUsage extends Model
     /**
      * Get aggregated token totals.
      *
-     * @param  \Illuminate\Database\Eloquent\Builder  $query
+     * @param  Builder  $query
      * @return array
      */
     public static function aggregate($query = null)
@@ -186,8 +188,8 @@ class LaragentUsage extends Model
      * Get usage grouped by a specific column.
      *
      * @param  string  $column  Column to group by
-     * @param  \Illuminate\Database\Eloquent\Builder|null  $query
-     * @return \Illuminate\Support\Collection
+     * @param  Builder|null  $query
+     * @return Collection
      */
     public static function groupByColumn(string $column, $query = null)
     {

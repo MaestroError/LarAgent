@@ -17,6 +17,7 @@ use LarAgent\Events\Context\ContextReading;
 use LarAgent\Events\Context\ContextSaved;
 use LarAgent\Events\Context\ContextSaving;
 use LarAgent\Events\Context\StorageRegistered;
+use LarAgent\Messages\UserMessage;
 
 // ===========================================
 // Test Helpers and Mocks
@@ -744,7 +745,7 @@ test('Context with multiple storages of different types', function () {
 
     // Add data to each
     $testStorage->add(new ContextTestDataModel('test', 1));
-    $chatHistory->addMessage(new \LarAgent\Messages\UserMessage('Hello'));
+    $chatHistory->addMessage(new UserMessage('Hello'));
 
     $context->save();
 
