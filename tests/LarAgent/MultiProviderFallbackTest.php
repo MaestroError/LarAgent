@@ -1,6 +1,7 @@
 <?php
 
 use LarAgent\Agent;
+use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Tests\LarAgent\Fakes\FailingLlmDriver;
 use LarAgent\Tests\LarAgent\Fakes\PreloadedFakeLlmDriver;
@@ -229,7 +230,7 @@ it('falls back through multiple providers on streamed failure', function () {
 
     $chunks = [];
     foreach ($stream as $message) {
-        if ($message instanceof StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
+        if ($message instanceof StreamedAssistantMessage || $message instanceof AssistantMessage) {
             $chunks[] = $message->getContentAsString();
         }
     }
@@ -394,7 +395,7 @@ it('preserves agent-defined model when provider does not override', function () 
 
 it('throws exception for non-array provider override', function () {
     new InvalidOverrideTestAgent('test_key');
-})->throws(\InvalidArgumentException::class, "Provider override for 'success' must be an array");
+})->throws(InvalidArgumentException::class, "Provider override for 'success' must be an array");
 
 // ==================== Provider Reset Tests ====================
 
@@ -421,7 +422,7 @@ it('resets to first provider on subsequent respondStreamed calls', function () {
     $stream1 = $agent->respondStreamed('Hello');
     $chunks = [];
     foreach ($stream1 as $message) {
-        if ($message instanceof \LarAgent\Messages\StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
+        if ($message instanceof StreamedAssistantMessage || $message instanceof AssistantMessage) {
             $chunks[] = $message->getContentAsString();
         }
     }
@@ -432,7 +433,7 @@ it('resets to first provider on subsequent respondStreamed calls', function () {
     $stream2 = $agent->respondStreamed('Hello again');
     $chunks2 = [];
     foreach ($stream2 as $message) {
-        if ($message instanceof \LarAgent\Messages\StreamedAssistantMessage || $message instanceof \LarAgent\Messages\AssistantMessage) {
+        if ($message instanceof StreamedAssistantMessage || $message instanceof AssistantMessage) {
             $chunks2[] = $message->getContentAsString();
         }
     }

@@ -1,6 +1,7 @@
 <?php
 
 use LarAgent\Agent;
+use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use LarAgent\Usage\DataModels\Usage;
 use LarAgent\Usage\UsageStorage;
@@ -324,7 +325,7 @@ describe('Agent Usage Storage Configuration', function () {
 
                 return new UsageStorage(
                     $this->context()->getIdentity(),
-                    [\LarAgent\Context\Drivers\InMemoryStorage::class],
+                    [InMemoryStorage::class],
                     $this->model(),
                     $this->providerName
                 );

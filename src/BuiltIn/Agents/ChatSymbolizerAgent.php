@@ -4,6 +4,7 @@ namespace LarAgent\BuiltIn\Agents;
 
 use LarAgent\Agent;
 use LarAgent\BuiltIn\DataModels\MessageSymbolsResponse;
+use LarAgent\Context\Drivers\InMemoryStorage;
 
 class ChatSymbolizerAgent extends Agent
 {
@@ -14,7 +15,7 @@ class ChatSymbolizerAgent extends Agent
     protected $responseSchema = MessageSymbolsResponse::class;
 
     protected $storage = [
-        \LarAgent\Context\Drivers\InMemoryStorage::class,
+        InMemoryStorage::class,
     ];
 
     /**

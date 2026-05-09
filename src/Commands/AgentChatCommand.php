@@ -4,6 +4,8 @@ namespace LarAgent\Commands;
 
 use Illuminate\Console\Command;
 use Illuminate\Support\Str;
+use LarAgent\Core\Contracts\DataModel;
+use LarAgent\Messages\ToolCallMessage;
 
 class AgentChatCommand extends Command
 {
@@ -94,7 +96,7 @@ class AgentChatCommand extends Command
         $newMessages = array_slice($messages->all(), $messageCountBefore);
 
         foreach ($newMessages as $message) {
-            if ($message instanceof \LarAgent\Messages\ToolCallMessage) {
+            if ($message instanceof ToolCallMessage) {
                 $toolCalls = $message->getToolCalls();
                 foreach ($toolCalls as $toolCall) {
                     $this->line("Tool call: {$toolCall->getToolName()}");
@@ -111,7 +113,7 @@ class AgentChatCommand extends Command
     protected function formatResponse($response): void
     {
         // Convert DataModel instances to arrays for consistent formatting
-        if ($response instanceof \LarAgent\Core\Contracts\DataModel) {
+        if ($response instanceof DataModel) {
             $response = $response->toArray();
         }
 

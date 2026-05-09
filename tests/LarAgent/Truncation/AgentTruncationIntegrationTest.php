@@ -1,6 +1,7 @@
 <?php
 
 use LarAgent\Agent;
+use LarAgent\Context\Contracts\TruncationStrategy;
 use LarAgent\Context\Truncation\SimpleTruncationStrategy;
 
 // Test Agent class for truncation testing
@@ -10,7 +11,7 @@ class TruncationTestAgent extends Agent
 
     protected $truncationThreshold = 10000;
 
-    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
+    protected function truncationStrategy(): ?TruncationStrategy
     {
         return new SimpleTruncationStrategy([
             'keep_messages' => 3,

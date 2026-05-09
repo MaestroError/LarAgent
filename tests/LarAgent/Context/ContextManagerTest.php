@@ -1,5 +1,6 @@
 <?php
 
+use Illuminate\Contracts\Auth\Authenticatable;
 use LarAgent\Agent;
 use LarAgent\Context\ContextManager;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
@@ -170,7 +171,7 @@ test('ContextManager → forUser() → accepts Authenticatable instance', functi
     setupUserAgentWithMessages(ContextManagerTestAgent::class, "{$id}_auth_user", ['Hello from auth user']);
 
     // Create a mock Authenticatable
-    $user = new class("{$id}_auth_user") implements \Illuminate\Contracts\Auth\Authenticatable
+    $user = new class("{$id}_auth_user") implements Authenticatable
     {
         public function __construct(private string $id) {}
 

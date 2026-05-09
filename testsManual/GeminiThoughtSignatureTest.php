@@ -17,8 +17,11 @@
 require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Agent;
+use LarAgent\Drivers\Gemini\GeminiDriver;
+use LarAgent\History\InMemoryChatHistory;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tool;
+use LarAgent\ToolCall;
 
 // Load API key
 $apiKey = include __DIR__.'/gemini-api-key.php';
@@ -29,14 +32,14 @@ function config(string $key, mixed $default = null): mixed
     global $apiKey;
 
     $config = [
-        'laragent.default_driver' => LarAgent\Drivers\Gemini\GeminiDriver::class,
-        'laragent.default_chat_history' => LarAgent\History\InMemoryChatHistory::class,
+        'laragent.default_driver' => GeminiDriver::class,
+        'laragent.default_chat_history' => InMemoryChatHistory::class,
         'laragent.fallback_provider' => null,
         'laragent.track_usage' => false,
         'laragent.providers.gemini_3_pro' => [
             'label' => 'gemini',
             'api_key' => $apiKey,
-            'driver' => LarAgent\Drivers\Gemini\GeminiDriver::class,
+            'driver' => GeminiDriver::class,
             'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
@@ -365,7 +368,7 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 try {
     // Create tool call with signature
-    $originalToolCall = new \LarAgent\ToolCall(
+    $originalToolCall = new ToolCall(
         'call_test123',
         'check_flight',
         '{"flight": "AA100"}',
@@ -378,7 +381,7 @@ try {
     echo 'Has thought_signature key: '.(isset($array['thought_signature']) ? 'Yes' : 'No')."\n";
 
     // Deserialize back
-    $restoredToolCall = \LarAgent\ToolCall::fromArray($array);
+    $restoredToolCall = ToolCall::fromArray($array);
 
     // Verify
     $originalSig = $originalToolCall->getThoughtSignature();

@@ -2,6 +2,8 @@
 
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Contracts\LlmDriver;
+use LarAgent\Core\Helpers\SchemaGenerator;
+use LarAgent\Exceptions\InvalidDataModelException;
 use LarAgent\Tool;
 use Mockery as m;
 
@@ -93,8 +95,8 @@ describe('addDataModelAsProperties', function () {
 
     it('throws exception for non-DataModel class', function () {
         Tool::create('invalid_tool', 'Invalid tool')
-            ->addDataModelAsProperties(\stdClass::class);
-    })->throws(\InvalidArgumentException::class, 'must implement DataModel contract');
+            ->addDataModelAsProperties(stdClass::class);
+    })->throws(InvalidArgumentException::class, 'must implement DataModel contract');
 
     it('executes callback with DataModel instance when root DataModel is set', function () {
         $receivedData = null;
@@ -261,8 +263,8 @@ describe('addDataModelProperty', function () {
 
     it('throws exception for non-DataModel class', function () {
         Tool::create('invalid_tool', 'Invalid tool')
-            ->addDataModelProperty('data', \stdClass::class);
-    })->throws(\InvalidArgumentException::class, 'must implement DataModel contract');
+            ->addDataModelProperty('data', stdClass::class);
+    })->throws(InvalidArgumentException::class, 'must implement DataModel contract');
 
     it('works with DataModel instance instead of class name', function () {
         $dataModel = new AddressDataModel;
@@ -551,7 +553,7 @@ describe('attribute-based tool integration', function () {
 
         // Simulate what attribute-based tool building does
         $attributeTool = Tool::create('create_task', 'Create a task');
-        $schema = \LarAgent\Core\Helpers\SchemaGenerator::forDataModel(TaskDataModel::class);
+        $schema = SchemaGenerator::forDataModel(TaskDataModel::class);
         $attributeTool->addProperty('task', $schema, 'The task data');
         $attributeTool->addDataModelType('task', TaskDataModel::class);
         $attributeTool->setRequired('task');
@@ -578,7 +580,7 @@ describe('attribute-based tool integration', function () {
 
         // Method 2: Simulating attribute-based tool building
         $attributeTool = Tool::create('create_task', 'Create a task');
-        $schema = \LarAgent\Core\Helpers\SchemaGenerator::forDataModel(TaskDataModel::class);
+        $schema = SchemaGenerator::forDataModel(TaskDataModel::class);
         $attributeTool->addProperty('task', $schema);
         $attributeTool->addDataModelType('task', TaskDataModel::class);
         $attributeTool->setRequired('task');
@@ -669,7 +671,7 @@ describe('error handling and edge cases', function () {
                 return $input;
             }
         };
-    })->throws(\LarAgent\Exceptions\InvalidDataModelException::class);
+    })->throws(InvalidDataModelException::class);
 
     it('throws InvalidDataModelException for dataModelClass that does not implement DataModel', function () {
         new class extends Tool
@@ -685,7 +687,7 @@ describe('error handling and edge cases', function () {
                 return $input;
             }
         };
-    })->throws(\LarAgent\Exceptions\InvalidDataModelException::class);
+    })->throws(InvalidDataModelException::class);
 
     it('clears rootDataModelClass when addProperty is called after addDataModelAsProperties', function () {
         $tool = Tool::create('task_tool', 'Task tool')

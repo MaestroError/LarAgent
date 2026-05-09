@@ -6,6 +6,7 @@ namespace Tests\LarAgent\Context;
 
 use LarAgent\Context\Context;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
+use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Traits\HasContext;
 
@@ -206,8 +207,8 @@ describe('HasContext Trait', function () {
             $instance = new HasContextTestClass;
             $instance->setPropertiesForTest('TestAgent', 'test_chat');
             $instance->publicSetupContext([
-                'history' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-                'identity' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+                'history' => InMemoryStorage::class,
+                'identity' => InMemoryStorage::class,
             ]);
 
             expect($instance->context())->toBeInstanceOf(Context::class);
@@ -217,8 +218,8 @@ describe('HasContext Trait', function () {
             $instance = new HasContextTestClass;
             $instance->setPropertiesForTest('TestAgent', 'test_chat');
             $instance->publicSetupContext([
-                'history' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-                'identity' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+                'history' => InMemoryStorage::class,
+                'identity' => InMemoryStorage::class,
             ]);
 
             $context = $instance->context();
@@ -236,8 +237,8 @@ describe('HasContext Trait', function () {
 
             // Now setup context
             $instance->publicSetupContext([
-                'history' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-                'identity' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+                'history' => InMemoryStorage::class,
+                'identity' => InMemoryStorage::class,
             ]);
 
             $context = $instance->context();
@@ -371,8 +372,8 @@ describe('HasContext Trait', function () {
             $instance = new HasContextTestClass;
             $instance->setPropertiesForTest('TestAgent', 'test_chat');
             $instance->publicSetupContext([
-                'history' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-                'identity' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+                'history' => InMemoryStorage::class,
+                'identity' => InMemoryStorage::class,
             ]);
 
             expect($instance->context())->toBeInstanceOf(Context::class);
@@ -394,8 +395,8 @@ describe('HasContext Trait', function () {
 
             // Setup context
             $instance->publicSetupContext([
-                'history' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-                'identity' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+                'history' => InMemoryStorage::class,
+                'identity' => InMemoryStorage::class,
             ]);
 
             // Verify all properties
@@ -415,8 +416,8 @@ describe('HasContext Trait', function () {
 
             // Setup context
             $instance->publicSetupContext([
-                'history' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-                'identity' => \LarAgent\Context\Drivers\InMemoryStorage::class,
+                'history' => InMemoryStorage::class,
+                'identity' => InMemoryStorage::class,
             ]);
 
             // Verify all properties

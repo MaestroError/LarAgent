@@ -4,6 +4,7 @@ namespace LarAgent\Core\Contracts;
 
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
+use LarAgent\ToolCall;
 
 interface MessageFormatter
 {
@@ -51,7 +52,7 @@ interface MessageFormatter
      * Returns array of ToolCall objects (LarAgent format).
      *
      * @param  array  $response  Raw API response array
-     * @return \LarAgent\ToolCall[] Array of LarAgent ToolCall objects
+     * @return ToolCall[] Array of LarAgent ToolCall objects
      */
     public function extractToolCalls(array $response): array;
 

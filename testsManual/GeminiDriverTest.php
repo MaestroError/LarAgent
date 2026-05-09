@@ -14,6 +14,7 @@ require_once __DIR__.'/../vendor/autoload.php';
 
 use LarAgent\Drivers\Gemini\GeminiDriver;
 use LarAgent\Message;
+use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Tool;
 
 // Load API key
@@ -174,7 +175,7 @@ try {
     $response = $driver->sendMessage($messages);
 
     // Check if it's a tool call message
-    if ($response instanceof \LarAgent\Messages\ToolCallMessage) {
+    if ($response instanceof ToolCallMessage) {
         echo "Tool calls detected:\n";
         $toolCalls = $response->getToolCalls();
 

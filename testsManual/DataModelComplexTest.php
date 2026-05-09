@@ -113,7 +113,7 @@ try {
     echo '   City: '.$user->address->city."\n";
     echo '   Marketing: '.($user->preferences->marketingEmails ? 'Yes' : 'No')."\n";
     echo '   Private API Key: '.$user->preferences->getApiKey()."\n";
-} catch (\Throwable $e) {
+} catch (Throwable $e) {
     echo 'ERROR: '.$e->getMessage()."\n";
     exit(1);
 }

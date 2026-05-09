@@ -7,7 +7,11 @@
  * according to Anthropic's structured output API specification.
  */
 
+use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Drivers\Anthropic\ClaudeDriver;
+use LarAgent\Drivers\Anthropic\ClaudeMessageFormatter;
+use LarAgent\Message;
+use LarAgent\Tool;
 
 // Create a test class that exposes protected methods
 class TestableClaudeDriver extends ClaudeDriver
@@ -25,8 +29,8 @@ class TestableClaudeDriver extends ClaudeDriver
     public function publicPreparePayload(array $messages, array $overrideSettings = []): array
     {
         // Set up minimal formatter
-        $this->formatter = new \LarAgent\Drivers\Anthropic\ClaudeMessageFormatter;
-        $this->driverConfig = \LarAgent\Core\DTO\DriverConfig::wrap([
+        $this->formatter = new ClaudeMessageFormatter;
+        $this->driverConfig = DriverConfig::wrap([
             'model' => 'claude-3-7-sonnet-latest',
             'apiKey' => 'test-key',
         ]);
@@ -152,7 +156,7 @@ describe('ClaudeDriver Schema Support', function () {
             $this->driver->publicSetResponseSchema($schema);
 
             $messages = [
-                \LarAgent\Message::user('Extract info'),
+                Message::user('Extract info'),
             ];
 
             $payload = $this->driver->publicPreparePayload($messages);
@@ -184,7 +188,7 @@ describe('ClaudeDriver Schema Support', function () {
             $this->driver->publicSetResponseSchema($wrappedSchema);
 
             $messages = [
-                \LarAgent\Message::user('Process this'),
+                Message::user('Process this'),
             ];
 
             $payload = $this->driver->publicPreparePayload($messages);
@@ -204,7 +208,7 @@ describe('ClaudeDriver Schema Support', function () {
             $this->driver->publicSetResponseSchema(null);
 
             $messages = [
-                \LarAgent\Message::user('Normal request'),
+                Message::user('Normal request'),
             ];
 
             $payload = $this->driver->publicPreparePayload($messages);
@@ -224,7 +228,7 @@ describe('ClaudeDriver Schema Support', function () {
             $this->driver->publicSetResponseSchema($schema);
 
             // Register a tool
-            $tool = (new \LarAgent\Tool('search', 'Search for information'))
+            $tool = (new Tool('search', 'Search for information'))
                 ->addProperty('query', 'string', 'Search query')
                 ->setRequired('query')
                 ->setCallback(fn ($args) => 'result');
@@ -232,7 +236,7 @@ describe('ClaudeDriver Schema Support', function () {
             $this->driver->registerTool($tool);
 
             $messages = [
-                \LarAgent\Message::user('Search and respond'),
+                Message::user('Search and respond'),
             ];
 
             $payload = $this->driver->publicPreparePayload($messages);

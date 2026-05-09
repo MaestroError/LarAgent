@@ -22,7 +22,9 @@ use LarAgent\Agent;
 use LarAgent\Attributes\Desc;
 use LarAgent\Core\Abstractions\DataModel;
 use LarAgent\Core\Contracts\DataModel as DataModelContract;
+use LarAgent\Drivers\OpenAi\OpenAiDriver;
 use LarAgent\Exceptions\InvalidDataModelException;
+use LarAgent\History\InMemoryChatHistory;
 use LarAgent\Tool;
 
 // Configuration function
@@ -31,8 +33,8 @@ function config(string $key): mixed
     $yourApiKey = include __DIR__.'/openai-api-key.php';
 
     $config = [
-        'laragent.default_driver' => LarAgent\Drivers\OpenAi\OpenAiDriver::class,
-        'laragent.default_chat_history' => LarAgent\History\InMemoryChatHistory::class,
+        'laragent.default_driver' => OpenAiDriver::class,
+        'laragent.default_chat_history' => InMemoryChatHistory::class,
         'laragent.fallback_provider' => null,
         'laragent.track_usage' => false,
         'laragent.enable_truncation' => false,
@@ -41,7 +43,7 @@ function config(string $key): mixed
         'laragent.providers.default' => [
             'label' => 'default',
             'api_key' => $yourApiKey,
-            'driver' => LarAgent\Drivers\OpenAi\OpenAiDriver::class,
+            'driver' => OpenAiDriver::class,
             'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 2000,
             'default_temperature' => 0.3,
@@ -610,7 +612,7 @@ runTest('11. addDataModelProperty clears rootDataModelClass', function () {
 runTest('12. Invalid DataModel class throws InvalidDataModelException', function () {
     try {
         Tool::create('test_tool', 'Test')
-            ->addDataModelAsProperties(\stdClass::class);
+            ->addDataModelAsProperties(stdClass::class);
         throw new Exception('Should have thrown InvalidDataModelException');
     } catch (InvalidDataModelException $e) {
         // Expected
@@ -628,7 +630,7 @@ runTest('13. Invalid $dataModelClass property throws InvalidDataModelException',
 
             protected string $description = 'Invalid tool';
 
-            protected ?string $dataModelClass = \stdClass::class;
+            protected ?string $dataModelClass = stdClass::class;
         };
         throw new Exception('Should have thrown InvalidDataModelException');
     } catch (InvalidDataModelException $e) {

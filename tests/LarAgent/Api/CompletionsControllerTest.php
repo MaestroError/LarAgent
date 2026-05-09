@@ -12,13 +12,13 @@ use LarAgent\ToolCall;
 
 class StreamDriver extends FakeLlmDriver
 {
-    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): \Generator
+    public function sendMessageStreamed(array $messages, DriverConfig|array $overrideSettings = new DriverConfig, ?callable $callback = null): Generator
     {
         $this->lastOverrideSettings = $overrideSettings instanceof DriverConfig
             ? $overrideSettings->toArray()
             : $overrideSettings;
         if (empty($this->mockResponses)) {
-            throw new \Exception('No mock responses are defined.');
+            throw new Exception('No mock responses are defined.');
         }
         $mock = array_shift($this->mockResponses);
         $finish = $mock['finishReason'];

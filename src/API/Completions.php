@@ -5,6 +5,7 @@ namespace LarAgent\API;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use LarAgent\Agent;
 use LarAgent\API\Completion\CompletionRequestDTO;
 use LarAgent\Core\Contracts\Message as MessageInterface;
@@ -117,7 +118,7 @@ class Completions
         });
 
         if ($validator->fails()) {
-            throw new \Illuminate\Validation\ValidationException($validator);
+            throw new ValidationException($validator);
         }
 
         $validated = $validator->validated();

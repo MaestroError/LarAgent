@@ -7,6 +7,7 @@ namespace Tests\LarAgent\Context;
 use Illuminate\Support\Facades\Storage;
 use LarAgent\Context\Abstract\StorageDriver as AbstractStorageDriver;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
+use LarAgent\Context\Drivers\CacheStorage;
 use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Storages\ChatHistoryStorage;
@@ -458,7 +459,7 @@ describe('Agent Storage Driver Configuration', function () {
 
         // This should not cause infinite recursion
         // The fix returns InMemoryStorage::class as fallback
-        $fallbackDrivers = [\LarAgent\Context\Drivers\InMemoryStorage::class];
+        $fallbackDrivers = [InMemoryStorage::class];
 
         $storage = new ChatHistoryStorage($identity, $fallbackDrivers);
         $storage->addMessage(new UserMessage('Test'));
@@ -468,7 +469,7 @@ describe('Agent Storage Driver Configuration', function () {
 
         // Restore config
         config(['laragent.default_storage' => [
-            \LarAgent\Context\Drivers\CacheStorage::class,
+            CacheStorage::class,
         ]]);
     });
 

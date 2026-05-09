@@ -5,12 +5,14 @@ declare(strict_types=1);
 namespace Tests\LarAgent\Context;
 
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 use LarAgent\Agent;
 use LarAgent\Context\Drivers\EloquentStorage;
 use LarAgent\Context\Drivers\FileStorage;
 use LarAgent\Context\Drivers\SimpleEloquentStorage;
 use LarAgent\Context\Models\LaragentMessage;
 use LarAgent\Context\Models\LaragentStorage;
+use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Tests\LarAgent\Fakes\FakeLlmDriver;
 use ReflectionClass;
 
@@ -174,7 +176,7 @@ describe('Agent with database-simple built-in driver', function () {
     it('can use database-simple as built-in history driver string', function () {
         $agent = DatabaseSimpleBuiltInAgent::for('test-session');
 
-        expect($agent->chatHistory())->toBeInstanceOf(\LarAgent\Context\Storages\ChatHistoryStorage::class);
+        expect($agent->chatHistory())->toBeInstanceOf(ChatHistoryStorage::class);
 
         $response = $agent->respond('Hello');
 
@@ -251,7 +253,7 @@ describe('Agent with database built-in driver', function () {
     it('can use database as built-in history driver string', function () {
         $agent = DatabaseBuiltInAgent::for('test-session');
 
-        expect($agent->chatHistory())->toBeInstanceOf(\LarAgent\Context\Storages\ChatHistoryStorage::class);
+        expect($agent->chatHistory())->toBeInstanceOf(ChatHistoryStorage::class);
 
         $response = $agent->respond('Hello');
 
@@ -301,7 +303,7 @@ describe('Agent with custom EloquentStorage instance via historyStorageDrivers o
     it('can use custom EloquentStorage instance', function () {
         $agent = CustomEloquentStorageAgent::for('custom-eloquent-test');
 
-        expect($agent->chatHistory())->toBeInstanceOf(\LarAgent\Context\Storages\ChatHistoryStorage::class);
+        expect($agent->chatHistory())->toBeInstanceOf(ChatHistoryStorage::class);
 
         $response = $agent->respond('Hello');
 
@@ -330,7 +332,7 @@ describe('Agent with custom SimpleEloquentStorage instance via historyStorageDri
     it('can use custom SimpleEloquentStorage instance', function () {
         $agent = CustomSimpleEloquentStorageAgent::for('custom-simple-test');
 
-        expect($agent->chatHistory())->toBeInstanceOf(\LarAgent\Context\Storages\ChatHistoryStorage::class);
+        expect($agent->chatHistory())->toBeInstanceOf(ChatHistoryStorage::class);
 
         $response = $agent->respond('Hello');
 
@@ -391,7 +393,7 @@ describe('Agent with multiple storage drivers (File + SimpleEloquent + Eloquent)
     afterEach(function () {
         // Clean up file storage using Laravel's Storage facade
         if (isset($this->testFolder)) {
-            \Illuminate\Support\Facades\Storage::deleteDirectory($this->testFolder);
+            Storage::deleteDirectory($this->testFolder);
         }
     });
 
@@ -399,7 +401,7 @@ describe('Agent with multiple storage drivers (File + SimpleEloquent + Eloquent)
         MultiDriverStorageAgent::setTestStoragePath($this->testFolder);
         $agent = MultiDriverStorageAgent::for('multi-driver-test');
 
-        expect($agent->chatHistory())->toBeInstanceOf(\LarAgent\Context\Storages\ChatHistoryStorage::class);
+        expect($agent->chatHistory())->toBeInstanceOf(ChatHistoryStorage::class);
 
         $response = $agent->respond('Hello');
 
@@ -416,7 +418,7 @@ describe('Agent with multiple storage drivers (File + SimpleEloquent + Eloquent)
         // Verify data exists in all three storage backends
 
         // 1. Check FileStorage - files should exist in the storage folder
-        $files = \Illuminate\Support\Facades\Storage::files($this->testFolder);
+        $files = Storage::files($this->testFolder);
         expect(count($files))->toBeGreaterThan(0);
 
         // 2. Check SimpleEloquentStorage - data should be in laragent_storage table

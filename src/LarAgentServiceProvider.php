@@ -6,6 +6,7 @@ use Illuminate\Support\Str;
 use LarAgent\Commands\AgentChatClearCommand;
 use LarAgent\Commands\AgentChatCommand;
 use LarAgent\Commands\AgentChatRemoveCommand;
+use LarAgent\Commands\AgentToolClearCommand;
 use LarAgent\Commands\MakeAgentCommand;
 use LarAgent\Commands\MakeAgentToolCommand;
 use LarAgent\Commands\MakeTruncationStrategyCommand;
@@ -37,7 +38,7 @@ class LarAgentServiceProvider extends PackageServiceProvider
                 AgentChatClearCommand::class,
                 AgentChatRemoveCommand::class,
                 PublishCommand::class,
-                \LarAgent\Commands\AgentToolClearCommand::class,
+                AgentToolClearCommand::class,
             ]);
 
     }

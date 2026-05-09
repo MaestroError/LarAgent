@@ -3,10 +3,21 @@
 namespace LarAgent;
 
 use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Str;
 use LarAgent\Attributes\Tool as ToolAttribute;
+use LarAgent\Context\Contracts\SessionIdentity;
+use LarAgent\Context\Contracts\TruncationStrategy;
+use LarAgent\Context\DataModels\SessionIdentityArray;
+use LarAgent\Context\Drivers\CacheStorage;
+use LarAgent\Context\Drivers\EloquentStorage;
+use LarAgent\Context\Drivers\FileStorage;
+use LarAgent\Context\Drivers\InMemoryStorage;
+use LarAgent\Context\Drivers\SessionStorage;
+use LarAgent\Context\Drivers\SimpleEloquentStorage;
 use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Context\Traits\HasContext;
+use LarAgent\Context\Truncation\SimpleTruncationStrategy;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\DataModel;
 use LarAgent\Core\Contracts\LlmDriver as LlmDriverInterface;
@@ -21,7 +32,11 @@ use LarAgent\Core\Traits\UsesLogger;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\UserMessage;
+use LarAgent\Usage\DataModels\UsageArray;
+use LarAgent\Usage\Drivers\EloquentUsageDriver;
+use LarAgent\Usage\UsageStorage;
 use Redberry\MCPClient\MCPClient;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Class Agent
@@ -57,7 +72,7 @@ class Agent
     /** @var string */
     protected $instructions;
 
-    /** @var array|string|\LarAgent\Core\Contracts\DataModel|null - Array schema, DataModel class name, or DataModel instance */
+    /** @var array|string|DataModel|null - Array schema, DataModel class name, or DataModel instance */
     protected $responseSchema = null;
 
     /** @var array */
@@ -192,13 +207,13 @@ class Agent
 
     // Misc
     private array $builtInHistories = [
-        'in_memory' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-        'session' => \LarAgent\Context\Drivers\SessionStorage::class,
-        'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
-        'file' => \LarAgent\Context\Drivers\FileStorage::class,
-        'json' => \LarAgent\Context\Drivers\FileStorage::class,
-        'database' => \LarAgent\Context\Drivers\EloquentStorage::class,
-        'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
+        'in_memory' => InMemoryStorage::class,
+        'session' => SessionStorage::class,
+        'cache' => CacheStorage::class,
+        'file' => FileStorage::class,
+        'json' => FileStorage::class,
+        'database' => EloquentStorage::class,
+        'database-simple' => SimpleEloquentStorage::class,
     ];
 
     /** @var array */
@@ -259,12 +274,12 @@ class Agent
      * Built-in usage storage driver aliases.
      */
     private array $builtInUsageStorages = [
-        'in_memory' => \LarAgent\Context\Drivers\InMemoryStorage::class,
-        'session' => \LarAgent\Context\Drivers\SessionStorage::class,
-        'cache' => \LarAgent\Context\Drivers\CacheStorage::class,
-        'file' => \LarAgent\Context\Drivers\FileStorage::class,
-        'database' => \LarAgent\Usage\Drivers\EloquentUsageDriver::class,
-        'database-simple' => \LarAgent\Context\Drivers\SimpleEloquentStorage::class,
+        'in_memory' => InMemoryStorage::class,
+        'session' => SessionStorage::class,
+        'cache' => CacheStorage::class,
+        'file' => FileStorage::class,
+        'database' => EloquentUsageDriver::class,
+        'database-simple' => SimpleEloquentStorage::class,
     ];
 
     /**
@@ -356,10 +371,10 @@ class Agent
      * Reconstruct an agent instance from a SessionIdentity.
      * Useful for operating on tracked storages without knowing the original creation method.
      *
-     * @param  \LarAgent\Context\Contracts\SessionIdentity  $identity  The identity to reconstruct from
+     * @param  SessionIdentity  $identity  The identity to reconstruct from
      * @return static The reconstructed agent instance
      */
-    public static function fromIdentity(\LarAgent\Context\Contracts\SessionIdentity $identity): static
+    public static function fromIdentity(SessionIdentity $identity): static
     {
         $group = $identity->getGroup();
 
@@ -418,9 +433,9 @@ class Agent
      * Quick one-off response without chat history
      *
      * @param  string  $message  The message to process
-     * @return string|array|\LarAgent\Core\Contracts\DataModel The agent's response
+     * @return string|array|DataModel The agent's response
      */
-    public static function ask(string $message): string|array|\LarAgent\Core\Contracts\DataModel
+    public static function ask(string $message): string|array|DataModel
     {
         return static::make()->respond($message);
     }
@@ -439,9 +454,9 @@ class Agent
      * Process a message and get the agent's response
      *
      * @param  string|null  $message  Optional message to process
-     * @return string|array|\LarAgent\Core\Contracts\DataModel|MessageInterface The agent's response
+     * @return string|array|DataModel|MessageInterface The agent's response
      */
-    public function respond(?string $message = null): string|array|\LarAgent\Core\Contracts\DataModel|MessageInterface
+    public function respond(?string $message = null): string|array|DataModel|MessageInterface
     {
         if ($message) {
             $this->message($message);
@@ -599,7 +614,7 @@ class Agent
      *
      * @param  string|null  $message  Optional message to process
      * @param  string  $format  Response format: 'plain', 'json', or 'sse'
-     * @return \Symfony\Component\HttpFoundation\StreamedResponse
+     * @return StreamedResponse
      */
     public function streamResponse(?string $message = null, string $format = 'plain')
     {
@@ -612,7 +627,7 @@ class Agent
         return response()->stream(function () use ($message, $format) {
             $accumulated = '';
             $stream = $this->respondStreamed($message, function ($chunk) use (&$accumulated, $format) {
-                if ($chunk instanceof \LarAgent\Messages\StreamedAssistantMessage) {
+                if ($chunk instanceof StreamedAssistantMessage) {
                     $delta = $chunk->getLastChunk();
                     $accumulated .= $delta;
 
@@ -743,12 +758,12 @@ class Agent
         }
 
         // If it's a DataModel instance, call toSchema()
-        if ($this->responseSchema instanceof \LarAgent\Core\Contracts\DataModel) {
+        if ($this->responseSchema instanceof DataModel) {
             return $this->responseSchema->toSchema();
         }
 
         // If it's a DataModel class name, call generateSchema() statically
-        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, DataModel::class)) {
             return $this->responseSchema::generateSchema();
         }
 
@@ -766,11 +781,11 @@ class Agent
      */
     public function getResponseSchemaClass(): ?string
     {
-        if ($this->responseSchema instanceof \LarAgent\Core\Contracts\DataModel) {
+        if ($this->responseSchema instanceof DataModel) {
             return get_class($this->responseSchema);
         }
 
-        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, \LarAgent\Core\Contracts\DataModel::class)) {
+        if (is_string($this->responseSchema) && is_subclass_of($this->responseSchema, DataModel::class)) {
             return $this->responseSchema;
         }
 
@@ -782,9 +797,9 @@ class Agent
      *
      * @param  array  $response  The array response from LLM
      * @param  string  $class  The DataModel class name
-     * @return \LarAgent\Core\Contracts\DataModel The reconstructed DataModel instance
+     * @return DataModel The reconstructed DataModel instance
      */
-    protected function reconstructDataModel(array $response, string $class): \LarAgent\Core\Contracts\DataModel
+    protected function reconstructDataModel(array $response, string $class): DataModel
     {
         return $class::fromArray($response);
     }
@@ -793,9 +808,9 @@ class Agent
      * Process array response and reconstruct DataModel if applicable
      *
      * @param  array  $response  The array response from LLM
-     * @return array|\LarAgent\Core\Contracts\DataModel The processed response
+     * @return array|DataModel The processed response
      */
-    protected function processArrayResponse(array $response): array|\LarAgent\Core\Contracts\DataModel
+    protected function processArrayResponse(array $response): array|DataModel
     {
         $class = $this->getResponseSchemaClass();
 
@@ -993,7 +1008,7 @@ class Agent
     protected function getToolsFromCache(array $parsedConfig): ?array
     {
         $key = $this->getCacheKey($parsedConfig);
-        $store = \Illuminate\Support\Facades\Cache::store($this->toolCacheStore);
+        $store = Cache::store($this->toolCacheStore);
 
         if ($store->has($key)) {
             $cachedData = $store->get($key);
@@ -1010,7 +1025,7 @@ class Agent
     protected function cacheTools(array $parsedConfig, array $tools): void
     {
         $key = $this->getCacheKey($parsedConfig);
-        $store = \Illuminate\Support\Facades\Cache::store($this->toolCacheStore);
+        $store = Cache::store($this->toolCacheStore);
 
         $toolsData = array_map(function ($tool) {
             return [
@@ -1258,9 +1273,9 @@ class Agent
      * }
      * ```
      *
-     * @return \LarAgent\Context\Contracts\SessionIdentity The identity for the chat history storage
+     * @return SessionIdentity The identity for the chat history storage
      */
-    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createHistoryIdentity(): SessionIdentity
     {
         return $this->context()->getIdentity();
     }
@@ -1346,7 +1361,7 @@ class Agent
         $this->trackUsage = $enabled;
 
         // Setup storage if enabling tracking after construction
-        if ($enabled && ! $this->context()->has(\LarAgent\Usage\UsageStorage::class)) {
+        if ($enabled && ! $this->context()->has(UsageStorage::class)) {
             $this->setupUsageStorage();
         }
 
@@ -1356,21 +1371,21 @@ class Agent
     /**
      * Get the usage storage instance.
      *
-     * @return \LarAgent\Usage\UsageStorage|null Returns null if tracking is disabled
+     * @return UsageStorage|null Returns null if tracking is disabled
      */
-    public function usageStorage(): ?\LarAgent\Usage\UsageStorage
+    public function usageStorage(): ?UsageStorage
     {
         if (! $this->shouldTrackUsage()) {
             return null;
         }
 
-        return $this->context()->getStorage(\LarAgent\Usage\UsageStorage::class);
+        return $this->context()->getStorage(UsageStorage::class);
     }
 
     /**
      * Set usage storage instance.
      */
-    public function setUsageStorage(\LarAgent\Usage\UsageStorage $usageStorage): static
+    public function setUsageStorage(UsageStorage $usageStorage): static
     {
         $this->context()->register($usageStorage);
 
@@ -1406,9 +1421,9 @@ class Agent
      * }
      * ```
      *
-     * @return \LarAgent\Context\Contracts\SessionIdentity The identity for the usage storage
+     * @return SessionIdentity The identity for the usage storage
      */
-    protected function createUsageIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createUsageIdentity(): SessionIdentity
     {
         return $this->context()->getIdentity();
     }
@@ -1417,11 +1432,11 @@ class Agent
      * Create a new usage storage instance.
      * Can be overridden in child classes for custom behavior.
      */
-    public function createUsageStorage(): \LarAgent\Usage\UsageStorage
+    public function createUsageStorage(): UsageStorage
     {
         $usageStorageDrivers = $this->usageStorageDrivers();
 
-        return new \LarAgent\Usage\UsageStorage(
+        return new UsageStorage(
             $this->createUsageIdentity(),
             $usageStorageDrivers,
             $this->model(),
@@ -1450,7 +1465,7 @@ class Agent
      * Track usage from a message response.
      * Called automatically in afterResponse hook.
      */
-    protected function trackUsageFromMessage(\LarAgent\Core\Contracts\Message $message): void
+    protected function trackUsageFromMessage(MessageInterface $message): void
     {
         if (! $this->shouldTrackUsage()) {
             return;
@@ -1479,7 +1494,7 @@ class Agent
      *
      * @param  array  $filters  Optional filters (agent_name, user_id, model_name, provider_name, date, etc.)
      */
-    public function getUsage(array $filters = []): ?\LarAgent\Usage\DataModels\UsageArray
+    public function getUsage(array $filters = []): ?UsageArray
     {
         $storage = $this->usageStorage();
         if ($storage === null) {
@@ -1523,9 +1538,9 @@ class Agent
     /**
      * Get usage identities tracked for this agent class.
      */
-    public function getUsageIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
+    public function getUsageIdentities(): SessionIdentityArray
     {
-        return $this->context()->getTrackedIdentitiesByScope(\LarAgent\Usage\UsageStorage::getStoragePrefix());
+        return $this->context()->getTrackedIdentitiesByScope(UsageStorage::getStoragePrefix());
     }
 
     /**
@@ -1583,9 +1598,9 @@ class Agent
      * Override this method to provide custom strategy configuration.
      * Uses config values as defaults when not overridden.
      */
-    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
+    protected function truncationStrategy(): ?TruncationStrategy
     {
-        $strategyClass = config('laragent.default_truncation_strategy', \LarAgent\Context\Truncation\SimpleTruncationStrategy::class);
+        $strategyClass = config('laragent.default_truncation_strategy', SimpleTruncationStrategy::class);
         $strategyConfig = config('laragent.default_truncation_config', [
             'keep_messages' => 10,
             'preserve_system' => true,
@@ -1690,7 +1705,7 @@ class Agent
     {
         if (! isset($this->storage)) {
             // Ultimate fallback to InMemoryStorage
-            return [\LarAgent\Context\Drivers\InMemoryStorage::class];
+            return [InMemoryStorage::class];
         }
 
         return $this->storage;
@@ -1748,9 +1763,9 @@ class Agent
     /**
      * Get chat history identities associated with this agent class
      *
-     * @return \LarAgent\Context\DataModels\SessionIdentityArray Array of chat history identities
+     * @return SessionIdentityArray Array of chat history identities
      */
-    public function getChatIdentities(): \LarAgent\Context\DataModels\SessionIdentityArray
+    public function getChatIdentities(): SessionIdentityArray
     {
         return $this->context()->getTrackedIdentitiesByScope(ChatHistoryStorage::getStoragePrefix());
     }
@@ -1875,7 +1890,7 @@ class Agent
         return $this;
     }
 
-    public function responseSchema(null|array|string|\LarAgent\Core\Contracts\DataModel $schema): static
+    public function responseSchema(null|array|string|DataModel $schema): static
     {
         $this->responseSchema = $schema;
 

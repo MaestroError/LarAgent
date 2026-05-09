@@ -45,7 +45,7 @@ class DefaultIdentityAgent2 extends BaseIdentityTestAgent {}
 // Test agents with custom history identity - using different group names
 class TeamAlphaHistoryAgent extends BaseIdentityTestAgent
 {
-    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createHistoryIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -56,7 +56,7 @@ class TeamAlphaHistoryAgent extends BaseIdentityTestAgent
 
 class SharedGroupHistoryAgent extends BaseIdentityTestAgent
 {
-    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createHistoryIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -67,7 +67,7 @@ class SharedGroupHistoryAgent extends BaseIdentityTestAgent
 
 class GroupAHistoryAgent extends BaseIdentityTestAgent
 {
-    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createHistoryIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -78,7 +78,7 @@ class GroupAHistoryAgent extends BaseIdentityTestAgent
 
 class GroupBHistoryAgent extends BaseIdentityTestAgent
 {
-    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createHistoryIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -90,7 +90,7 @@ class GroupBHistoryAgent extends BaseIdentityTestAgent
 // Test agents with custom usage identity - using different organization IDs
 class Org123UsageAgent extends BaseIdentityTestAgent
 {
-    protected function createUsageIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createUsageIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -101,7 +101,7 @@ class Org123UsageAgent extends BaseIdentityTestAgent
 
 class OrgSharedUsageAgent extends BaseIdentityTestAgent
 {
-    protected function createUsageIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createUsageIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -112,7 +112,7 @@ class OrgSharedUsageAgent extends BaseIdentityTestAgent
 
 class OrgTrackingUsageAgent extends BaseIdentityTestAgent
 {
-    protected function createUsageIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createUsageIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -124,7 +124,7 @@ class OrgTrackingUsageAgent extends BaseIdentityTestAgent
 // Test agents with both history and usage identity overrides
 class DualIdentityAgent extends BaseIdentityTestAgent
 {
-    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createHistoryIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -132,7 +132,7 @@ class DualIdentityAgent extends BaseIdentityTestAgent
         );
     }
 
-    protected function createUsageIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createUsageIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -143,7 +143,7 @@ class DualIdentityAgent extends BaseIdentityTestAgent
 
 class TeamBillingDualAgent extends BaseIdentityTestAgent
 {
-    protected function createHistoryIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createHistoryIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),
@@ -151,7 +151,7 @@ class TeamBillingDualAgent extends BaseIdentityTestAgent
         );
     }
 
-    protected function createUsageIdentity(): \LarAgent\Context\Contracts\SessionIdentity
+    protected function createUsageIdentity(): LarAgent\Context\Contracts\SessionIdentity
     {
         return new SessionIdentity(
             agentName: $this->name(),

@@ -2,6 +2,7 @@
 
 namespace LarAgent\Drivers\OpenAi;
 
+use GuzzleHttp\Client;
 use LarAgent\Core\DTO\DriverConfig;
 use OpenAI;
 
@@ -26,7 +27,7 @@ class OpenAiCompatible extends BaseOpenAiDriver
         $client = OpenAI::factory()
             ->withApiKey($apiKey)
             ->withBaseUri($baseUrl)
-            ->withHttpClient($httpClient = new \GuzzleHttp\Client([]));
+            ->withHttpClient($httpClient = new Client([]));
 
         foreach ($headers as $key => $value) {
             $client->withHttpHeader($key, $value);

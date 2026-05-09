@@ -15,23 +15,33 @@
 
 require_once __DIR__.'/../vendor/autoload.php';
 
+use Illuminate\Cache\CacheManager;
+use Illuminate\Config\Repository;
+use Illuminate\Events\Dispatcher;
+use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Facade;
 use LarAgent\Agent;
+use LarAgent\Drivers\Gemini\GeminiDriver;
+use LarAgent\History\InMemoryChatHistory;
+use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\DataModels\MessageArray;
+use LarAgent\Messages\SystemMessage;
 use LarAgent\Messages\ToolCallMessage;
 use LarAgent\Messages\ToolResultMessage;
+use LarAgent\Messages\UserMessage;
 use LarAgent\Tool;
 use LarAgent\ToolCall;
 
 // Create minimal Laravel app for testing
-$app = new Illuminate\Foundation\Application(dirname(__DIR__));
+$app = new Application(dirname(__DIR__));
 $app->singleton('events', function () {
-    return new Illuminate\Events\Dispatcher;
+    return new Dispatcher;
 });
 $app->singleton('cache', function () {
-    return new Illuminate\Cache\CacheManager($GLOBALS['app']);
+    return new CacheManager($GLOBALS['app']);
 });
-$app['config'] = new Illuminate\Config\Repository([
+$app['config'] = new Repository([
     'cache' => [
         'default' => 'array',
         'stores' => [
@@ -42,7 +52,7 @@ $app['config'] = new Illuminate\Config\Repository([
     ],
 ]);
 $GLOBALS['app'] = $app;
-Illuminate\Support\Facades\Facade::setFacadeApplication($app);
+Facade::setFacadeApplication($app);
 
 // Configuration function
 function config(string $key): mixed
@@ -50,13 +60,13 @@ function config(string $key): mixed
     $yourApiKey = include __DIR__.'/gemini-api-key.php';
 
     $config = [
-        'laragent.default_driver' => LarAgent\Drivers\Gemini\GeminiDriver::class,
-        'laragent.default_chat_history' => LarAgent\History\InMemoryChatHistory::class,
+        'laragent.default_driver' => GeminiDriver::class,
+        'laragent.default_chat_history' => InMemoryChatHistory::class,
         'laragent.fallback_provider' => null,
         'laragent.providers.gemini' => [
             'label' => 'gemini',
             'api_key' => $yourApiKey,
-            'driver' => LarAgent\Drivers\Gemini\GeminiDriver::class,
+            'driver' => GeminiDriver::class,
             'default_truncation_threshold' => 1000000,
             'default_max_completion_tokens' => 10000,
             'default_temperature' => 1,
@@ -257,8 +267,8 @@ function testGeminiWithPersistedHistory(): bool
         // Build messages that simulate a conversation history with tool call
         // This time asking a follow-up about the SAME topic
         $messages = [
-            new LarAgent\Messages\SystemMessage('You are a helpful weather assistant. Be concise.'),
-            new LarAgent\Messages\UserMessage('What is the weather in Boston?'),
+            new SystemMessage('You are a helpful weather assistant. Be concise.'),
+            new UserMessage('What is the weather in Boston?'),
             new ToolCallMessage([
                 new ToolCall('tool_call_001', 'get_weather', '{"location": "Boston"}'),
             ]),
@@ -267,7 +277,7 @@ function testGeminiWithPersistedHistory(): bool
                 'tool_call_001',
                 'get_weather'
             ),
-            new LarAgent\Messages\AssistantMessage('The weather in Boston is currently 22°C and sunny!'),
+            new AssistantMessage('The weather in Boston is currently 22°C and sunny!'),
         ];
 
         // Simulate serialization/deserialization (like cache would do)
@@ -295,10 +305,10 @@ function testGeminiWithPersistedHistory(): bool
         }
 
         // Add a follow-up question about the same topic
-        $restored->add(new LarAgent\Messages\UserMessage('Is that good weather for a walk?'));
+        $restored->add(new UserMessage('Is that good weather for a walk?'));
 
         // Now try to send to Gemini API with the restored history
-        $driver = new LarAgent\Drivers\Gemini\GeminiDriver([
+        $driver = new GeminiDriver([
             'apiKey' => $apiKey,
             'model' => 'gemini-2.5-flash',
         ]);

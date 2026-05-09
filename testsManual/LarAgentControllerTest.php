@@ -5,6 +5,7 @@ use LarAgent\Agent;
 use LarAgent\API\Completion\Controllers\MultiAgentController;
 use LarAgent\API\Completion\Controllers\SingleAgentController;
 use LarAgent\Attributes\Tool;
+use LarAgent\Drivers\OpenAi\OpenAiCompatible;
 use LarAgent\Tests\TestCase;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -24,7 +25,7 @@ beforeEach(function () {
     // Server configs (Exposed agents via API)
     config()->set('laragent.providers.ollama', [
         'label' => 'ollama-local',
-        'driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
+        'driver' => OpenAiCompatible::class,
         'api_key' => 'ollama', // Can be any string for Ollama
         'api_url' => 'http://localhost:11434/v1',
         'model' => 'llama3.2:3b',
@@ -36,7 +37,7 @@ beforeEach(function () {
     // Client configs
     config()->set('laragent.providers.oneagent', [
         'label' => 'oneagent-local',
-        'driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
+        'driver' => OpenAiCompatible::class,
         'api_key' => 'oneagent', // Can be any string for Ollama
         'api_url' => '/api/one-agent',
         'default_truncation_threshold' => 50000,
@@ -45,7 +46,7 @@ beforeEach(function () {
     ]);
     config()->set('laragent.providers.multiagent', [
         'label' => 'multiagent-local',
-        'driver' => \LarAgent\Drivers\OpenAi\OpenAiCompatible::class,
+        'driver' => OpenAiCompatible::class,
         'api_key' => 'multiagent', // Can be any string for Ollama
         'api_url' => '/api/multi-agent',
         'default_truncation_threshold' => 50000,

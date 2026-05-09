@@ -11,6 +11,7 @@ use LarAgent\Core\DTO\DriverConfig;
 use LarAgent\Messages\AssistantMessage;
 use LarAgent\Messages\StreamedAssistantMessage;
 use LarAgent\Messages\ToolCallMessage;
+use LarAgent\ToolCall;
 use LarAgent\Usage\DataModels\Usage;
 use RuntimeException;
 
@@ -221,7 +222,7 @@ class GeminiDriver extends LlmDriver
                                 $thoughtSignature = $isFirstToolCall ? ($part['thoughtSignature'] ?? $currentThoughtSignature) : null;
 
                                 // Store complete tool call with thought signature
-                                $toolCallsSummary[$toolCallId] = new \LarAgent\ToolCall(
+                                $toolCallsSummary[$toolCallId] = new ToolCall(
                                     $toolCallId,
                                     $functionCall['name'] ?? '',
                                     json_encode($functionCall['args'] ?? []),

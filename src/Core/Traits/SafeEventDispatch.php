@@ -2,6 +2,8 @@
 
 namespace LarAgent\Core\Traits;
 
+use Illuminate\Support\Facades\Facade;
+
 /**
  * Provides safe event dispatching that handles Laravel app shutdown gracefully.
  *
@@ -26,7 +28,7 @@ trait SafeEventDispatch
 
         // Check if Laravel app is available and running
         try {
-            $app = \Illuminate\Support\Facades\Facade::getFacadeApplication();
+            $app = Facade::getFacadeApplication();
             if ($app === null) {
                 return;
             }

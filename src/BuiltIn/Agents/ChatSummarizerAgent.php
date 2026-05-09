@@ -3,6 +3,7 @@
 namespace LarAgent\BuiltIn\Agents;
 
 use LarAgent\Agent;
+use LarAgent\Context\Drivers\InMemoryStorage;
 
 class ChatSummarizerAgent extends Agent
 {
@@ -11,7 +12,7 @@ class ChatSummarizerAgent extends Agent
     protected $enableTruncation = false;
 
     protected $storage = [
-        \LarAgent\Context\Drivers\InMemoryStorage::class,
+        InMemoryStorage::class,
     ];
 
     /**

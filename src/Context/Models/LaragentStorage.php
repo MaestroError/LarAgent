@@ -2,6 +2,7 @@
 
 namespace LarAgent\Context\Models;
 
+use Illuminate\Database\Eloquent\Factories\Factory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use LarAgent\Context\Database\Factories\LaragentStorageFactory;
@@ -39,7 +40,7 @@ class LaragentStorage extends Model
     /**
      * Create a new factory instance for the model.
      *
-     * @return \Illuminate\Database\Eloquent\Factories\Factory<static>
+     * @return Factory<static>
      */
     protected static function newFactory()
     {

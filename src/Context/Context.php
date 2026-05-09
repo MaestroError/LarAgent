@@ -6,6 +6,7 @@ use LarAgent\Context\Contracts\Context as ContextContract;
 use LarAgent\Context\Contracts\SessionIdentity as SessionIdentityContract;
 use LarAgent\Context\Contracts\Storage as StorageContract;
 use LarAgent\Context\Contracts\TruncationStrategy as TruncationStrategyContract;
+use LarAgent\Context\DataModels\SessionIdentityArray;
 use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Context\Storages\IdentityStorage;
 use LarAgent\Core\Traits\SafeEventDispatch;
@@ -295,7 +296,7 @@ class Context implements ContextContract
      *
      * @param  string  $scope  The scope to filter by (e.g., 'chatHistory')
      */
-    public function getTrackedIdentitiesByScope(string $scope): \LarAgent\Context\DataModels\SessionIdentityArray
+    public function getTrackedIdentitiesByScope(string $scope): SessionIdentityArray
     {
         return $this->identityStorage->getIdentitiesByScope($scope);
     }

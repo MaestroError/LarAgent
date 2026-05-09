@@ -1,5 +1,6 @@
 <?php
 
+use Carbon\Carbon;
 use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Usage\DataModels\Usage;
@@ -110,7 +111,7 @@ describe('UsageRecord DataModel', function () {
     });
 
     it('converts Carbon instance to string in fromArray', function () {
-        $carbonDate = \Carbon\Carbon::parse('2024-01-15T10:30:00+00:00');
+        $carbonDate = Carbon::parse('2024-01-15T10:30:00+00:00');
 
         $data = [
             'record_id' => 'usage_carbon_test',
@@ -132,7 +133,7 @@ describe('UsageRecord DataModel', function () {
     });
 
     it('converts DateTimeImmutable to string in fromArray', function () {
-        $dateTime = new \DateTimeImmutable('2024-01-15T10:30:00+00:00');
+        $dateTime = new DateTimeImmutable('2024-01-15T10:30:00+00:00');
 
         $data = [
             'record_id' => 'usage_datetime_test',
@@ -263,15 +264,15 @@ describe('UsageArray DataModel', function () {
         // Simulate records coming from Eloquent with Carbon dates
         $record1 = UsageRecord::fromArray([
             'prompt_tokens' => 100,
-            'recorded_at' => \Carbon\Carbon::parse('2024-01-10T10:00:00+00:00'),
+            'recorded_at' => Carbon::parse('2024-01-10T10:00:00+00:00'),
         ]);
         $record2 = UsageRecord::fromArray([
             'prompt_tokens' => 200,
-            'recorded_at' => \Carbon\Carbon::parse('2024-01-15T10:00:00+00:00'),
+            'recorded_at' => Carbon::parse('2024-01-15T10:00:00+00:00'),
         ]);
         $record3 = UsageRecord::fromArray([
             'prompt_tokens' => 150,
-            'recorded_at' => \Carbon\Carbon::parse('2024-01-20T10:00:00+00:00'),
+            'recorded_at' => Carbon::parse('2024-01-20T10:00:00+00:00'),
         ]);
 
         $array = new UsageArray;
@@ -281,8 +282,8 @@ describe('UsageArray DataModel', function () {
 
         // Filter using Carbon dates
         $filtered = $array->filterByDateRange(
-            \Carbon\Carbon::parse('2024-01-12'),
-            \Carbon\Carbon::parse('2024-01-18')
+            Carbon::parse('2024-01-12'),
+            Carbon::parse('2024-01-18')
         );
 
         expect($filtered->count())->toBe(1);

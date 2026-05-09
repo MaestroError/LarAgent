@@ -1,9 +1,11 @@
 <?php
 
+use LarAgent\Context\Abstract\Storage;
+
 /**
  * Storage Abstract Class
  *
- * @see \LarAgent\Context\Abstract\Storage
+ * @see Storage
  *
  * A straightforward storage abstraction for DataModel items.
  *

@@ -75,17 +75,17 @@ class TestClassUsingTrait
         return static::traitTypeNameToSchema($typeName);
     }
 
-    public static function namedTypeToSchema(\ReflectionNamedType $namedType): array
+    public static function namedTypeToSchema(ReflectionNamedType $namedType): array
     {
         return static::traitNamedTypeToSchema($namedType);
     }
 
-    public static function unionTypeToSchema(\ReflectionUnionType $unionType): array
+    public static function unionTypeToSchema(ReflectionUnionType $unionType): array
     {
         return static::traitUnionTypeToSchema($unionType);
     }
 
-    public static function reflectionTypeToSchema(?\ReflectionType $type): array
+    public static function reflectionTypeToSchema(?ReflectionType $type): array
     {
         return static::traitReflectionTypeToSchema($type);
     }

@@ -3,6 +3,7 @@
 namespace LarAgent\Core\Traits;
 
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Facade;
 use LarAgent\Core\Contracts\ChatHistory as ChatHistoryInterface;
 use LarAgent\Core\Contracts\Message as MessageInterface;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
@@ -125,7 +126,7 @@ trait Events
         }
 
         try {
-            $app = \Illuminate\Support\Facades\Facade::getFacadeApplication();
+            $app = Facade::getFacadeApplication();
             if ($app === null) {
                 return;
             }

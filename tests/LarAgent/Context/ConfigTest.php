@@ -11,6 +11,7 @@ use LarAgent\Context\Drivers\FileStorage;
 use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Storages\ChatHistoryStorage;
+use LarAgent\Messages\UserMessage;
 
 // ===========================================
 // Helper Functions
@@ -68,7 +69,7 @@ describe('Config-based Storage Drivers', function () {
         expect($storage)->toBeInstanceOf(ChatHistoryStorage::class);
 
         // Storage should work with the inherited driver
-        $storage->addMessage(new \LarAgent\Messages\UserMessage('Test'));
+        $storage->addMessage(new UserMessage('Test'));
         $context->save();
 
         // Verify data was saved via the driver
@@ -94,7 +95,7 @@ describe('Config-based Storage Drivers', function () {
         expect($storage)->toBeInstanceOf(ChatHistoryStorage::class);
 
         // Add data and save
-        $storage->addMessage(new \LarAgent\Messages\UserMessage('Custom driver data'));
+        $storage->addMessage(new UserMessage('Custom driver data'));
         $context->save();
 
         // Verify data is in custom driver, not default

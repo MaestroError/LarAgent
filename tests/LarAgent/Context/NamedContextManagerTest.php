@@ -9,6 +9,7 @@ use LarAgent\Context\NamedContextManager;
 use LarAgent\Context\SessionIdentity;
 use LarAgent\Context\Storages\ChatHistoryStorage;
 use LarAgent\Facades\Context as ContextFacade;
+use LarAgent\Message;
 
 // Helper to generate unique agent names for test isolation
 function uniqueAgentName(string $prefix = 'TestAgent'): string
@@ -665,7 +666,7 @@ describe('NamedContextManager → Terminal Actions', function () {
         );
 
         $chatStorage = new ChatHistoryStorage($identity, [InMemoryStorage::class]);
-        $chatStorage->addMessage(\LarAgent\Message::user('Hello'));
+        $chatStorage->addMessage(Message::user('Hello'));
         $chatStorage->save();
 
         // Register the identity
@@ -701,11 +702,11 @@ describe('NamedContextManager → Terminal Actions', function () {
 
         // Create chat histories
         $chat1 = new ChatHistoryStorage($identity1, [InMemoryStorage::class]);
-        $chat1->addMessage(\LarAgent\Message::user('Hello 1'));
+        $chat1->addMessage(Message::user('Hello 1'));
         $chat1->save();
 
         $chat2 = new ChatHistoryStorage($identity2, [InMemoryStorage::class]);
-        $chat2->addMessage(\LarAgent\Message::user('Hello 2'));
+        $chat2->addMessage(Message::user('Hello 2'));
         $chat2->save();
 
         $manager->context()->getIdentityStorage()->addIdentity($identity1);
@@ -729,7 +730,7 @@ describe('NamedContextManager → Terminal Actions', function () {
         );
 
         $chatStorage = new ChatHistoryStorage($identity, [InMemoryStorage::class]);
-        $chatStorage->addMessage(\LarAgent\Message::user('Hello'));
+        $chatStorage->addMessage(Message::user('Hello'));
         $chatStorage->save();
 
         $manager->context()->getIdentityStorage()->addIdentity($identity);
@@ -783,7 +784,7 @@ describe('NamedContextManager → Terminal Actions', function () {
         );
 
         $chatStorage = new ChatHistoryStorage($identity, [InMemoryStorage::class]);
-        $chatStorage->addMessage(\LarAgent\Message::user('Hello'));
+        $chatStorage->addMessage(Message::user('Hello'));
         $chatStorage->save();
 
         $manager->context()->getIdentityStorage()->addIdentity($identity);

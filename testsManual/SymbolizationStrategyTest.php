@@ -19,10 +19,13 @@
 
 require_once __DIR__.'/../vendor/autoload.php';
 
+use Illuminate\Config\Repository;
 use Illuminate\Container\Container;
 use Illuminate\Events\Dispatcher;
 use Illuminate\Support\Facades\Facade;
 use LarAgent\Agent;
+use LarAgent\Context\Contracts\TruncationStrategy;
+use LarAgent\Context\Drivers\InMemoryStorage;
 use LarAgent\Context\Truncation\SymbolizationStrategy;
 use LarAgent\Drivers\OpenAi\OpenAiDriver;
 use LarAgent\Message;
@@ -53,7 +56,7 @@ class DebugSymbolizationStrategy extends SymbolizationStrategy
 $container = new Container;
 Container::setInstance($container);
 $container->singleton('events', fn () => new Dispatcher($container));
-$container->singleton('config', fn () => new \Illuminate\Config\Repository);
+$container->singleton('config', fn () => new Repository);
 Facade::setFacadeApplication($container);
 
 // Load API key
@@ -82,10 +85,10 @@ config()->set('laragent.providers.openai', [
 ]);
 
 config()->set('laragent.storage.default_history_storage', [
-    \LarAgent\Context\Drivers\InMemoryStorage::class,
+    InMemoryStorage::class,
 ]);
 config()->set('laragent.storage.default_storage', [
-    \LarAgent\Context\Drivers\InMemoryStorage::class,
+    InMemoryStorage::class,
 ]);
 
 // Test agent class
@@ -100,12 +103,12 @@ class SymbolizationTestAgent extends Agent
     protected $truncationThreshold = 5000; // Small window to trigger truncation
 
     protected $storage = [
-        \LarAgent\Context\Drivers\InMemoryStorage::class,
+        InMemoryStorage::class,
     ];
 
     protected $history = 'in_memory';
 
-    protected function truncationStrategy(): ?\LarAgent\Context\Contracts\TruncationStrategy
+    protected function truncationStrategy(): ?TruncationStrategy
     {
         return new SymbolizationStrategy([
             'keep_messages' => 3,
@@ -348,7 +351,7 @@ try {
     echo "  - Strategy preserved system message separately\n";
     echo "  - Recent 3 conversation messages kept intact\n";
 
-} catch (\Exception $e) {
+} catch (Exception $e) {
     echo '❌ TEST FAILED: '.$e->getMessage()."\n";
     echo "Stack trace:\n".$e->getTraceAsString()."\n";
     exit(1);

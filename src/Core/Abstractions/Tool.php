@@ -2,6 +2,7 @@
 
 namespace LarAgent\Core\Abstractions;
 
+use LarAgent\Core\Contracts\LlmDriver;
 use LarAgent\Core\Contracts\Tool as ToolInterface;
 
 abstract class Tool implements ToolInterface
@@ -106,7 +107,7 @@ abstract class Tool implements ToolInterface
     public function toArray(): array
     {
         // Get the LlmDriver instance from the container
-        $driver = app()->make(\LarAgent\Core\Contracts\LlmDriver::class);
+        $driver = app()->make(LlmDriver::class);
 
         // Use the driver's format for the tool
         return $driver->formatToolForPayload($this);
