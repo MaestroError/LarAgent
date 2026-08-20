@@ -43,7 +43,7 @@ Whether you're looking to automate internal operations or build conversational e
 
 ## 🧠 Backed by Redberry
 
-LarAgent is officially powered by [Redberry](https://redberry.international?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign), one of only 10 Diamond-tier Laravel partners worldwide. This partnership ensures the continued evolution of LarAgent with increased engineering support, better documentation, and a growing ecosystem of AI-first Laravel tools.
+LarAgent is officially powered by [Redberry](https://redberry.international?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign), one of the few Official Premier Laravel Partners worldwide. This partnership ensures the continued evolution of LarAgent with increased engineering support, better documentation, and a growing ecosystem of AI-first Laravel tools.
 
 > Need help with building your AI agent? [Talk to us](https://redberry.international/ai-agent-development/?utm_source=github&utm_medium=github_laragent_readme&utm_campaign=AI+service+campaign) about our 5-week PoC sprint for AI agent development.
 
